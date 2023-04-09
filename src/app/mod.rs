@@ -1,5 +1,4 @@
 pub mod server;
-pub mod state;
 
 use crate::core::chat;
 use crate::core::irc::{ConnectionStatus, IRCError};
