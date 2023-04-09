@@ -1,0 +1,17 @@
+[package]
+name = "steel"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+eframe = "0.21.3"
+chrono = "0.4.24"
+irc = "0.15.0"
+irc-proto = "0.15.0"
+futures = "0.3.28"
+serde = "1.0.159"
+serde_yaml = "0.9.19"
+tokio = { version = "1.27.0", features = ["rt"] }
+thiserror = "1.0.40"

@@ -1,0 +1,197 @@
+#![allow(clippy::mutex_atomic)]
+
+use std::sync::{Arc, Condvar, Mutex};
+use std::time::Duration;
+
+use futures::prelude::*;
+use tokio::runtime;
+use tokio::sync::mpsc::{Receiver, Sender};
+
+use crate::actor::Actor;
+use crate::core::chat;
+use crate::core::irc::event_handler;
+
+use super::{AppMessageIn, ConnectionStatus, IRCError, IRCMessageIn};
+
+static IRC_EVENT_WAIT_TIMEOUT: Duration = Duration::from_millis(5);
+
+pub struct IRCActor {
+    input: Receiver<IRCMessageIn>,
+    output: Sender<AppMessageIn>,
+    irc_stream_sender: Arc<Mutex<Option<irc::client::Sender>>>,
+
+    irc_sync: Arc<(Mutex<bool>, Condvar)>,
+    irc_thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Actor<IRCMessageIn, AppMessageIn> for IRCActor {
+    fn new(input: Receiver<IRCMessageIn>, output: Sender<AppMessageIn>) -> Self {
+        IRCActor {
+            input,
+            output,
+            irc_stream_sender: Arc::new(Mutex::new(None)),
+            irc_sync: Arc::new((Mutex::new(false), Condvar::new())),
+            irc_thread: None,
+        }
+    }
+
+    fn handle_message(&mut self, message: IRCMessageIn) {
+        match message {
+            IRCMessageIn::Connect(config) => self.connect(*config),
+            IRCMessageIn::Disconnect => self.disconnect(),
+            IRCMessageIn::SendMessage {
+                r#type,
+                destination,
+                content,
+            } => self.send_message(r#type, destination, content),
+            IRCMessageIn::JoinChannel(channel) => self.join_channel(channel),
+            IRCMessageIn::LeaveChannel(channel) => self.leave_channel(channel),
+        }
+    }
+
+    fn run(&mut self) {
+        while let Some(msg) = self.input.blocking_recv() {
+            self.handle_message(msg);
+        }
+    }
+}
+
+impl IRCActor {
+    fn connected(&self) -> bool {
+        self.irc_stream_sender.lock().unwrap().is_some()
+    }
+
+    pub fn disconnect(&mut self) {
+        if !self.connected() {
+            return;
+        }
+
+        let (mutex, cv) = &*self.irc_sync;
+        *mutex.lock().unwrap() = true;
+        cv.notify_one();
+        self.irc_thread.take().unwrap().join().unwrap();
+        *mutex.lock().unwrap() = false;
+        *self.irc_stream_sender.lock().unwrap() = None;
+    }
+
+    fn connect(&mut self, config: irc::client::data::Config) {
+        if self.connected() {
+            return;
+        }
+
+        self.output
+            .blocking_send(AppMessageIn::ConnectionChanged(
+                ConnectionStatus::InProgress,
+            ))
+            .unwrap();
+        self.start_irc_watcher(config, self.output.clone());
+    }
+
+    fn start_irc_watcher(&mut self, config: irc::client::data::Config, tx: Sender<AppMessageIn>) {
+        let own_username = config.username.clone().unwrap();
+        let arc = Arc::clone(&self.irc_sync);
+        let irc_stream_sender = Arc::clone(&self.irc_stream_sender);
+
+        self.irc_thread = Some(std::thread::spawn(move || {
+            let rt = runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            match rt.block_on(irc::client::Client::from_config(config)) {
+                Err(e) => {
+                    tx.blocking_send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+                        "failed to start the IRC client: {}",
+                        e
+                    ))))
+                    .unwrap();
+                    tx.blocking_send(AppMessageIn::ConnectionChanged(
+                        ConnectionStatus::Disconnected,
+                    ))
+                    .unwrap();
+                }
+                Ok(mut clt) => {
+                    clt.identify().unwrap();
+                    tx.blocking_send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
+                        .unwrap();
+                    *irc_stream_sender.lock().unwrap() = Some(clt.sender());
+
+                    let mut stream = clt.stream().unwrap();
+                    loop {
+                        let (lock, cv) = &*arc;
+                        {
+                            let guard = lock.lock().unwrap();
+                            let (mut g, _) =
+                                cv.wait_timeout(guard, IRC_EVENT_WAIT_TIMEOUT).unwrap();
+                            if *g {
+                                *g = false;
+                                clt.send_quit("").unwrap();
+                                tx.blocking_send(AppMessageIn::ConnectionChanged(
+                                    ConnectionStatus::Disconnected,
+                                ))
+                                .unwrap();
+                                break;
+                            }
+                        }
+
+                        match rt.block_on(stream.next()) {
+                            Some(result) => match result {
+                                Err(reason) => {
+                                    tx.blocking_send(AppMessageIn::ChatError(
+                                        IRCError::FatalError(format!(
+                                            "connection broken: {}",
+                                            reason
+                                        )),
+                                    ))
+                                    .unwrap();
+                                    tx.blocking_send(AppMessageIn::ConnectionChanged(
+                                        ConnectionStatus::Disconnected,
+                                    ))
+                                    .unwrap();
+                                    break;
+                                }
+                                Ok(msg) => {
+                                    event_handler::dispatch_message(&tx, msg, &own_username);
+                                }
+                            },
+                            None => {
+                                tx.blocking_send(AppMessageIn::ConnectionChanged(
+                                    ConnectionStatus::Disconnected,
+                                ))
+                                .unwrap();
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    fn send_message(&self, r#type: chat::MessageType, destination: String, content: String) {
+        let guard = self.irc_stream_sender.lock().unwrap();
+        if let Some(sender) = &*guard {
+            match r#type {
+                chat::MessageType::Action => {
+                    sender.send_action(destination, content).unwrap();
+                }
+                chat::MessageType::Text => {
+                    sender.send_privmsg(destination, content).unwrap();
+                }
+            }
+        }
+    }
+
+    fn join_channel(&self, channel: String) {
+        let guard = self.irc_stream_sender.lock().unwrap();
+        if let Some(sender) = &*guard {
+            sender.send_join(channel).unwrap();
+        }
+    }
+
+    fn leave_channel(&self, channel: String) {
+        let guard = self.irc_stream_sender.lock().unwrap();
+        if let Some(sender) = &*guard {
+            sender.send_part(channel).unwrap();
+        }
+    }
+}
