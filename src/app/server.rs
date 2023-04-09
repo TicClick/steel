@@ -95,7 +95,7 @@ impl Application {
     }
 
     pub fn initialize(&mut self) {
-        self.load_settings(settings::Source::DefaultPath, false);
+        self.load_settings(settings::Source::DefaultPath, true);
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
