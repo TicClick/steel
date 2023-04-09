@@ -1,18 +1,26 @@
+use std::collections::BTreeSet;
+
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::core::chat;
 use crate::core::chat::{ChatLike, Message};
 use crate::core::irc::{ConnectionStatus, IRCActorHandle, IRCError};
-use crate::core::logger;
 use crate::core::settings;
 use crate::gui::UIMessageIn;
 
-use super::{state, AppMessageIn};
+use super::AppMessageIn;
 
 const EVENT_QUEUE_SIZE: usize = 1000;
+const LOG_FILE_PATH: &str = "./runtime.log";
+
+#[derive(Clone, Default)]
+pub struct ApplicationState {
+    pub settings: settings::Settings,
+    pub chats: BTreeSet<String>,
+}
 
 pub struct Application {
-    state: state::ApplicationState,
+    state: ApplicationState,
     events: Receiver<AppMessageIn>,
 
     irc: IRCActorHandle,
@@ -24,7 +32,7 @@ impl Application {
     pub fn new(ui_queue: Sender<UIMessageIn>) -> Self {
         let (app_queue, events) = channel(EVENT_QUEUE_SIZE);
         Self {
-            state: state::ApplicationState::default(),
+            state: ApplicationState::default(),
             events,
             irc: IRCActorHandle::new(app_queue.clone()),
             ui_queue,
@@ -94,7 +102,7 @@ impl Application {
         let file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
-            .open("./runtime.log")
+            .open(LOG_FILE_PATH)
             .expect("failed to open the file for logging app events");
 
         let time_format = simplelog::format_description!(
@@ -143,12 +151,7 @@ impl Application {
         self.ui_queue
             .blocking_send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
-        self.state.logger.lock().unwrap().log_irc(
-            logger::EventSeverity::Info,
-            logger::EventDetails {
-                message: format!("irc: {}", status),
-            },
-        );
+        log::info!("IRC connection status changed to {:?}", status);
         if matches!(status, ConnectionStatus::Connected) {
             for channel in self.state.settings.chat.autojoin.iter() {
                 self.join_channel(channel);
@@ -173,24 +176,14 @@ impl Application {
     }
 
     pub fn handle_server_message(&mut self, content: String) {
-        self.state.logger.lock().unwrap().log_irc(
-            logger::EventSeverity::Info,
-            logger::EventDetails {
-                message: content.clone(),
-            },
-        );
+        log::info!("IRC server message: {}", content);
         self.ui_queue
             .blocking_send(UIMessageIn::NewServerMessageReceived(content))
             .unwrap();
     }
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
-        self.state.logger.lock().unwrap().log_irc(
-            logger::EventSeverity::Error,
-            logger::EventDetails {
-                message: e.to_string(),
-            },
-        );
+        log::error!("IRC chat error: {:?}", e);
         if matches!(e, IRCError::FatalError(_)) {
             self.disconnect();
         }
