@@ -6,6 +6,73 @@ use eframe::egui;
 use super::{UIMessageIn, UIState};
 use crate::core::settings;
 
+// Courtesy of emilk @ https://github.com/emilk/egui/blob/master/examples/custom_font/src/main.rs
+fn add_font(fonts: &mut egui::FontDefinitions, name: &str, payload: &'static [u8]) {
+    // Install my own font (maybe supporting non-latin characters).
+    // .ttf and .otf files supported.
+    fonts
+        .font_data
+        .insert(name.to_owned(), egui::FontData::from_static(payload));
+    // Put my font first (highest priority) for proportional text:
+    fonts
+        .families
+        .entry(egui::FontFamily::Proportional)
+        .or_default()
+        .insert(0, name.to_owned());
+
+    // Put my font as last fallback for monospace:
+    fonts
+        .families
+        .entry(egui::FontFamily::Monospace)
+        .or_default()
+        .push(name.to_owned());
+}
+
+fn setup_custom_fonts(ctx: &egui::Context) {
+    let mut fonts = egui::FontDefinitions::default();
+    add_font(
+        &mut fonts,
+        "noto-arabic",
+        include_bytes!("../../media/fonts/noto-arabic/NotoNaskhArabic-VariableFont_wght.ttf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-hebrew",
+        include_bytes!("../../media/fonts/noto-hebrew/NotoSansHebrew-VariableFont_wdth,wght.ttf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-japanese",
+        include_bytes!("../../media/fonts/noto-japanese/NotoSansJP-Regular.otf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-chinese-simplified",
+        include_bytes!("../../media/fonts/noto-chinese-simplified/NotoSansSC-Regular.otf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-chinese-traditional",
+        include_bytes!("../../media/fonts/noto-chinese-traditional/NotoSansTC-Regular.otf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-korean",
+        include_bytes!("../../media/fonts/noto-korean/NotoSansKR-Regular.otf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-thai",
+        include_bytes!("../../media/fonts/noto-thai/NotoSansThai-VariableFont_wdth,wght.ttf"),
+    );
+    add_font(
+        &mut fonts,
+        "noto-regular",
+        include_bytes!("../../media/fonts/noto-regular/NotoSans-Regular.ttf"),
+    );
+    ctx.set_fonts(fonts);
+}
+
 pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
@@ -18,10 +85,11 @@ pub struct ApplicationWindow {
 
 impl ApplicationWindow {
     pub fn new(
-        _cc: &eframe::CreationContext,
+        cc: &eframe::CreationContext,
         ui_queue: Receiver<UIMessageIn>,
         app_queue_handle: Sender<AppMessageIn>,
     ) -> Self {
+        setup_custom_fonts(&cc.egui_ctx);
         Self {
             menu: gui::menu::Menu::new(),
             chat: gui::chat::ChatWindow::new(),
