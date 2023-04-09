@@ -90,12 +90,34 @@ impl Application {
 }
 
 impl Application {
+    fn setup_logging(&self) {
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open("./runtime.log")
+            .expect("failed to open the file for logging app events");
+
+        let time_format = simplelog::format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
+        );
+        simplelog::WriteLogger::init(
+            self.state.settings.journal.app_events.level,
+            simplelog::ConfigBuilder::new()
+                .set_time_format_custom(time_format)
+                .build(),
+            file,
+        )
+        .expect("Failed to configure the logger");
+        log_panics::init();
+    }
+
     pub fn handle_ui_channel_opened(&mut self, channel: String) {
         self.join_channel(&channel);
     }
 
     pub fn initialize(&mut self) {
         self.load_settings(settings::Source::DefaultPath, true);
+        self.setup_logging();
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
