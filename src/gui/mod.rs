@@ -87,7 +87,8 @@ impl UIState {
             }
             ChatType::Person => target,
         };
-        self.chats.insert(name.to_owned(), Chat::new(name.to_owned()));
+        self.chats
+            .insert(name.to_owned(), Chat::new(name.to_owned()));
         if !name.is_channel() {
             self.active_chat_tab_name = name;
         }
