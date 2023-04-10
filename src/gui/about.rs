@@ -56,7 +56,7 @@ impl About {
                 });
             }
             UpdateState::MetadataReady(m) => {
-                if crate::VERSION.semver() < m.tag_name.semver() {
+                if crate::VERSION.semver() >= m.tag_name.semver() {
                     ui.label(
                         egui::RichText::new(format!(
                             "no updates, {} is the latest version",
