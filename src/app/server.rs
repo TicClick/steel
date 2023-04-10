@@ -176,7 +176,7 @@ impl Application {
     }
 
     pub fn handle_server_message(&mut self, content: String) {
-        log::info!("IRC server message: {}", content);
+        log::debug!("IRC server message: {}", content);
         self.ui_queue
             .blocking_send(UIMessageIn::NewServerMessageReceived(content))
             .unwrap();
