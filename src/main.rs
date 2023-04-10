@@ -5,7 +5,6 @@ use tokio::sync::mpsc::channel;
 use steel::app;
 use steel::gui;
 
-const TITLE: &str = concat!("steel v", env!("CARGO_PKG_VERSION"));
 const UI_EVENT_QUEUE_SIZE: usize = 1000;
 
 fn main() {
@@ -21,7 +20,7 @@ fn main() {
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        TITLE,
+        "steel",
         native_options,
         Box::new(|cc| {
             Box::new(gui::window::ApplicationWindow::new(

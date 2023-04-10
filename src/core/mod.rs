@@ -1,7 +1,7 @@
 pub mod chat;
 pub mod irc;
-pub mod logger;
 pub mod settings;
+pub mod updater;
 
 // https://docs.rs/chrono/latest/chrono/format/strftime/index.html
 

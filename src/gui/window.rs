@@ -78,6 +78,7 @@ pub struct ApplicationWindow {
     chat: gui::chat::ChatWindow,
     chat_tabs: gui::chat_tabs::ChatTabs,
     settings: gui::settings::Settings,
+    about: gui::about::About,
 
     ui_queue: Receiver<UIMessageIn>,
     s: UIState,
@@ -95,6 +96,7 @@ impl ApplicationWindow {
             chat: gui::chat::ChatWindow::new(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
             settings: gui::settings::Settings::default(),
+            about: gui::about::About::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
         }
@@ -146,6 +148,9 @@ impl eframe::App for ApplicationWindow {
 
         self.settings
             .show(ctx, &mut self.s, &mut self.menu.show_settings);
+
+        self.about.show(ctx, &self.s, &mut self.menu.show_about);
+
         self.chat.return_focus(ctx);
     }
 

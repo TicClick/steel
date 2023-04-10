@@ -1,3 +1,4 @@
+pub mod about;
 pub mod chat;
 pub mod chat_tabs;
 pub mod highlights;
@@ -13,6 +14,7 @@ use crate::app::AppMessageIn;
 use crate::core::chat::{Chat, ChatLike, ChatType, Message, MessageChunk};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
+use crate::core::updater::Updater;
 
 #[derive(Debug)]
 pub enum UIMessageIn {
@@ -34,6 +36,8 @@ pub struct UIState {
     pub app_queue_handle: Sender<AppMessageIn>,
     pub highlights: highlights::HighlightTracker,
     pub message_chunks: BTreeMap<String, BTreeMap<usize, Vec<MessageChunk>>>,
+
+    pub updater: Updater,
 }
 
 impl UIState {
@@ -46,6 +50,7 @@ impl UIState {
             app_queue_handle,
             highlights: highlights::HighlightTracker::new(),
             message_chunks: BTreeMap::default(),
+            updater: Updater::new(),
         }
     }
 
