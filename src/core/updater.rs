@@ -175,7 +175,33 @@ impl UpdaterBackend {
         Self { state, channel }
     }
 
+    fn cleanup_after_last_update(&self) {
+        if let Ok(executable) = std::env::current_exe() {
+            let mut old_backup = executable.clone();
+            old_backup.set_file_name(format!(
+                "{}.bak",
+                executable.file_name().unwrap().to_str().unwrap()
+            ));
+            if !old_backup.exists() {
+                return;
+            }
+            if let Err(e) = std::fs::remove_file(&old_backup) {
+                log::warn!(
+                    "failed to remove old executable ({:?}) which was left after SUCCESSFUL update: {:?}",
+                    old_backup,
+                    e
+                );
+            } else {
+                log::debug!(
+                    "removed old executable ({:?}) which was left after SUCCESSFUL update",
+                    old_backup
+                );
+            }
+        }
+    }
+
     fn run(&mut self) {
+        self.cleanup_after_last_update();
         while let Some(msg) = self.channel.blocking_recv() {
             match msg {
                 BackendRequest::Quit => break,
@@ -275,12 +301,6 @@ impl UpdaterBackend {
                     e
                 );
             };
-        } else if let Err(e) = std::fs::remove_file(&backup) {
-            log::warn!(
-                "failed to remove the old executable ({:?}) after SUCCESSFUL update: {:?}",
-                backup,
-                e
-            );
         }
         extraction_result
     }
