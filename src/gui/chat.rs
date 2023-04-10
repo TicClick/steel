@@ -127,7 +127,14 @@ impl ChatWindow {
                             }
 
                             if let MessageChunk::Link { location: loc, .. } = c {
-                                ui.hyperlink_to(text_chunk, loc);
+                                ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
+                                    if ui.button("Copy URL").clicked() {
+                                        ui.ctx().output_mut(|o| {
+                                            o.copied_text = loc;
+                                        });
+                                        ui.close_menu();
+                                    }
+                                });
                             } else {
                                 ui.label(text_chunk);
                             }
