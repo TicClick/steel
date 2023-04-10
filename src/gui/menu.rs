@@ -5,21 +5,15 @@ use crate::{app::AppMessageIn, core::irc::ConnectionStatus};
 
 use super::UIState;
 
+#[derive(Default)]
 pub struct Menu {
     pub show_settings: bool,
-}
-
-impl Default for Menu {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub show_about: bool,
 }
 
 impl Menu {
     pub fn new() -> Self {
-        Self {
-            show_settings: false,
-        }
+        Self::default()
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
@@ -65,6 +59,10 @@ impl Menu {
                                 .unwrap();
                         }
                     }
+                }
+
+                if ui.button("about").clicked() {
+                    self.show_about = !self.show_about;
                 }
             });
         });

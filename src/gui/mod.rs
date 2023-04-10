@@ -1,3 +1,4 @@
+pub mod about;
 pub mod chat;
 pub mod chat_tabs;
 pub mod highlights;
