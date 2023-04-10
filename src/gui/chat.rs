@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, MessageChunk, MessageType};
+use crate::core::chat::{Chat, Message, MessageChunk, MessageType};
 
 use super::UIState;
 
@@ -97,9 +97,8 @@ impl ChatWindow {
                 label
             };
 
-            if ui.button(username_text).clicked() {
-                // TODO: show a user card
-            }
+            ui.button(username_text)
+                .context_menu(|ui| self.show_username_menu(ui, state, chat, msg));
 
             let is_highlight = state
                 .highlights
@@ -128,7 +127,14 @@ impl ChatWindow {
                             }
 
                             if let MessageChunk::Link { location: loc, .. } = c {
-                                ui.hyperlink_to(text_chunk, loc);
+                                ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
+                                    if ui.button("Copy URL").clicked() {
+                                        ui.ctx().output_mut(|o| {
+                                            o.copied_text = loc;
+                                        });
+                                        ui.close_menu();
+                                    }
+                                });
                             } else {
                                 ui.label(text_chunk);
                             }
@@ -136,6 +142,65 @@ impl ChatWindow {
                     }
                 }
             });
+        });
+    }
+
+    fn show_username_menu(
+        &self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        _chat: &Chat,
+        message: &Message,
+    ) {
+        if ui.button("💬 Open chat").clicked() {
+            state
+                .app_queue_handle
+                .blocking_send(AppMessageIn::UIPrivateChatOpened(message.username.clone()))
+                .unwrap();
+            ui.close_menu();
+        }
+
+        // TODO: the link should contain ID instead
+        if ui.button("🔎 View profile").clicked() {
+            ui.ctx().output_mut(|o| {
+                o.open_url = Some(egui::output::OpenUrl {
+                    url: format!("https://osu.ppy.sh/users/{}", message.username),
+                    new_tab: true,
+                });
+            });
+            ui.close_menu();
+        }
+
+        if ui.button("🌐 Translate message").clicked() {
+            ui.ctx().output_mut(|o| {
+                o.open_url = Some(egui::output::OpenUrl {
+                    url: format!(
+                        "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
+                        percent_encoding::utf8_percent_encode(
+                            &message.text,
+                            percent_encoding::NON_ALPHANUMERIC
+                        )
+                    ),
+                    new_tab: true,
+                });
+            });
+            ui.close_menu();
+        }
+
+        ui.menu_button("📄 Copy", |ui| {
+            if ui.button("Message").clicked() {
+                ui.ctx().output_mut(|o| {
+                    o.copied_text = message.to_string();
+                });
+                ui.close_menu();
+            }
+
+            if ui.button("Username").clicked() {
+                ui.ctx().output_mut(|o| {
+                    o.copied_text = message.username.clone();
+                });
+                ui.close_menu();
+            }
         });
     }
 }
