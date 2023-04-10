@@ -2,7 +2,7 @@ use std::fmt;
 
 use chrono::Utc;
 
-use super::DEFAULT_TIME_FORMAT;
+use super::{DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
 
 #[derive(Clone, Debug)]
 pub enum MessageType {
@@ -32,7 +32,7 @@ pub enum ChatType {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.time.format(DEFAULT_TIME_FORMAT)).and_then(|_| match self.r#type {
+        write!(f, "{}", self.time.format(DEFAULT_DATE_FORMAT)).and_then(|_| match self.r#type {
             MessageType::Text => {
                 write!(f, " <{}> {}", self.username, self.text)
             }
