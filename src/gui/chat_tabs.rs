@@ -15,25 +15,29 @@ impl ChatTabs {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
         egui::SidePanel::left("chats").show(ctx, |ui| {
             ui.heading("public channels");
-            self.show_new_chat_input(state, ui, ChatType::Channel);
+            if state.is_connected() {
+                self.show_new_chat_input(state, ui, ChatType::Channel);
+            }
             self.show_chats(state, ui, ChatType::Channel);
 
             ui.separator();
 
             ui.heading("private messages");
-            self.show_new_chat_input(state, ui, ChatType::Person);
+            if state.is_connected() {
+                self.show_new_chat_input(state, ui, ChatType::Person);
+            }
             self.show_chats(state, ui, ChatType::Person);
         });
     }
 }
 
 impl ChatTabs {
-    fn show_new_chat_input(&mut self, state: &mut UIState, ui_: &mut Ui, mode: ChatType) {
+    fn show_new_chat_input(&mut self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
         let input: &mut String = match mode {
             ChatType::Channel => &mut self.new_channel_input,
             ChatType::Person => &mut self.new_chat_input,
         };
-        ui_.horizontal(|ui| {
+        ui.horizontal(|ui| {
             let response = ui.add_sized(
                 ui.available_size(),
                 egui::TextEdit::singleline(input)

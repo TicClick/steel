@@ -18,6 +18,11 @@ impl ChatWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+            if !state.is_connected() {
+                ui.centered_and_justified(|ui| ui.label("(chat not available in offline mode)"));
+                return;
+            }
+
             let text_field =
                 egui::TextEdit::singleline(&mut self.chat_input).hint_text("new message");
 
