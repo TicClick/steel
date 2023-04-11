@@ -1,6 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
 use std::cmp;
+use std::collections::BTreeSet;
 
 use eframe::egui;
 
@@ -26,28 +27,41 @@ pub struct AutojoinSection {
 impl AutojoinSection {
     pub fn show(&mut self, settings: &mut settings::Settings, ui: &mut eframe::egui::Ui) {
         ui.collapsing("auto-join channels", |ui| {
-            let response = ui.add(
-                egui::TextEdit::singleline(&mut self.autojoin_channel_input)
-                    .hint_text("<Enter> add"),
-            );
-            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let channel_name = if self.autojoin_channel_input.is_channel() {
-                    self.autojoin_channel_input.to_owned()
-                } else {
-                    format!("#{}", self.autojoin_channel_input)
-                };
-                settings.chat.autojoin.insert(channel_name);
-                self.autojoin_channel_input.clear();
-                response.request_focus();
-            }
-            let channels: Vec<String> = settings.chat.autojoin.iter().cloned().collect();
-            for name in channels {
-                ui.horizontal(|ui| {
-                    ui.label(&name);
-                    if ui.button("x").clicked() {
-                        settings.chat.autojoin.remove(&name);
+            ui.horizontal(|ui| {
+                let add_autojoin_channel = ui.button("+");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.autojoin_channel_input)
+                        .hint_text("channel name"),
+                );
+                if add_autojoin_channel.clicked()
+                    || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                {
+                    let channel_name = if self.autojoin_channel_input.is_channel() {
+                        self.autojoin_channel_input.to_owned()
+                    } else {
+                        format!("#{}", self.autojoin_channel_input)
+                    };
+                    settings.chat.autojoin.insert(channel_name);
+                    self.autojoin_channel_input.clear();
+                    response.request_focus();
+                }
+            });
+            let mut to_remove = BTreeSet::new();
+            for name in settings.chat.autojoin.iter() {
+                let channel_button = ui.button(name);
+                let mut remove_channel = channel_button.middle_clicked();
+                channel_button.context_menu(|ui| {
+                    if ui.button("Remove").clicked() {
+                        remove_channel = true;
+                        ui.close_menu();
                     }
                 });
+                if remove_channel {
+                    to_remove.insert(name.to_owned());
+                }
+            }
+            for name in to_remove.iter() {
+                settings.chat.autojoin.remove(name);
             }
         });
     }

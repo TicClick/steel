@@ -38,14 +38,21 @@ impl ChatTabs {
             ChatType::Person => &mut self.new_chat_input,
         };
         ui.horizontal(|ui| {
+            let add_chat = ui.button("+");
+            let hint = match mode {
+                ChatType::Channel => "channel",
+                ChatType::Person => "user",
+            };
             let response = ui.add_sized(
                 ui.available_size(),
                 egui::TextEdit::singleline(input)
-                    .hint_text("<Enter> add")
+                    .hint_text(hint)
                     .interactive(state.is_connected())
                     .id(egui::Id::new(mode.clone())),
             );
-            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+            if add_chat.clicked()
+                || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+            {
                 // Whether the channel is valid or not is determined by the server (will send us a message).
                 match mode {
                     ChatType::Channel => {
@@ -83,12 +90,20 @@ impl ChatTabs {
                         label = label.color(state.settings.notifications.highlights.colour.clone());
                     }
 
-                    ui.selectable_value(
+                    let chat_tab = ui.selectable_value(
                         &mut state.active_chat_tab_name,
                         channel_name.to_owned(),
                         label,
                     );
-                    if ui.button("x").clicked() {
+                    let mut close_tab = chat_tab.middle_clicked();
+                    chat_tab.context_menu(|ui| {
+                        if ui.button("Close").clicked() {
+                            close_tab = true;
+                            ui.close_menu();
+                        }
+                    });
+
+                    if close_tab {
                         state
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UIChatClosed(channel_name.to_owned()))
