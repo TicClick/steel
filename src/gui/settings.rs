@@ -236,6 +236,7 @@ impl Settings {
     }
 
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
+        let mut save_clicked = false;
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
@@ -260,9 +261,13 @@ impl Settings {
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UISettingsUpdated(state.settings.clone()))
                             .unwrap();
+                        save_clicked = true;
                     }
                 });
             });
         });
+        if save_clicked {
+            *is_open = false;
+        }
     }
 }
