@@ -42,12 +42,18 @@ impl Menu {
                     self.show_settings = !self.show_settings;
                 }
 
-                let (action, enabled) = match state.connection {
-                    ConnectionStatus::Disconnected => ("connect", true),
-                    ConnectionStatus::InProgress => ("connecting...", false),
-                    ConnectionStatus::Connected => ("disconnect", true),
+                let (action, enabled, colour) = match state.connection {
+                    ConnectionStatus::Disconnected => ("connect", true, egui::Color32::GREEN),
+                    ConnectionStatus::InProgress => ("connecting...", false, egui::Color32::YELLOW),
+                    ConnectionStatus::Connected => ("disconnect", true, egui::Color32::RED),
                 };
-                if ui.add_enabled(enabled, egui::Button::new(action)).clicked() {
+                if ui
+                    .add_enabled(
+                        enabled,
+                        egui::Button::new(egui::RichText::new(action).color(colour)),
+                    )
+                    .clicked()
+                {
                     match state.connection {
                         ConnectionStatus::Disconnected => {
                             state
