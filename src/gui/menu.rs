@@ -16,6 +16,10 @@ impl Menu {
         Self::default()
     }
 
+    pub fn dialogs_visible(&self) -> bool {
+        self.show_settings || self.show_about
+    }
+
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
