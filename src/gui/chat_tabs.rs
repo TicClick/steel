@@ -14,13 +14,13 @@ pub struct ChatTabs {
 impl ChatTabs {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
         egui::SidePanel::left("chats").show(ctx, |ui| {
-            ui.heading("channels");
+            ui.heading("public channels");
             self.show_new_chat_input(state, ui, ChatType::Channel);
             self.show_chats(state, ui, ChatType::Channel);
 
             ui.separator();
 
-            ui.heading("chats");
+            ui.heading("private messages");
             self.show_new_chat_input(state, ui, ChatType::Person);
             self.show_chats(state, ui, ChatType::Person);
         });
