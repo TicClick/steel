@@ -1,9 +1,12 @@
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::core::chat::{ChatLike, ChatState};
 use crate::{app::AppMessageIn, gui};
 use eframe::egui;
 
 use super::{UIMessageIn, UIState};
+
+use crate::core::irc::ConnectionStatus;
 use crate::core::settings;
 
 // Courtesy of emilk @ https://github.com/emilk/egui/blob/master/examples/custom_font/src/main.rs
@@ -110,9 +113,50 @@ impl ApplicationWindow {
                 }
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
+                    match conn {
+                        ConnectionStatus::Disconnected => {
+                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
+                            for name in chat_names {
+                                let reason = if name.is_channel() {
+                                    "You have left the channel (disconnected)"
+                                } else {
+                                    "You have left the chat (disconnected)"
+                                };
+                                self.s.set_chat_state(&name, ChatState::Left, Some(reason));
+                            }
+                        }
+                        ConnectionStatus::InProgress => (),
+                        ConnectionStatus::Connected => {
+                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
+                            for name in chat_names {
+                                if name.is_channel() {
+                                    // Joins are handled by the app server
+                                    self.s
+                                        .set_chat_state(&name, ChatState::JoinInProgress, None);
+                                } else {
+                                    self.s.set_chat_state(
+                                        &name,
+                                        ChatState::Joined,
+                                        Some("You are online"),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
-                UIMessageIn::NewChatOpened(name) => {
-                    self.s.add_new_chat(name);
+                UIMessageIn::NewChatRequested(name, state) => {
+                    if self.s.chats.contains_key(&name) {
+                        self.s.set_chat_state(&name, state, None);
+                    } else {
+                        self.s.add_new_chat(name, state);
+                    }
+                }
+                UIMessageIn::ChannelJoined(name) => {
+                    self.s.set_chat_state(
+                        &name,
+                        ChatState::Joined,
+                        Some("You have joined the channel"),
+                    );
                 }
                 UIMessageIn::NewMessageReceived { target, message } => {
                     self.s.push_chat_message(target, message);

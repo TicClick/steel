@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use eframe::egui::{self, Ui};
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{ChatLike, ChatType};
+use crate::core::chat::{ChatLike, ChatState, ChatType};
 
 use super::UIState;
 
@@ -55,12 +55,17 @@ impl ChatTabs {
             if add_chat.clicked()
                 || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
             {
-                // Whether the channel is valid or not is determined by the server (will send us a message).
+                // Whether the channel is valid or not is determined by the server (will send us a message),
+                // but for now let's add it to the interface.
                 match mode {
                     ChatType::Channel => {
                         state
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UIChannelOpened(input.clone()))
+                            .unwrap();
+                        state
+                            .app_queue_handle
+                            .blocking_send(AppMessageIn::UIChannelJoinRequested(input.clone()))
                             .unwrap();
                     }
                     ChatType::Person => {
@@ -77,35 +82,39 @@ impl ChatTabs {
     }
 
     fn show_chats(&self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
-        let it = state.chats.keys().filter(|s| match mode {
-            ChatType::Channel => s.is_channel(),
-            ChatType::Person => !s.is_channel(),
+        let it = state.chats.values().filter(|ch| match mode {
+            ChatType::Channel => ch.name.is_channel(),
+            ChatType::Person => !ch.name.is_channel(),
         });
 
         let mut chats_to_clear = BTreeSet::new();
 
-        for channel_name in it {
-            let is_active_tab = state.is_active_tab(channel_name);
+        for ch in it {
+            let is_active_tab = state.is_active_tab(&ch.name);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    let mut label = egui::RichText::new(channel_name);
+                    let mut label = egui::RichText::new(&ch.name);
                     if is_active_tab {
-                        state.highlights.mark_as_read(channel_name);
-                    } else if state.highlights.tab_contains_highlight(channel_name) {
+                        state.highlights.mark_as_read(&ch.name);
+                    } else if state.highlights.tab_contains_highlight(&ch.name) {
                         label = label.color(state.settings.notifications.highlights.colour.clone());
                     }
 
                     let chat_tab = ui.selectable_value(
                         &mut state.active_chat_tab_name,
-                        channel_name.to_owned(),
+                        ch.name.to_owned(),
                         label,
                     );
+                    if matches!(ch.state, ChatState::JoinInProgress) {
+                        ui.spinner();
+                    }
+
                     let mut close_tab = chat_tab.middle_clicked();
                     chat_tab.context_menu(|ui| {
                         if matches!(mode, ChatType::Channel) {
-                            if state.settings.chat.autojoin.contains(channel_name) {
+                            if state.settings.chat.autojoin.contains(&ch.name) {
                                 if ui.button("Remove from favourites").clicked() {
-                                    state.settings.chat.autojoin.remove(channel_name);
+                                    state.settings.chat.autojoin.remove(&ch.name);
                                     // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                                     state
                                         .app_queue_handle
@@ -116,7 +125,7 @@ impl ChatTabs {
                                     ui.close_menu();
                                 }
                             } else if ui.button("Add to favourites").clicked() {
-                                state.settings.chat.autojoin.insert(channel_name.to_owned());
+                                state.settings.chat.autojoin.insert(ch.name.to_owned());
                                 // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                                 state
                                     .app_queue_handle
@@ -129,7 +138,7 @@ impl ChatTabs {
                         }
 
                         if ui.button("Clear messages").clicked() {
-                            chats_to_clear.insert(channel_name.to_owned());
+                            chats_to_clear.insert(ch.name.to_owned());
                             ui.close_menu();
                         }
 
@@ -146,7 +155,7 @@ impl ChatTabs {
                     if close_tab {
                         state
                             .app_queue_handle
-                            .blocking_send(AppMessageIn::UIChatClosed(channel_name.to_owned()))
+                            .blocking_send(AppMessageIn::UIChatClosed(ch.name.to_owned()))
                             .unwrap();
                     }
                 });

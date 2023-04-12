@@ -392,9 +392,18 @@ mod tests {
 }
 
 #[derive(Clone, Debug, Default)]
+pub enum ChatState {
+    #[default]
+    Left,
+    JoinInProgress,
+    Joined,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Chat {
     pub name: String,
     pub messages: Vec<Message>,
+    pub state: ChatState,
 }
 
 impl Chat {
@@ -402,6 +411,7 @@ impl Chat {
         Self {
             name,
             messages: Vec::new(),
+            state: ChatState::Left,
         }
     }
 

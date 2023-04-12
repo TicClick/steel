@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::core::chat;
-use crate::core::chat::{ChatLike, Message};
+use crate::core::chat::{ChatLike, ChatState, Message};
 use crate::core::irc::{ConnectionStatus, IRCActorHandle, IRCError};
 use crate::core::settings;
 use crate::gui::UIMessageIn;
@@ -74,11 +74,12 @@ impl Application {
                 AppMessageIn::UIExitRequested => {
                     break;
                 }
-                AppMessageIn::UIChannelOpened(channel) => {
-                    self.handle_ui_channel_opened(channel);
+                AppMessageIn::UIChannelOpened(target)
+                | AppMessageIn::UIPrivateChatOpened(target) => {
+                    self.maybe_remember_chat(&target);
                 }
-                AppMessageIn::UIPrivateChatOpened(user) => {
-                    self.maybe_remember_chat(&user);
+                AppMessageIn::UIChannelJoinRequested(channel) => {
+                    self.handle_ui_channel_join_requested(channel);
                 }
                 AppMessageIn::UIChatClosed(target) => {
                     self.ui_handle_close_chat(&target);
@@ -119,7 +120,8 @@ impl Application {
         log_panics::init();
     }
 
-    pub fn handle_ui_channel_opened(&mut self, channel: String) {
+    pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
+        self.maybe_remember_chat(&channel);
         self.join_channel(&channel);
     }
 
@@ -151,12 +153,29 @@ impl Application {
         self.ui_queue
             .blocking_send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
-        log::info!("IRC connection status changed to {:?}", status);
+        log::debug!("IRC connection status changed to {:?}", status);
         if matches!(status, ConnectionStatus::Connected) {
-            for channel in self.state.settings.chat.autojoin.iter() {
-                self.join_channel(channel);
+            let mut chats = self.state.settings.chat.autojoin.clone();
+            chats.append(&mut self.state.chats.iter().cloned().collect());
+
+            for chat in chats {
+                self.maybe_remember_chat(&chat);
+                if chat.is_channel() {
+                    self.join_channel(&chat);
+                }
             }
         }
+    }
+
+    fn push_chat_to_ui(&self, target: &str) {
+        let chat_state = if target.is_channel() {
+            ChatState::JoinInProgress
+        } else {
+            ChatState::Joined
+        };
+        self.ui_queue
+            .blocking_send(UIMessageIn::NewChatRequested(target.to_owned(), chat_state))
+            .unwrap();
     }
 
     pub fn handle_chat_message(&mut self, target: String, message: Message) {
@@ -169,9 +188,7 @@ impl Application {
     fn maybe_remember_chat(&mut self, target: &str) {
         if !self.state.chats.contains(target) {
             self.state.chats.insert(target.to_owned());
-            self.ui_queue
-                .blocking_send(UIMessageIn::NewChatOpened(target.to_owned()))
-                .unwrap();
+            self.push_chat_to_ui(target);
         }
     }
 
@@ -190,7 +207,9 @@ impl Application {
     }
 
     pub fn handle_channel_join(&mut self, channel: String) {
-        self.maybe_remember_chat(&channel);
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChannelJoined(channel))
+            .unwrap();
     }
 
     pub fn connect(&mut self) {

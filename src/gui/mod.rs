@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatType, Message, MessageChunk};
+use crate::core::chat::{Chat, ChatLike, ChatState, ChatType, Message, MessageChunk};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
@@ -22,7 +22,8 @@ pub enum UIMessageIn {
     ConnectionStatusChanged(ConnectionStatus),
     NewMessageReceived { target: String, message: Message },
     NewServerMessageReceived(String),
-    NewChatOpened(String),
+    NewChatRequested(String, ChatState),
+    ChannelJoined(String),
     ChatClosed(String),
 }
 
@@ -80,7 +81,7 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, target: String) {
+    pub fn add_new_chat(&mut self, target: String, state: ChatState) {
         let name = match target.chat_type() {
             ChatType::Channel => {
                 let tmp = target.to_lowercase();
@@ -92,8 +93,11 @@ impl UIState {
             }
             ChatType::Person => target,
         };
-        self.chats
-            .insert(name.to_owned(), Chat::new(name.to_owned()));
+
+        let mut chat = Chat::new(name.to_owned());
+        chat.state = state;
+
+        self.chats.insert(name.to_owned(), chat);
         if !name.is_channel() {
             self.active_chat_tab_name = name;
         }
@@ -101,6 +105,15 @@ impl UIState {
 
     fn is_active_tab(&self, target: &str) -> bool {
         self.active_chat_tab_name == target
+    }
+
+    pub fn set_chat_state(&mut self, target: &str, state: ChatState, reason: Option<&str>) {
+        if let Some(ch) = self.chats.get_mut(target) {
+            ch.state = state;
+            if let Some(reason) = reason {
+                ch.push(Message::new_system(reason));
+            }
+        }
     }
 
     fn push_chat_message(&mut self, target: String, message: Message) {
