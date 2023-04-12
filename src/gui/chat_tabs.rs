@@ -52,9 +52,12 @@ impl ChatTabs {
                     .interactive(state.is_connected())
                     .id(egui::Id::new(mode.clone())),
             );
-            if add_chat.clicked()
-                || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-            {
+
+            let add_chat = !input.is_empty()
+                && (add_chat.clicked()
+                    || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+            if add_chat {
                 // Whether the channel is valid or not is determined by the server (will send us a message),
                 // but for now let's add it to the interface.
                 match mode {

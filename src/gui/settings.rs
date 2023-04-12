@@ -34,9 +34,13 @@ impl AutojoinSection {
                     egui::TextEdit::singleline(&mut self.autojoin_channel_input)
                         .hint_text("channel name"),
                 );
-                if add_autojoin_channel.clicked()
-                    || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                {
+
+                let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
+                    && (add_autojoin_channel.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                if add_autojoin_channel {
                     let channel_name = if self.autojoin_channel_input.is_channel() {
                         self.autojoin_channel_input.to_owned()
                     } else {
@@ -169,9 +173,12 @@ impl Settings {
                     );
                     ui.color_edit_button_srgb(self.username_colour_input.as_u8());
 
-                    if add_user.clicked()
-                        || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
-                    {
+                    let add_user = !self.username_input.is_empty()
+                        && (add_user.clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                    if add_user {
                         state.settings.ui.colours.users.insert(
                             self.username_input.to_lowercase(),
                             self.username_colour_input.clone(),
