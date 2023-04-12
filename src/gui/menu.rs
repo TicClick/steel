@@ -16,6 +16,10 @@ impl Menu {
         Self::default()
     }
 
+    pub fn dialogs_visible(&self) -> bool {
+        self.show_settings || self.show_about
+    }
+
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
@@ -38,20 +42,39 @@ impl Menu {
                     self.show_settings = !self.show_settings;
                 }
 
-                let (action, enabled) = match state.connection {
-                    ConnectionStatus::Disconnected => ("connect", true),
-                    ConnectionStatus::InProgress => ("connecting...", false),
-                    ConnectionStatus::Connected => ("disconnect", true),
+                let (action, enabled, colour) = match state.connection {
+                    ConnectionStatus::Disconnected{ .. } => {
+                        ("connect".to_owned(), true, egui::Color32::GREEN)
+                    }
+                    ConnectionStatus::InProgress => {
+                        ("connecting...".to_owned(), false, egui::Color32::YELLOW)
+                    }
+                    ConnectionStatus::Scheduled(when) => {
+                        let action = format!(
+                            "reconnecting ({}s)",
+                            (when - chrono::Local::now()).num_seconds()
+                        );
+                        (action, false, egui::Color32::YELLOW)
+                    }
+                    ConnectionStatus::Connected => {
+                        ("disconnect".to_owned(), true, egui::Color32::RED)
+                    }
                 };
-                if ui.add_enabled(enabled, egui::Button::new(action)).clicked() {
+                if ui
+                    .add_enabled(
+                        enabled,
+                        egui::Button::new(egui::RichText::new(action).color(colour)),
+                    )
+                    .clicked()
+                {
                     match state.connection {
-                        ConnectionStatus::Disconnected => {
+                        ConnectionStatus::Disconnected { .. } => {
                             state
                                 .app_queue_handle
                                 .blocking_send(AppMessageIn::UIConnectRequested)
                                 .unwrap();
                         }
-                        ConnectionStatus::InProgress => (),
+                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
                         ConnectionStatus::Connected => {
                             state
                                 .app_queue_handle

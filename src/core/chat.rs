@@ -1,13 +1,12 @@
 use std::fmt;
 
-use chrono::Utc;
-
-use super::{DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
+use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
 
 #[derive(Clone, Debug)]
 pub enum MessageType {
     Text,
     Action,
+    System,
 }
 
 #[derive(Clone, Debug)]
@@ -18,7 +17,7 @@ pub struct User {
 
 #[derive(Clone, Debug)]
 pub struct Message {
-    pub time: chrono::DateTime<chrono::Utc>,
+    pub time: chrono::DateTime<chrono::Local>,
     pub r#type: MessageType,
     pub username: String,
     pub text: String,
@@ -32,12 +31,15 @@ pub enum ChatType {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.time.format(DEFAULT_DATE_FORMAT)).and_then(|_| match self.r#type {
+        write!(f, "{}", self.time.format(DATETIME_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
             MessageType::Text => {
                 write!(f, " <{}> {}", self.username, self.text)
             }
             MessageType::Action => {
                 write!(f, " * {} {}", self.username, self.text)
+            }
+            MessageType::System => {
+                write!(f, " {}", self.text)
             }
         })
     }
@@ -90,26 +92,40 @@ pub enum MessageChunk {
 }
 
 impl Message {
-    pub fn new_text(username: &str, text: &str) -> Self {
+    pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
         Self {
-            time: Utc::now(),
-            r#type: MessageType::Text,
+            time: chrono::Local::now(),
+            r#type,
             username: username.to_string(),
             text: text.to_string(),
         }
     }
 
+    pub fn new_text(username: &str, text: &str) -> Self {
+        Self::new(username, text, MessageType::Text)
+    }
+
     pub fn new_action(username: &str, text: &str) -> Self {
-        Self {
-            time: Utc::now(),
-            r#type: MessageType::Action,
-            username: username.to_string(),
-            text: text.to_string(),
-        }
+        Self::new(username, text, MessageType::Action)
+    }
+
+    pub fn new_system(text: &str) -> Self {
+        Self::new("", text, MessageType::System)
     }
 
     pub fn formatted_time(&self) -> String {
         self.time.format(DEFAULT_TIME_FORMAT).to_string()
+    }
+
+    pub fn formatted_date_local(&self) -> String {
+        self.time.format(DEFAULT_DATETIME_FORMAT).to_string()
+    }
+
+    pub fn formatted_date_utc(&self) -> String {
+        self.time
+            .naive_utc()
+            .format(DEFAULT_DATETIME_FORMAT)
+            .to_string()
     }
 
     pub fn chunked_text(&self) -> Option<Vec<MessageChunk>> {
@@ -240,7 +256,7 @@ mod tests {
 
     fn m(s: &str) -> Message {
         Message {
-            time: chrono::Utc::now(),
+            time: chrono::Local::now(),
             r#type: MessageType::Text,
             username: "abc".into(),
             text: s.into(),
@@ -385,9 +401,18 @@ mod tests {
 }
 
 #[derive(Clone, Debug, Default)]
+pub enum ChatState {
+    #[default]
+    Left,
+    JoinInProgress,
+    Joined,
+}
+
+#[derive(Clone, Debug, Default)]
 pub struct Chat {
     pub name: String,
     pub messages: Vec<Message>,
+    pub state: ChatState,
 }
 
 impl Chat {
@@ -395,6 +420,7 @@ impl Chat {
         Self {
             name,
             messages: Vec::new(),
+            state: ChatState::Left,
         }
     }
 

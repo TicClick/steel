@@ -1,9 +1,12 @@
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use crate::core::chat::{ChatLike, ChatState, Message};
 use crate::{app::AppMessageIn, gui};
 use eframe::egui;
 
 use super::{UIMessageIn, UIState};
+
+use crate::core::irc::ConnectionStatus;
 use crate::core::settings;
 
 // Courtesy of emilk @ https://github.com/emilk/egui/blob/master/examples/custom_font/src/main.rs
@@ -110,9 +113,50 @@ impl ApplicationWindow {
                 }
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
+                    match conn {
+                        ConnectionStatus::Disconnected { .. } => {
+                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
+                            for name in chat_names {
+                                let reason = if name.is_channel() {
+                                    "You have left the channel (disconnected)"
+                                } else {
+                                    "You have left the chat (disconnected)"
+                                };
+                                self.s.set_chat_state(&name, ChatState::Left, Some(reason));
+                            }
+                        }
+                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+                        ConnectionStatus::Connected => {
+                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
+                            for name in chat_names {
+                                if name.is_channel() {
+                                    // Joins are handled by the app server
+                                    self.s
+                                        .set_chat_state(&name, ChatState::JoinInProgress, None);
+                                } else {
+                                    self.s.set_chat_state(
+                                        &name,
+                                        ChatState::Joined,
+                                        Some("You are online"),
+                                    );
+                                }
+                            }
+                        }
+                    }
                 }
-                UIMessageIn::NewChatOpened(name) => {
-                    self.s.add_new_chat(name);
+                UIMessageIn::NewChatRequested(name, state) => {
+                    if self.s.chats.contains_key(&name) {
+                        self.s.set_chat_state(&name, state, None);
+                    } else {
+                        self.s.add_new_chat(name, state);
+                    }
+                }
+                UIMessageIn::ChannelJoined(name) => {
+                    self.s.set_chat_state(
+                        &name,
+                        ChatState::Joined,
+                        Some("You have joined the channel"),
+                    );
                 }
                 UIMessageIn::NewMessageReceived { target, message } => {
                     self.s.push_chat_message(target, message);
@@ -120,6 +164,15 @@ impl ApplicationWindow {
                 UIMessageIn::NewServerMessageReceived(_) => {}
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
+                }
+                UIMessageIn::DateChanged => {
+                    let now = chrono::Local::now();
+                    for (_, chat) in self.s.chats.iter_mut() {
+                        chat.push(Message::new_system(&format!(
+                            "A new day is born ({})",
+                            now.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
+                        )));
+                    }
                 }
             }
         }
@@ -151,7 +204,9 @@ impl eframe::App for ApplicationWindow {
 
         self.about.show(ctx, &self.s, &mut self.menu.show_about);
 
-        self.chat.return_focus(ctx);
+        if !self.menu.dialogs_visible() {
+            self.chat.return_focus(ctx);
+        }
     }
 
     fn on_close_event(&mut self) -> bool {

@@ -105,7 +105,7 @@ impl IRCActor {
                     ))))
                     .unwrap();
                     tx.blocking_send(AppMessageIn::ConnectionChanged(
-                        ConnectionStatus::Disconnected,
+                        ConnectionStatus::Disconnected { by_user: false },
                     ))
                     .unwrap();
                 }
@@ -126,7 +126,7 @@ impl IRCActor {
                                 *g = false;
                                 clt.send_quit("").unwrap();
                                 tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                    ConnectionStatus::Disconnected,
+                                    ConnectionStatus::Disconnected { by_user: true },
                                 ))
                                 .unwrap();
                                 break;
@@ -144,7 +144,7 @@ impl IRCActor {
                                     ))
                                     .unwrap();
                                     tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                        ConnectionStatus::Disconnected,
+                                        ConnectionStatus::Disconnected { by_user: false },
                                     ))
                                     .unwrap();
                                     break;
@@ -155,7 +155,7 @@ impl IRCActor {
                             },
                             None => {
                                 tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                    ConnectionStatus::Disconnected,
+                                    ConnectionStatus::Disconnected { by_user: false },
                                 ))
                                 .unwrap();
                                 break;
@@ -177,6 +177,9 @@ impl IRCActor {
                 chat::MessageType::Text => {
                     sender.send_privmsg(destination, content).unwrap();
                 }
+
+                // Won't happen -- system messages are reserved for the UI display and come from the core system.
+                chat::MessageType::System => (),
             }
         }
     }

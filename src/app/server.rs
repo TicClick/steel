@@ -1,9 +1,10 @@
 use std::collections::BTreeSet;
 
+use chrono::DurationRound;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use crate::core::chat;
-use crate::core::chat::{ChatLike, Message};
+use crate::core::chat::{ChatLike, ChatState, Message};
 use crate::core::irc::{ConnectionStatus, IRCActorHandle, IRCError};
 use crate::core::settings;
 use crate::gui::UIMessageIn;
@@ -11,12 +12,22 @@ use crate::gui::UIMessageIn;
 use super::AppMessageIn;
 
 const EVENT_QUEUE_SIZE: usize = 1000;
-const LOG_FILE_PATH: &str = "./runtime.log";
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ApplicationState {
     pub settings: settings::Settings,
     pub chats: BTreeSet<String>,
+    pub connection: ConnectionStatus,
+}
+
+impl Default for ApplicationState {
+    fn default() -> Self {
+        Self {
+            settings: settings::Settings::default(),
+            chats: BTreeSet::default(),
+            connection: ConnectionStatus::default(),
+        }
+    }
 }
 
 pub struct Application {
@@ -26,6 +37,8 @@ pub struct Application {
     irc: IRCActorHandle,
     ui_queue: Sender<UIMessageIn>,
     pub app_queue: Sender<AppMessageIn>,
+
+    date_announcer: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Application {
@@ -37,18 +50,13 @@ impl Application {
             irc: IRCActorHandle::new(app_queue.clone()),
             ui_queue,
             app_queue,
+            date_announcer: None,
         }
     }
 
     pub fn run(&mut self) {
         while let Some(event) = self.events.blocking_recv() {
             match event {
-                AppMessageIn::Connect => {
-                    self.connect();
-                }
-                AppMessageIn::Disconnect => {
-                    self.disconnect();
-                }
                 AppMessageIn::ConnectionChanged(status) => {
                     self.handle_connection_status(status);
                 }
@@ -74,11 +82,12 @@ impl Application {
                 AppMessageIn::UIExitRequested => {
                     break;
                 }
-                AppMessageIn::UIChannelOpened(channel) => {
-                    self.handle_ui_channel_opened(channel);
+                AppMessageIn::UIChannelOpened(target)
+                | AppMessageIn::UIPrivateChatOpened(target) => {
+                    self.maybe_remember_chat(&target);
                 }
-                AppMessageIn::UIPrivateChatOpened(user) => {
-                    self.maybe_remember_chat(&user);
+                AppMessageIn::UIChannelJoinRequested(channel) => {
+                    self.handle_ui_channel_join_requested(channel);
                 }
                 AppMessageIn::UIChatClosed(target) => {
                     self.ui_handle_close_chat(&target);
@@ -98,34 +107,18 @@ impl Application {
 }
 
 impl Application {
-    fn setup_logging(&self) {
-        let file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(LOG_FILE_PATH)
-            .expect("failed to open the file for logging app events");
-
-        let time_format = simplelog::format_description!(
-            "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
-        );
-        simplelog::WriteLogger::init(
-            self.state.settings.journal.app_events.level,
-            simplelog::ConfigBuilder::new()
-                .set_time_format_custom(time_format)
-                .build(),
-            file,
-        )
-        .expect("Failed to configure the logger");
-        log_panics::init();
-    }
-
-    pub fn handle_ui_channel_opened(&mut self, channel: String) {
+    pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
+        self.maybe_remember_chat(&channel);
         self.join_channel(&channel);
     }
 
     pub fn initialize(&mut self) {
         self.load_settings(settings::Source::DefaultPath, true);
-        self.setup_logging();
+        log::set_max_level(self.state.settings.journal.app_events.level);
+
+        let ui_queue = self.ui_queue.clone();
+        self.date_announcer = Some(std::thread::spawn(|| date_announcer(ui_queue)));
+
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
@@ -148,15 +141,59 @@ impl Application {
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {
+        self.state.connection = status;
         self.ui_queue
             .blocking_send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
-        log::info!("IRC connection status changed to {:?}", status);
-        if matches!(status, ConnectionStatus::Connected) {
-            for channel in self.state.settings.chat.autojoin.iter() {
-                self.join_channel(channel);
+        log::debug!("IRC connection status changed to {:?}", status);
+        match status {
+            ConnectionStatus::Connected => {
+                let mut chats = self.state.settings.chat.autojoin.clone();
+                chats.append(&mut self.state.chats.iter().cloned().collect());
+
+                for chat in chats {
+                    self.maybe_remember_chat(&chat);
+                    if chat.is_channel() {
+                        self.join_channel(&chat);
+                    }
+                }
+            }
+            ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+            ConnectionStatus::Disconnected { by_user } => {
+                if !by_user {
+                    self.queue_reconnect();
+                }
             }
         }
+    }
+
+    fn queue_reconnect(&self) {
+        let queue = self.app_queue.clone();
+        let delta = chrono::Duration::seconds(15);
+        let reconnect_time = chrono::Local::now() + delta;
+        self.ui_queue
+            .blocking_send(UIMessageIn::ConnectionStatusChanged(
+                ConnectionStatus::Scheduled(reconnect_time),
+            ))
+            .unwrap();
+
+        std::thread::spawn(move || {
+            std::thread::sleep(delta.to_std().unwrap());
+            queue
+                .blocking_send(AppMessageIn::UIConnectRequested)
+                .unwrap();
+        });
+    }
+
+    fn push_chat_to_ui(&self, target: &str) {
+        let chat_state = if target.is_channel() {
+            ChatState::JoinInProgress
+        } else {
+            ChatState::Joined
+        };
+        self.ui_queue
+            .blocking_send(UIMessageIn::NewChatRequested(target.to_owned(), chat_state))
+            .unwrap();
     }
 
     pub fn handle_chat_message(&mut self, target: String, message: Message) {
@@ -169,9 +206,7 @@ impl Application {
     fn maybe_remember_chat(&mut self, target: &str) {
         if !self.state.chats.contains(target) {
             self.state.chats.insert(target.to_owned());
-            self.ui_queue
-                .blocking_send(UIMessageIn::NewChatOpened(target.to_owned()))
-                .unwrap();
+            self.push_chat_to_ui(target);
         }
     }
 
@@ -184,21 +219,23 @@ impl Application {
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
         log::error!("IRC chat error: {:?}", e);
-        if matches!(e, IRCError::FatalError(_)) {
-            self.disconnect();
-        }
     }
 
     pub fn handle_channel_join(&mut self, channel: String) {
-        self.maybe_remember_chat(&channel);
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChannelJoined(channel))
+            .unwrap();
     }
 
     pub fn connect(&mut self) {
+        if matches!(self.state.connection, ConnectionStatus::Connected) {
+            return;
+        }
         let irc_config = self.state.settings.chat.irc.clone();
         self.irc.connect(&irc_config.username, &irc_config.password);
     }
 
-    pub fn disconnect(&self) {
+    pub fn disconnect(&mut self) {
         self.irc.disconnect();
     }
 
@@ -229,5 +266,21 @@ impl Application {
 
     pub fn leave_channel(&self, channel: &str) {
         self.irc.leave_channel(channel);
+    }
+}
+
+fn date_announcer(sender: Sender<UIMessageIn>) {
+    loop {
+        let tomorrow = chrono::Local::now()
+            .checked_add_days(chrono::Days::new(1))
+            .unwrap();
+        let midnight = tomorrow.duration_trunc(chrono::Duration::days(1)).unwrap();
+        let delta = midnight - tomorrow;
+        if delta.num_seconds() > 0 {
+            std::thread::sleep(delta.to_std().unwrap());
+        }
+
+        sender.blocking_send(UIMessageIn::DateChanged).unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(12 * 60 * 60));
     }
 }

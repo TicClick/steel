@@ -1,6 +1,7 @@
 #![allow(clippy::upper_case_acronyms)]
 
 use std::cmp;
+use std::collections::BTreeSet;
 
 use eframe::egui;
 
@@ -26,28 +27,46 @@ pub struct AutojoinSection {
 impl AutojoinSection {
     pub fn show(&mut self, settings: &mut settings::Settings, ui: &mut eframe::egui::Ui) {
         ui.collapsing("auto-join channels", |ui| {
-            let response = ui.add(
-                egui::TextEdit::singleline(&mut self.autojoin_channel_input)
-                    .hint_text("<Enter> add"),
-            );
-            if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                let channel_name = if self.autojoin_channel_input.is_channel() {
-                    self.autojoin_channel_input.to_owned()
-                } else {
-                    format!("#{}", self.autojoin_channel_input)
-                };
-                settings.chat.autojoin.insert(channel_name);
-                self.autojoin_channel_input.clear();
-                response.request_focus();
-            }
-            let channels: Vec<String> = settings.chat.autojoin.iter().cloned().collect();
-            for name in channels {
-                ui.horizontal(|ui| {
-                    ui.label(&name);
-                    if ui.button("x").clicked() {
-                        settings.chat.autojoin.remove(&name);
+            ui.horizontal(|ui| {
+                // TODO: this will overflow the window if too many channels are added
+                let add_autojoin_channel = ui.button("+");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.autojoin_channel_input)
+                        .hint_text("channel name"),
+                );
+
+                let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
+                    && (add_autojoin_channel.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                if add_autojoin_channel {
+                    let channel_name = if self.autojoin_channel_input.is_channel() {
+                        self.autojoin_channel_input.to_owned()
+                    } else {
+                        format!("#{}", self.autojoin_channel_input)
+                    };
+                    settings.chat.autojoin.insert(channel_name);
+                    self.autojoin_channel_input.clear();
+                    response.request_focus();
+                }
+            });
+            let mut to_remove = BTreeSet::new();
+            for name in settings.chat.autojoin.iter() {
+                let channel_button = ui.button(name);
+                let mut remove_channel = channel_button.middle_clicked();
+                channel_button.context_menu(|ui| {
+                    if ui.button("Remove").clicked() {
+                        remove_channel = true;
+                        ui.close_menu();
                     }
                 });
+                if remove_channel {
+                    to_remove.insert(name.to_owned());
+                }
+            }
+            for name in to_remove.iter() {
+                settings.chat.autojoin.remove(name);
             }
         });
     }
@@ -84,9 +103,14 @@ impl Settings {
     ) {
         ui.vertical(|ui| {
             ui.heading("general");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup");
-            });
+            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup");
+            ui.checkbox(
+                &mut state.settings.chat.reconnect,
+                "automatically reconnect",
+            )
+            .on_hover_text_at_pointer(
+                "If gone offline, try connecting to the chat every 15 seconds",
+            );
             self.autojoin.show(&mut state.settings, ui);
 
             ui.heading("access");
@@ -146,13 +170,20 @@ impl Settings {
                 ui.label("self");
             });
             ui.collapsing("other users", |ui| {
+                // TODO: this will overflow the window if too many users are added
                 ui.horizontal(|ui| {
-                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+                    let add_user = ui.button("+");
                     let response = ui.add(
-                        egui::TextEdit::singleline(&mut self.username_input)
-                            .hint_text("<Enter> add"),
+                        egui::TextEdit::singleline(&mut self.username_input).hint_text("username"),
                     );
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+
+                    let add_user = !self.username_input.is_empty()
+                        && (add_user.clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                    if add_user {
                         state.settings.ui.colours.users.insert(
                             self.username_input.to_lowercase(),
                             self.username_colour_input.clone(),
@@ -165,9 +196,17 @@ impl Settings {
                 let mut to_remove = Vec::new();
                 for (username, colour) in state.settings.ui.colours.users.iter_mut() {
                     ui.horizontal(|ui| {
+                        let user_button = ui.button(username);
                         ui.color_edit_button_srgb(colour.as_u8());
-                        ui.label(username);
-                        if ui.button("x").clicked() {
+
+                        let mut remove_user = user_button.middle_clicked();
+                        user_button.context_menu(|ui| {
+                            if ui.button("Remove").clicked() {
+                                remove_user = true;
+                                ui.close_menu();
+                            }
+                        });
+                        if remove_user {
                             to_remove.push(username.clone());
                         }
                     });
@@ -236,6 +275,7 @@ impl Settings {
     }
 
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
+        let mut save_clicked = false;
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
@@ -260,9 +300,13 @@ impl Settings {
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UISettingsUpdated(state.settings.clone()))
                             .unwrap();
+                        save_clicked = true;
                     }
                 });
             });
         });
+        if save_clicked {
+            *is_open = false;
+        }
     }
 }

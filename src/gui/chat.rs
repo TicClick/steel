@@ -18,6 +18,11 @@ impl ChatWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+            if !state.is_connected() {
+                ui.centered_and_justified(|ui| ui.label("(chat not available in offline mode)"));
+                return;
+            }
+
             let text_field =
                 egui::TextEdit::singleline(&mut self.chat_input).hint_text("new message");
 
@@ -79,128 +84,146 @@ impl ChatWindow {
         let msg = &chat.messages[message_id];
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x /= 2.;
-            ui.label(msg.formatted_time());
+            ui.label(msg.formatted_time()).on_hover_ui_at_pointer(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(format!("{} (local time zone)", msg.formatted_date_local()));
+                    ui.label(format!("{} (UTC)", msg.formatted_date_utc()));
+                });
+            });
 
-            let username_text = if msg.username == state.settings.chat.irc.username {
-                egui::RichText::new(&msg.username).color(state.settings.ui.colours.own.clone())
-            } else {
-                let mut label = egui::RichText::new(&msg.username);
-                if let Some(c) = state
-                    .settings
-                    .ui
-                    .colours
-                    .users
-                    .get(&msg.username.to_lowercase())
-                {
-                    label = label.color(c.clone())
+            match msg.r#type {
+                MessageType::Action | MessageType::Text => {
+                    format_chat_message(ui, state, chat, msg, message_id)
                 }
-                label
-            };
+                MessageType::System => format_system_message(ui, msg),
+            }
+        });
+    }
+}
 
-            ui.button(username_text)
-                .context_menu(|ui| self.show_username_menu(ui, state, chat, msg));
+fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
+    if state.is_connected() && ui.button("💬 Open chat").clicked() {
+        state
+            .app_queue_handle
+            .blocking_send(AppMessageIn::UIPrivateChatOpened(message.username.clone()))
+            .unwrap();
+        ui.close_menu();
+    }
 
-            let is_highlight = state
-                .highlights
-                .message_contains_highlight(chat, message_id);
-            let is_action = matches!(msg.r#type, MessageType::Action);
+    // TODO: the link should contain ID instead
+    if ui.button("🔎 View profile").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.open_url = Some(egui::output::OpenUrl {
+                url: format!("https://osu.ppy.sh/users/{}", message.username),
+                new_tab: true,
+            });
+        });
+        ui.close_menu();
+    }
 
-            let layout = egui::Layout::from_main_dir_and_cross_align(
-                egui::Direction::LeftToRight,
-                egui::Align::Center,
-            )
-            .with_main_wrap(true)
-            .with_cross_justify(false);
+    if ui.button("🌐 Translate message").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.open_url = Some(egui::output::OpenUrl {
+                url: format!(
+                    "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
+                    percent_encoding::utf8_percent_encode(
+                        &message.text,
+                        percent_encoding::NON_ALPHANUMERIC
+                    )
+                ),
+                new_tab: true,
+            });
+        });
+        ui.close_menu();
+    }
 
-            ui.with_layout(layout, |ui| {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                for c in state.get_chunks(&chat.name, message_id) {
-                    match &c {
-                        MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
-                            let mut text_chunk = egui::RichText::new(s);
-                            if is_highlight {
-                                text_chunk = text_chunk
-                                    .color(state.settings.notifications.highlights.colour.clone());
-                            }
-                            if is_action {
-                                text_chunk = text_chunk.italics();
-                            }
+    ui.menu_button("📄 Copy", |ui| {
+        if ui.button("Message").clicked() {
+            ui.ctx().output_mut(|o| {
+                o.copied_text = message.to_string();
+            });
+            ui.close_menu();
+        }
 
-                            if let MessageChunk::Link { location: loc, .. } = c {
-                                ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
-                                    if ui.button("Copy URL").clicked() {
-                                        ui.ctx().output_mut(|o| {
-                                            o.copied_text = loc;
-                                        });
-                                        ui.close_menu();
-                                    }
+        if ui.button("Username").clicked() {
+            ui.ctx().output_mut(|o| {
+                o.copied_text = message.username.clone();
+            });
+            ui.close_menu();
+        }
+    });
+}
+
+fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
+    ui.add_enabled(false, egui::Button::new(&msg.text));
+}
+
+fn format_chat_message(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    chat: &Chat,
+    msg: &Message,
+    message_id: usize,
+) {
+    let username_text = if msg.username == state.settings.chat.irc.username {
+        egui::RichText::new(&msg.username).color(state.settings.ui.colours.own.clone())
+    } else {
+        let mut label = egui::RichText::new(&msg.username);
+        if let Some(c) = state
+            .settings
+            .ui
+            .colours
+            .users
+            .get(&msg.username.to_lowercase())
+        {
+            label = label.color(c.clone())
+        }
+        label
+    };
+
+    ui.button(username_text)
+        .context_menu(|ui| show_username_menu(ui, state, msg));
+
+    let is_highlight = state
+        .highlights
+        .message_contains_highlight(chat, message_id);
+    let is_action = matches!(msg.r#type, MessageType::Action);
+
+    let layout = egui::Layout::from_main_dir_and_cross_align(
+        egui::Direction::LeftToRight,
+        egui::Align::Center,
+    )
+    .with_main_wrap(true)
+    .with_cross_justify(false);
+
+    ui.with_layout(layout, |ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        for c in state.get_chunks(&chat.name, message_id) {
+            match &c {
+                MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
+                    let mut text_chunk = egui::RichText::new(s);
+                    if is_highlight {
+                        text_chunk = text_chunk
+                            .color(state.settings.notifications.highlights.colour.clone());
+                    }
+                    if is_action {
+                        text_chunk = text_chunk.italics();
+                    }
+
+                    if let MessageChunk::Link { location: loc, .. } = c {
+                        ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
+                            if ui.button("Copy URL").clicked() {
+                                ui.ctx().output_mut(|o| {
+                                    o.copied_text = loc;
                                 });
-                            } else {
-                                ui.label(text_chunk);
+                                ui.close_menu();
                             }
-                        }
+                        });
+                    } else {
+                        ui.label(text_chunk);
                     }
                 }
-            });
-        });
-    }
-
-    fn show_username_menu(
-        &self,
-        ui: &mut egui::Ui,
-        state: &UIState,
-        _chat: &Chat,
-        message: &Message,
-    ) {
-        if ui.button("💬 Open chat").clicked() {
-            state
-                .app_queue_handle
-                .blocking_send(AppMessageIn::UIPrivateChatOpened(message.username.clone()))
-                .unwrap();
-            ui.close_menu();
-        }
-
-        // TODO: the link should contain ID instead
-        if ui.button("🔎 View profile").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.open_url = Some(egui::output::OpenUrl {
-                    url: format!("https://osu.ppy.sh/users/{}", message.username),
-                    new_tab: true,
-                });
-            });
-            ui.close_menu();
-        }
-
-        if ui.button("🌐 Translate message").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.open_url = Some(egui::output::OpenUrl {
-                    url: format!(
-                        "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
-                        percent_encoding::utf8_percent_encode(
-                            &message.text,
-                            percent_encoding::NON_ALPHANUMERIC
-                        )
-                    ),
-                    new_tab: true,
-                });
-            });
-            ui.close_menu();
-        }
-
-        ui.menu_button("📄 Copy", |ui| {
-            if ui.button("Message").clicked() {
-                ui.ctx().output_mut(|o| {
-                    o.copied_text = message.to_string();
-                });
-                ui.close_menu();
             }
-
-            if ui.button("Username").clicked() {
-                ui.ctx().output_mut(|o| {
-                    o.copied_text = message.username.clone();
-                });
-                ui.close_menu();
-            }
-        });
-    }
+        }
+    });
 }

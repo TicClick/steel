@@ -6,9 +6,6 @@ use crate::core::settings::Settings;
 
 #[derive(Debug)]
 pub enum AppMessageIn {
-    Connect,
-    Disconnect,
-
     ConnectionChanged(ConnectionStatus),
     ChatError(IRCError),
     ChatMessageReceived {
@@ -24,6 +21,7 @@ pub enum AppMessageIn {
     UIDisconnectRequested,
     UIExitRequested,
     UIChannelOpened(String),
+    UIChannelJoinRequested(String),
     UIPrivateChatOpened(String),
     UIChatClosed(String),
     UIChatMessageSent {
