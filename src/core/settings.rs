@@ -125,13 +125,28 @@ impl Display for Sound {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chat {
     pub backend: ChatBackend,
     pub autoconnect: bool,
+    #[serde(default)]
+    pub reconnect: bool,
     pub autojoin: BTreeSet<String>,
     pub irc: IRCChatSettings,
     pub api: HTTPChatSettings,
+}
+
+impl Default for Chat {
+    fn default() -> Self {
+        Self {
+            backend: ChatBackend::default(),
+            autoconnect: false,
+            reconnect: true,
+            autojoin: BTreeSet::default(),
+            irc: IRCChatSettings::default(),
+            api: HTTPChatSettings::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]

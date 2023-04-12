@@ -103,9 +103,14 @@ impl Settings {
     ) {
         ui.vertical(|ui| {
             ui.heading("general");
-            ui.horizontal(|ui| {
-                ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup");
-            });
+            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup");
+            ui.checkbox(
+                &mut state.settings.chat.reconnect,
+                "automatically reconnect",
+            )
+            .on_hover_text_at_pointer(
+                "If gone offline, try connecting to the chat every 15 seconds",
+            );
             self.autojoin.show(&mut state.settings, ui);
 
             ui.heading("access");

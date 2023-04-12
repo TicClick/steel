@@ -14,10 +14,23 @@ use super::AppMessageIn;
 const EVENT_QUEUE_SIZE: usize = 1000;
 const LOG_FILE_PATH: &str = "./runtime.log";
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct ApplicationState {
     pub settings: settings::Settings,
     pub chats: BTreeSet<String>,
+    pub connection: ConnectionStatus,
+    pub user_disconnected: bool,
+}
+
+impl Default for ApplicationState {
+    fn default() -> Self {
+        Self {
+            settings: settings::Settings::default(),
+            chats: BTreeSet::default(),
+            connection: ConnectionStatus::Disconnected,
+            user_disconnected: true,
+        }
+    }
 }
 
 pub struct Application {
@@ -152,20 +165,39 @@ impl Application {
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {
+        self.state.connection = status;
         self.ui_queue
             .blocking_send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
         log::debug!("IRC connection status changed to {:?}", status);
-        if matches!(status, ConnectionStatus::Connected) {
-            let mut chats = self.state.settings.chat.autojoin.clone();
-            chats.append(&mut self.state.chats.iter().cloned().collect());
+        match status {
+            ConnectionStatus::Connected => {
+                let mut chats = self.state.settings.chat.autojoin.clone();
+                chats.append(&mut self.state.chats.iter().cloned().collect());
 
-            for chat in chats {
-                self.maybe_remember_chat(&chat);
-                if chat.is_channel() {
-                    self.join_channel(&chat);
+                for chat in chats {
+                    self.maybe_remember_chat(&chat);
+                    if chat.is_channel() {
+                        self.join_channel(&chat);
+                    }
                 }
             }
+            ConnectionStatus::InProgress => (),
+            ConnectionStatus::Disconnected => {
+                self.queue_reconnect();
+            }
+        }
+    }
+
+    fn queue_reconnect(&self) {
+        if !self.state.user_disconnected {
+            let queue = self.app_queue.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(15));
+                queue
+                    .blocking_send(AppMessageIn::UIConnectRequested)
+                    .unwrap();
+            });
         }
     }
 
@@ -215,11 +247,15 @@ impl Application {
     }
 
     pub fn connect(&mut self) {
+        if matches!(self.state.connection, ConnectionStatus::Connected) {
+            return;
+        }
         let irc_config = self.state.settings.chat.irc.clone();
         self.irc.connect(&irc_config.username, &irc_config.password);
     }
 
-    pub fn disconnect(&self) {
+    pub fn disconnect(&mut self) {
+        self.state.user_disconnected = true;
         self.irc.disconnect();
     }
 
