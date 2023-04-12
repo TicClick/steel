@@ -241,9 +241,6 @@ impl Application {
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
         log::error!("IRC chat error: {:?}", e);
-        if matches!(e, IRCError::FatalError(_)) {
-            self.disconnect();
-        }
     }
 
     pub fn handle_channel_join(&mut self, channel: String) {
