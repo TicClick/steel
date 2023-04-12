@@ -6,8 +6,32 @@ use steel::app;
 use steel::gui;
 
 const UI_EVENT_QUEUE_SIZE: usize = 1000;
+const LOG_FILE_PATH: &str = "./runtime.log";
+
+fn setup_logging() {
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(LOG_FILE_PATH)
+        .expect("failed to open the file for logging app events");
+
+    let time_format = simplelog::format_description!(
+        "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
+    );
+    simplelog::WriteLogger::init(
+        simplelog::LevelFilter::Trace,
+        simplelog::ConfigBuilder::new()
+            .set_time_format_custom(time_format)
+            .build(),
+        file,
+    )
+    .expect("Failed to configure the logger");
+    log_panics::init();
+}
 
 fn main() {
+    setup_logging();
+
     let (ui_queue_handle, ui_queue) = channel(UI_EVENT_QUEUE_SIZE);
     let mut app = app::server::Application::new(ui_queue_handle);
 
