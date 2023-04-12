@@ -1,6 +1,5 @@
 use tokio::sync::mpsc::Sender;
 
-use chrono::Utc;
 use irc::client::prelude::*;
 
 use crate::app::AppMessageIn;
@@ -21,21 +20,19 @@ pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
         } else {
             (chat::MessageType::Text, text.as_str())
         };
+
+        let message_target = match msg.response_target() {
+            Some(target) => target.to_owned(),
+            None => "(unknown target)".to_owned(),
+        };
+        let username = match msg.source_nickname() {
+            Some(nickname) => nickname.to_string(),
+            None => "(unknown sender)".to_owned(),
+        };
         sender
             .blocking_send(AppMessageIn::ChatMessageReceived {
-                target: match msg.response_target() {
-                    Some(target) => target.to_owned(),
-                    None => "(unknown target)".to_owned(),
-                },
-                message: chat::Message {
-                    time: Utc::now(),
-                    text: text.to_owned(),
-                    r#type: message_type,
-                    username: match msg.source_nickname() {
-                        Some(nickname) => nickname.to_string(),
-                        None => "(unknown sender)".to_owned(),
-                    },
-                },
+                target: message_target,
+                message: chat::Message::new(&username, text, message_type),
             })
             .unwrap();
     }

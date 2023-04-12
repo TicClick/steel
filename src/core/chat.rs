@@ -1,7 +1,5 @@
 use std::fmt;
 
-use chrono::Utc;
-
 use super::{DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
 
 #[derive(Clone, Debug)]
@@ -19,7 +17,7 @@ pub struct User {
 
 #[derive(Clone, Debug)]
 pub struct Message {
-    pub time: chrono::DateTime<chrono::Utc>,
+    pub time: chrono::DateTime<chrono::Local>,
     pub r#type: MessageType,
     pub username: String,
     pub text: String,
@@ -96,7 +94,7 @@ pub enum MessageChunk {
 impl Message {
     pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
         Self {
-            time: Utc::now(),
+            time: chrono::Local::now(),
             r#type,
             username: username.to_string(),
             text: text.to_string(),
@@ -247,7 +245,7 @@ mod tests {
 
     fn m(s: &str) -> Message {
         Message {
-            time: chrono::Utc::now(),
+            time: chrono::Local::now(),
             r#type: MessageType::Text,
             username: "abc".into(),
             text: s.into(),
