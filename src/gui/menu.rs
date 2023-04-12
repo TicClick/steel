@@ -43,9 +43,22 @@ impl Menu {
                 }
 
                 let (action, enabled, colour) = match state.connection {
-                    ConnectionStatus::Disconnected => ("connect", true, egui::Color32::GREEN),
-                    ConnectionStatus::InProgress => ("connecting...", false, egui::Color32::YELLOW),
-                    ConnectionStatus::Connected => ("disconnect", true, egui::Color32::RED),
+                    ConnectionStatus::Disconnected{ .. } => {
+                        ("connect".to_owned(), true, egui::Color32::GREEN)
+                    }
+                    ConnectionStatus::InProgress => {
+                        ("connecting...".to_owned(), false, egui::Color32::YELLOW)
+                    }
+                    ConnectionStatus::Scheduled(when) => {
+                        let action = format!(
+                            "reconnecting ({}s)",
+                            (when - chrono::Local::now()).num_seconds()
+                        );
+                        (action, false, egui::Color32::YELLOW)
+                    }
+                    ConnectionStatus::Connected => {
+                        ("disconnect".to_owned(), true, egui::Color32::RED)
+                    }
                 };
                 if ui
                     .add_enabled(
@@ -55,13 +68,13 @@ impl Menu {
                     .clicked()
                 {
                     match state.connection {
-                        ConnectionStatus::Disconnected => {
+                        ConnectionStatus::Disconnected { .. } => {
                             state
                                 .app_queue_handle
                                 .blocking_send(AppMessageIn::UIConnectRequested)
                                 .unwrap();
                         }
-                        ConnectionStatus::InProgress => (),
+                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
                         ConnectionStatus::Connected => {
                             state
                                 .app_queue_handle

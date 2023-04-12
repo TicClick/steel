@@ -33,12 +33,20 @@ pub enum IRCError {
     },
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug)]
 pub enum ConnectionStatus {
-    #[default]
-    Disconnected,
+    Disconnected {
+        by_user: bool,
+    },
     InProgress,
     Connected,
+    Scheduled(chrono::DateTime<chrono::Local>),
+}
+
+impl Default for ConnectionStatus {
+    fn default() -> Self {
+        Self::Disconnected { by_user: false }
+    }
 }
 
 impl fmt::Display for ConnectionStatus {
@@ -47,9 +55,10 @@ impl fmt::Display for ConnectionStatus {
             f,
             "{}",
             match self {
-                Self::Connected => "connected",
-                Self::InProgress => "connecting",
-                Self::Disconnected => "disconnected",
+                Self::Connected => "connected".into(),
+                Self::InProgress => "connecting".into(),
+                Self::Disconnected { .. } => "disconnected".into(),
+                Self::Scheduled(when) => format!("connecting in {}s", *when - chrono::Local::now()),
             }
         )
     }

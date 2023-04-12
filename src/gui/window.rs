@@ -114,7 +114,7 @@ impl ApplicationWindow {
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
                     match conn {
-                        ConnectionStatus::Disconnected => {
+                        ConnectionStatus::Disconnected { .. } => {
                             let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
                             for name in chat_names {
                                 let reason = if name.is_channel() {
@@ -125,7 +125,7 @@ impl ApplicationWindow {
                                 self.s.set_chat_state(&name, ChatState::Left, Some(reason));
                             }
                         }
-                        ConnectionStatus::InProgress => (),
+                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
                         ConnectionStatus::Connected => {
                             let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
                             for name in chat_names {

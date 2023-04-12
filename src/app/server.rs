@@ -19,7 +19,6 @@ pub struct ApplicationState {
     pub settings: settings::Settings,
     pub chats: BTreeSet<String>,
     pub connection: ConnectionStatus,
-    pub user_disconnected: bool,
 }
 
 impl Default for ApplicationState {
@@ -27,8 +26,7 @@ impl Default for ApplicationState {
         Self {
             settings: settings::Settings::default(),
             chats: BTreeSet::default(),
-            connection: ConnectionStatus::Disconnected,
-            user_disconnected: true,
+            connection: ConnectionStatus::default(),
         }
     }
 }
@@ -182,23 +180,31 @@ impl Application {
                     }
                 }
             }
-            ConnectionStatus::InProgress => (),
-            ConnectionStatus::Disconnected => {
-                self.queue_reconnect();
+            ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+            ConnectionStatus::Disconnected { by_user } => {
+                if !by_user {
+                    self.queue_reconnect();
+                }
             }
         }
     }
 
     fn queue_reconnect(&self) {
-        if !self.state.user_disconnected {
-            let queue = self.app_queue.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(std::time::Duration::from_secs(15));
-                queue
-                    .blocking_send(AppMessageIn::UIConnectRequested)
-                    .unwrap();
-            });
-        }
+        let queue = self.app_queue.clone();
+        let delta = chrono::Duration::seconds(15);
+        let reconnect_time = chrono::Local::now() + delta;
+        self.ui_queue
+            .blocking_send(UIMessageIn::ConnectionStatusChanged(
+                ConnectionStatus::Scheduled(reconnect_time),
+            ))
+            .unwrap();
+
+        std::thread::spawn(move || {
+            std::thread::sleep(delta.to_std().unwrap());
+            queue
+                .blocking_send(AppMessageIn::UIConnectRequested)
+                .unwrap();
+        });
     }
 
     fn push_chat_to_ui(&self, target: &str) {
@@ -255,7 +261,6 @@ impl Application {
     }
 
     pub fn disconnect(&mut self) {
-        self.state.user_disconnected = true;
         self.irc.disconnect();
     }
 
