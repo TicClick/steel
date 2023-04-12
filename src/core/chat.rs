@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
+use super::{DATE_FORMAT_WITH_TZ, DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
 
 #[derive(Clone, Debug)]
 pub enum MessageType {
@@ -31,7 +31,7 @@ pub enum ChatType {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.time.format(DEFAULT_DATE_FORMAT)).and_then(|_| match self.r#type {
+        write!(f, "{}", self.time.format(DATE_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
             MessageType::Text => {
                 write!(f, " <{}> {}", self.username, self.text)
             }
@@ -39,7 +39,7 @@ impl fmt::Display for Message {
                 write!(f, " * {} {}", self.username, self.text)
             }
             MessageType::System => {
-                write!(f, " * {}", self.text)
+                write!(f, " {}", self.text)
             }
         })
     }
@@ -115,6 +115,17 @@ impl Message {
 
     pub fn formatted_time(&self) -> String {
         self.time.format(DEFAULT_TIME_FORMAT).to_string()
+    }
+
+    pub fn formatted_date_local(&self) -> String {
+        self.time.format(DEFAULT_DATE_FORMAT).to_string()
+    }
+
+    pub fn formatted_date_utc(&self) -> String {
+        self.time
+            .naive_utc()
+            .format(DEFAULT_DATE_FORMAT)
+            .to_string()
     }
 
     pub fn chunked_text(&self) -> Option<Vec<MessageChunk>> {

@@ -84,7 +84,13 @@ impl ChatWindow {
         let msg = &chat.messages[message_id];
         ui.horizontal(|ui| {
             ui.spacing_mut().item_spacing.x /= 2.;
-            ui.label(msg.formatted_time());
+            ui.label(msg.formatted_time()).on_hover_ui_at_pointer(|ui| {
+                ui.vertical(|ui| {
+                    ui.label(format!("{} (local time zone)", msg.formatted_date_local()));
+                    ui.label(format!("{} (UTC)", msg.formatted_date_utc()));
+                });
+            });
+
             match msg.r#type {
                 MessageType::Action | MessageType::Text => {
                     format_chat_message(ui, state, chat, msg, message_id)

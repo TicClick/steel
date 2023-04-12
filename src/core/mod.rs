@@ -7,3 +7,4 @@ pub mod updater;
 
 const DEFAULT_TIME_FORMAT: &str = "%H:%M:%S";
 const DEFAULT_DATE_FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+const DATE_FORMAT_WITH_TZ: &str = "%Y-%m-%d %H:%M:%S (UTC %:z)";
