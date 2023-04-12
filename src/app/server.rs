@@ -47,12 +47,6 @@ impl Application {
     pub fn run(&mut self) {
         while let Some(event) = self.events.blocking_recv() {
             match event {
-                AppMessageIn::Connect => {
-                    self.connect();
-                }
-                AppMessageIn::Disconnect => {
-                    self.disconnect();
-                }
                 AppMessageIn::ConnectionChanged(status) => {
                     self.handle_connection_status(status);
                 }
