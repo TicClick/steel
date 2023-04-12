@@ -161,12 +161,15 @@ impl Settings {
             });
             ui.collapsing("other users", |ui| {
                 ui.horizontal(|ui| {
-                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+                    let add_user = ui.button("+");
                     let response = ui.add(
-                        egui::TextEdit::singleline(&mut self.username_input)
-                            .hint_text("<Enter> add"),
+                        egui::TextEdit::singleline(&mut self.username_input).hint_text("username"),
                     );
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+
+                    if add_user.clicked()
+                        || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)))
+                    {
                         state.settings.ui.colours.users.insert(
                             self.username_input.to_lowercase(),
                             self.username_colour_input.clone(),
@@ -179,9 +182,17 @@ impl Settings {
                 let mut to_remove = Vec::new();
                 for (username, colour) in state.settings.ui.colours.users.iter_mut() {
                     ui.horizontal(|ui| {
+                        let user_button = ui.button(username);
                         ui.color_edit_button_srgb(colour.as_u8());
-                        ui.label(username);
-                        if ui.button("x").clicked() {
+
+                        let mut remove_user = user_button.middle_clicked();
+                        user_button.context_menu(|ui| {
+                            if ui.button("Remove").clicked() {
+                                remove_user = true;
+                                ui.close_menu();
+                            }
+                        });
+                        if remove_user {
                             to_remove.push(username.clone());
                         }
                     });
