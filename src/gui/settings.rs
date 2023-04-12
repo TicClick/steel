@@ -28,6 +28,7 @@ impl AutojoinSection {
     pub fn show(&mut self, settings: &mut settings::Settings, ui: &mut eframe::egui::Ui) {
         ui.collapsing("auto-join channels", |ui| {
             ui.horizontal(|ui| {
+                // TODO: this will overflow the window if too many channels are added
                 let add_autojoin_channel = ui.button("+");
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut self.autojoin_channel_input)
@@ -160,6 +161,7 @@ impl Settings {
                 ui.label("self");
             });
             ui.collapsing("other users", |ui| {
+                // TODO: this will overflow the window if too many users are added
                 ui.horizontal(|ui| {
                     let add_user = ui.button("+");
                     let response = ui.add(
