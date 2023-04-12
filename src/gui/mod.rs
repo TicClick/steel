@@ -139,4 +139,12 @@ impl UIState {
         self.chats.remove(&target);
         self.highlights.drop(&target);
     }
+
+    pub fn clear_chat(&mut self, target: &str) {
+        if let Some(chat) = self.chats.get_mut(target) {
+            chat.messages.clear();
+        }
+        self.message_chunks.remove(target);
+        self.highlights.drop(target);
+    }
 }

@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use eframe::egui::{self, Ui};
 
 use crate::app::AppMessageIn;
@@ -79,6 +81,9 @@ impl ChatTabs {
             ChatType::Channel => s.is_channel(),
             ChatType::Person => !s.is_channel(),
         });
+
+        let mut chats_to_clear = BTreeSet::new();
+
         for channel_name in it {
             let is_active_tab = state.is_active_tab(channel_name);
             ui.vertical(|ui| {
@@ -97,7 +102,42 @@ impl ChatTabs {
                     );
                     let mut close_tab = chat_tab.middle_clicked();
                     chat_tab.context_menu(|ui| {
-                        if ui.button("Close").clicked() {
+                        if matches!(mode, ChatType::Channel) {
+                            if state.settings.chat.autojoin.contains(channel_name) {
+                                if ui.button("Remofe from favourites").clicked() {
+                                    state.settings.chat.autojoin.remove(channel_name);
+                                    // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
+                                    state
+                                        .app_queue_handle
+                                        .blocking_send(AppMessageIn::UISettingsUpdated(
+                                            state.settings.clone(),
+                                        ))
+                                        .unwrap();
+                                    ui.close_menu();
+                                }
+                            } else if ui.button("Add to favourites").clicked() {
+                                state.settings.chat.autojoin.insert(channel_name.to_owned());
+                                // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
+                                state
+                                    .app_queue_handle
+                                    .blocking_send(AppMessageIn::UISettingsUpdated(
+                                        state.settings.clone(),
+                                    ))
+                                    .unwrap();
+                                ui.close_menu();
+                            }
+                        }
+
+                        if ui.button("Clear messages").clicked() {
+                            chats_to_clear.insert(channel_name.to_owned());
+                            ui.close_menu();
+                        }
+
+                        let close_title = match mode {
+                            ChatType::Channel => "Leave",
+                            ChatType::Person => "Close",
+                        };
+                        if ui.button(close_title).clicked() {
                             close_tab = true;
                             ui.close_menu();
                         }
@@ -111,6 +151,10 @@ impl ChatTabs {
                     }
                 });
             });
+        }
+
+        for target in chats_to_clear {
+            state.clear_chat(&target);
         }
     }
 }
