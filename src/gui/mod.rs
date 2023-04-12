@@ -25,6 +25,7 @@ pub enum UIMessageIn {
     NewChatRequested(String, ChatState),
     ChannelJoined(String),
     ChatClosed(String),
+    DateChanged,
 }
 
 #[derive(Debug)]

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use super::{DATE_FORMAT_WITH_TZ, DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
+use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
 
 #[derive(Clone, Debug)]
 pub enum MessageType {
@@ -31,7 +31,7 @@ pub enum ChatType {
 
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.time.format(DATE_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
+        write!(f, "{}", self.time.format(DATETIME_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
             MessageType::Text => {
                 write!(f, " <{}> {}", self.username, self.text)
             }
@@ -118,13 +118,13 @@ impl Message {
     }
 
     pub fn formatted_date_local(&self) -> String {
-        self.time.format(DEFAULT_DATE_FORMAT).to_string()
+        self.time.format(DEFAULT_DATETIME_FORMAT).to_string()
     }
 
     pub fn formatted_date_utc(&self) -> String {
         self.time
             .naive_utc()
-            .format(DEFAULT_DATE_FORMAT)
+            .format(DEFAULT_DATETIME_FORMAT)
             .to_string()
     }
 

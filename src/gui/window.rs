@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::core::chat::{ChatLike, ChatState};
+use crate::core::chat::{ChatLike, ChatState, Message};
 use crate::{app::AppMessageIn, gui};
 use eframe::egui;
 
@@ -164,6 +164,15 @@ impl ApplicationWindow {
                 UIMessageIn::NewServerMessageReceived(_) => {}
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
+                }
+                UIMessageIn::DateChanged => {
+                    let now = chrono::Local::now();
+                    for (_, chat) in self.s.chats.iter_mut() {
+                        chat.push(Message::new_system(&format!(
+                            "A new day is born ({})",
+                            now.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
+                        )));
+                    }
                 }
             }
         }
