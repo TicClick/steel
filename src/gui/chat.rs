@@ -89,7 +89,7 @@ impl ChatWindow {
                 MessageType::Action | MessageType::Text => {
                     format_chat_message(ui, state, chat, msg, message_id)
                 }
-                MessageType::System => format_system_message(ui, state, chat, msg, message_id),
+                MessageType::System => format_system_message(ui, msg),
             }
         });
     }
@@ -148,14 +148,8 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
     });
 }
 
-fn format_system_message(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    chat: &Chat,
-    msg: &Message,
-    message_id: usize,
-) {
-    format_chat_message(ui, state, chat, msg, message_id);
+fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
+    ui.add_enabled(false, egui::Button::new(&msg.text));
 }
 
 fn format_chat_message(
