@@ -177,6 +177,9 @@ impl IRCActor {
                 chat::MessageType::Text => {
                     sender.send_privmsg(destination, content).unwrap();
                 }
+
+                // Won't happen -- system messages are reserved for the UI display and come from the core system.
+                chat::MessageType::System => (),
             }
         }
     }

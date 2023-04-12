@@ -8,6 +8,7 @@ use super::{DEFAULT_DATE_FORMAT, DEFAULT_TIME_FORMAT};
 pub enum MessageType {
     Text,
     Action,
+    System,
 }
 
 #[derive(Clone, Debug)]
@@ -38,6 +39,9 @@ impl fmt::Display for Message {
             }
             MessageType::Action => {
                 write!(f, " * {} {}", self.username, self.text)
+            }
+            MessageType::System => {
+                write!(f, " * {}", self.text)
             }
         })
     }
@@ -90,22 +94,25 @@ pub enum MessageChunk {
 }
 
 impl Message {
-    pub fn new_text(username: &str, text: &str) -> Self {
+    pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
         Self {
             time: Utc::now(),
-            r#type: MessageType::Text,
+            r#type,
             username: username.to_string(),
             text: text.to_string(),
         }
     }
 
+    pub fn new_text(username: &str, text: &str) -> Self {
+        Self::new(username, text, MessageType::Text)
+    }
+
     pub fn new_action(username: &str, text: &str) -> Self {
-        Self {
-            time: Utc::now(),
-            r#type: MessageType::Action,
-            username: username.to_string(),
-            text: text.to_string(),
-        }
+        Self::new(username, text, MessageType::Action)
+    }
+
+    pub fn new_system(text: &str) -> Self {
+        Self::new("", text, MessageType::System)
     }
 
     pub fn formatted_time(&self) -> String {
