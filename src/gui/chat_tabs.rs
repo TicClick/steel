@@ -104,7 +104,7 @@ impl ChatTabs {
                     chat_tab.context_menu(|ui| {
                         if matches!(mode, ChatType::Channel) {
                             if state.settings.chat.autojoin.contains(channel_name) {
-                                if ui.button("Remofe from favourites").clicked() {
+                                if ui.button("Remove from favourites").clicked() {
                                     state.settings.chat.autojoin.remove(channel_name);
                                     // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                                     state
