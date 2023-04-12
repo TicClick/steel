@@ -157,7 +157,7 @@ impl ChatWindow {
         _chat: &Chat,
         message: &Message,
     ) {
-        if ui.button("💬 Open chat").clicked() {
+        if state.is_connected() && ui.button("💬 Open chat").clicked() {
             state
                 .app_queue_handle
                 .blocking_send(AppMessageIn::UIPrivateChatOpened(message.username.clone()))
