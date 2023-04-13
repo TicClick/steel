@@ -24,3 +24,7 @@ ureq = { version = "2.6.2", features = ["json", "native-tls"] }
 flate2 = "1.0.25"
 tar = "0.4.38"
 zip = "0.6.4"
+md5 = "0.7.0"
+
+# dependency of the alsa-sys crate: librust-alsa-sys-dev
+rodio = "0.17.1"

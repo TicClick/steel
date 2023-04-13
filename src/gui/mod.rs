@@ -40,6 +40,7 @@ pub struct UIState {
     pub message_chunks: BTreeMap<String, BTreeMap<usize, Vec<MessageChunk>>>,
 
     pub updater: Updater,
+    pub sound_player: crate::core::sound::SoundPlayer,
 }
 
 impl UIState {
@@ -53,6 +54,7 @@ impl UIState {
             highlights: highlights::HighlightTracker::new(),
             message_chunks: BTreeMap::default(),
             updater: Updater::new(),
+            sound_player: crate::core::sound::SoundPlayer::new(),
         }
     }
 
@@ -130,9 +132,14 @@ impl UIState {
             }
 
             ch.push(message);
-            self.highlights.maybe_add(ch, id, inactive);
-            if !target.is_channel() && inactive {
+            let has_highlight_keyword = self.highlights.maybe_add(ch, id);
+            let activate_tab_notification =
+                inactive && (has_highlight_keyword || !target.is_channel());
+            if activate_tab_notification {
                 self.highlights.mark_as_unread(&ch.name);
+                if let Some(sound) = &self.settings.notifications.highlights.sound {
+                    self.sound_player.play(sound);
+                }
             }
         }
     }

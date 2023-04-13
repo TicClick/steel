@@ -24,7 +24,7 @@ impl HighlightTracker {
         self.username = username.to_lowercase();
     }
 
-    pub fn maybe_add(&mut self, chat: &chat::Chat, message_id: usize, highlight_tab: bool) {
+    pub fn maybe_add(&mut self, chat: &chat::Chat, message_id: usize) -> bool {
         let msg = &chat.messages[message_id];
         for token in msg
             .text
@@ -36,11 +36,10 @@ impl HighlightTracker {
                     .entry(chat.name.clone())
                     .or_default()
                     .insert(message_id);
-                if highlight_tab {
-                    self.mark_as_unread(&chat.name);
-                }
+                return true;
             }
         }
+        false
     }
 
     pub fn message_contains_highlight(&self, chat: &chat::Chat, message_id: usize) -> bool {

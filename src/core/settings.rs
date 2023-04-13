@@ -103,12 +103,37 @@ impl Default for Highlights {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum BuiltInSound {
+    #[default]
+    Bell,
+    DoubleBell,
+    PartyHorn,
+    Ping,
+    TwoTone,
+}
+
+impl Display for BuiltInSound {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Bell => "bell",
+                Self::DoubleBell => "double bell",
+                Self::PartyHorn => "party horn",
+                Self::Ping => "ping",
+                Self::TwoTone => "two-tone",
+            }
+        )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum Sound {
-    Coin,
-    PartyHorn,
-    Bleep,
+    BuiltIn(BuiltInSound),
 }
 
 impl Display for Sound {
@@ -117,9 +142,7 @@ impl Display for Sound {
             f,
             "{}",
             match self {
-                Self::Coin => "Coin",
-                Self::PartyHorn => "Party horn",
-                Self::Bleep => "Bleep",
+                Self::BuiltIn(s) => format!("built-in ({})", s),
             }
         )
     }

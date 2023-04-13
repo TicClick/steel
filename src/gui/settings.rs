@@ -78,7 +78,9 @@ pub struct Settings {
     autojoin: AutojoinSection,
     username_input: String,
     username_colour_input: settings::Colour,
+
     highlights_input: String,
+    notifications_builtin_sound: settings::BuiltInSound,
 }
 
 impl Settings {
@@ -225,44 +227,7 @@ impl Settings {
                 ui.label("colour");
                 ui.color_edit_button_srgb(state.settings.notifications.highlights.colour.as_u8());
             });
-
-            // TODO: implement sounds
-            if false {
-                ui.horizontal(|ui| {
-                    ui.label("sound");
-                    egui::ComboBox::from_id_source("sound")
-                        .selected_text(match &state.settings.notifications.highlights.sound {
-                            None => "None".into(),
-                            Some(s) => format!("{}", s),
-                        })
-                        .show_ui(ui, |ui| {
-                            ui.selectable_value(
-                                &mut state.settings.notifications.highlights.sound,
-                                None,
-                                "None",
-                            );
-                            ui.selectable_value(
-                                &mut state.settings.notifications.highlights.sound,
-                                Some(settings::Sound::Coin),
-                                "Coin",
-                            );
-                            ui.selectable_value(
-                                &mut state.settings.notifications.highlights.sound,
-                                Some(settings::Sound::PartyHorn),
-                                "Party horn",
-                            );
-                            ui.selectable_value(
-                                &mut state.settings.notifications.highlights.sound,
-                                Some(settings::Sound::Bleep),
-                                "Bleep",
-                            );
-                        });
-                    if ui.button("🔈").clicked() {
-                        // TODO: play sound
-                    }
-                });
-            }
-
+            ui.label("keywords");
             if self.highlights_input.is_empty() {
                 self.highlights_input = state.settings.notifications.highlights.words.join(" ");
             }
@@ -271,10 +236,114 @@ impl Settings {
             if ui.add(hl).changed() {
                 state.update_highlights(&self.highlights_input);
             }
+
+            ui.heading("notification sound");
+
+            ui.radio_value(
+                &mut state.settings.notifications.highlights.sound,
+                None,
+                "don't play anything",
+            );
+
+            let builtin_sound_chosen = matches!(
+                state.settings.notifications.highlights.sound,
+                Some(settings::Sound::BuiltIn(_))
+            );
+            ui.horizontal(|ui| {
+                let mut response = ui.radio(builtin_sound_chosen, "built-in");
+                let inner = egui::ComboBox::from_id_source("sound")
+                    .selected_text(self.notifications_builtin_sound.to_string())
+                    .show_ui(ui, |ui| {
+                        let mut c = ui
+                            .selectable_value(
+                                &mut self.notifications_builtin_sound,
+                                settings::BuiltInSound::Bell,
+                                settings::BuiltInSound::Bell.to_string(),
+                            )
+                            .clicked();
+                        c = c
+                            || ui
+                                .selectable_value(
+                                    &mut self.notifications_builtin_sound,
+                                    settings::BuiltInSound::DoubleBell,
+                                    settings::BuiltInSound::DoubleBell.to_string(),
+                                )
+                                .clicked();
+
+                        // \o /
+                        if format!(
+                            "{:x}",
+                            md5::compute(state.settings.chat.irc.username.as_bytes())
+                        ) == "cdb6d5ffca1edf2659aa721c19ccec1b"
+                        {
+                            c = c
+                                || ui
+                                    .selectable_value(
+                                        &mut self.notifications_builtin_sound,
+                                        settings::BuiltInSound::PartyHorn,
+                                        settings::BuiltInSound::PartyHorn.to_string(),
+                                    )
+                                    .clicked();
+                        }
+                        c = c
+                            || ui
+                                .selectable_value(
+                                    &mut self.notifications_builtin_sound,
+                                    settings::BuiltInSound::Ping,
+                                    settings::BuiltInSound::Ping.to_string(),
+                                )
+                                .clicked();
+                        c = c
+                            || ui
+                                .selectable_value(
+                                    &mut self.notifications_builtin_sound,
+                                    settings::BuiltInSound::TwoTone,
+                                    settings::BuiltInSound::TwoTone.to_string(),
+                                )
+                                .clicked();
+
+                        c
+                    });
+
+                if response.clicked() || inner.inner.unwrap_or(false) {
+                    state.settings.notifications.highlights.sound = Some(settings::Sound::BuiltIn(
+                        self.notifications_builtin_sound.clone(),
+                    ));
+                    response.mark_changed();
+                }
+
+                let test_button = egui::Button::new("🔈");
+                let button_clicked = match state.sound_player.functional() {
+                    true => ui.add(test_button).clicked(),
+                    false => {
+                        let error_text = match state.sound_player.initialization_error() {
+                            None => "unknown initialization error".into(),
+                            Some(e) => e.to_string(),
+                        };
+                        ui.add_enabled(false, test_button)
+                            .on_disabled_hover_text(error_text);
+                        false
+                    }
+                };
+
+                if button_clicked {
+                    state.sound_player.play(&settings::Sound::BuiltIn(
+                        self.notifications_builtin_sound.clone(),
+                    ));
+                }
+            });
+
+            // TODO: implement custom sound picker
+            // There is no centralized egui-based file dialog solution. nfd2 pulls up GTK3, tinyfiledialogs seems to crash when used naively.
+            // Need to either implement it myself, or check potential leads from https://github.com/emilk/egui/issues/270
         });
     }
 
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
+        if let Some(settings::Sound::BuiltIn(sound)) = &state.settings.notifications.highlights.sound {
+            self.notifications_builtin_sound = sound.clone();
+        }
+
         let mut save_clicked = false;
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {
             ui.horizontal(|ui| {
