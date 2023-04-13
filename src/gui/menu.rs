@@ -43,7 +43,7 @@ impl Menu {
                 }
 
                 let (action, enabled, colour) = match state.connection {
-                    ConnectionStatus::Disconnected{ .. } => {
+                    ConnectionStatus::Disconnected { .. } => {
                         ("connect".to_owned(), true, egui::Color32::GREEN)
                     }
                     ConnectionStatus::InProgress => {

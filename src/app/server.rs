@@ -13,21 +13,11 @@ use super::AppMessageIn;
 
 const EVENT_QUEUE_SIZE: usize = 1000;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct ApplicationState {
     pub settings: settings::Settings,
     pub chats: BTreeSet<String>,
     pub connection: ConnectionStatus,
-}
-
-impl Default for ApplicationState {
-    fn default() -> Self {
-        Self {
-            settings: settings::Settings::default(),
-            chats: BTreeSet::default(),
-            connection: ConnectionStatus::default(),
-        }
-    }
 }
 
 pub struct Application {

@@ -15,9 +15,8 @@ fn setup_logging() {
         .open(LOG_FILE_PATH)
         .expect("failed to open the file for logging app events");
 
-    let time_format = simplelog::format_description!(
-        "[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]"
-    );
+    let time_format =
+        simplelog::format_description!("[year]-[month]-[day] [hour]:[minute]:[second].[subsecond]");
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::Trace,
         simplelog::ConfigBuilder::new()
