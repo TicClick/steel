@@ -119,8 +119,8 @@ impl UIState {
         }
     }
 
-    fn push_chat_message(&mut self, target: String, message: Message) {
-        let inactive = !self.is_active_tab(&target);
+    fn push_chat_message(&mut self, target: String, message: Message, window_unfocused: bool) {
+        let tab_inactive = !self.is_active_tab(&target);
         if let Some(ch) = self.chats.get_mut(&target) {
             let id = ch.messages.len();
 
@@ -133,12 +133,14 @@ impl UIState {
 
             ch.push(message);
             let has_highlight_keyword = self.highlights.maybe_add(ch, id);
-            let activate_tab_notification =
-                inactive && (has_highlight_keyword || !target.is_channel());
+            let activate_tab_notification = (window_unfocused || tab_inactive)
+                && (has_highlight_keyword || !target.is_channel());
             if activate_tab_notification {
                 self.highlights.mark_as_unread(&ch.name);
-                if let Some(sound) = &self.settings.notifications.highlights.sound {
-                    self.sound_player.play(sound);
+                if window_unfocused {
+                    if let Some(sound) = &self.settings.notifications.highlights.sound {
+                        self.sound_player.play(sound);
+                    }
                 }
             }
         }

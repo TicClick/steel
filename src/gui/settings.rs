@@ -340,7 +340,9 @@ impl Settings {
     }
 
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
-        if let Some(settings::Sound::BuiltIn(sound)) = &state.settings.notifications.highlights.sound {
+        if let Some(settings::Sound::BuiltIn(sound)) =
+            &state.settings.notifications.highlights.sound
+        {
             self.notifications_builtin_sound = sound.clone();
         }
 
