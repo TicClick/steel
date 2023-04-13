@@ -15,12 +15,17 @@ jobs:
           - windows-latest
     runs-on: ${{ matrix.os }}
 
-    name: Build and test (all platforms)
+    name: Build and test
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
+
+      - name: Install Ubuntu dependencies
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
+
       - run: cargo build --release --all-features
       - run: cargo test
