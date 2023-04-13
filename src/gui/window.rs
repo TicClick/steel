@@ -105,7 +105,7 @@ impl ApplicationWindow {
         }
     }
 
-    pub fn process_pending_events(&mut self) {
+    pub fn process_pending_events(&mut self, frame: &eframe::Frame) {
         while let Ok(event) = self.ui_queue.try_recv() {
             match event {
                 UIMessageIn::SettingsChanged(settings) => {
@@ -159,7 +159,8 @@ impl ApplicationWindow {
                     );
                 }
                 UIMessageIn::NewMessageReceived { target, message } => {
-                    self.s.push_chat_message(target, message);
+                    self.s
+                        .push_chat_message(target, message, !frame.info().window_info.focused);
                 }
                 UIMessageIn::NewServerMessageReceived(_) => {}
                 UIMessageIn::ChatClosed(name) => {
@@ -190,9 +191,9 @@ impl ApplicationWindow {
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
 
 impl eframe::App for ApplicationWindow {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
-        self.process_pending_events();
+        self.process_pending_events(frame);
         self.set_theme(ctx);
 
         self.menu.show(ctx, &mut self.s);

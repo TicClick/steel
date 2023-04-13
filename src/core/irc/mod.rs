@@ -35,9 +35,7 @@ pub enum IRCError {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ConnectionStatus {
-    Disconnected {
-        by_user: bool,
-    },
+    Disconnected { by_user: bool },
     InProgress,
     Connected,
     Scheduled(chrono::DateTime<chrono::Local>),
