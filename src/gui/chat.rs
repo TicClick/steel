@@ -23,15 +23,10 @@ impl ChatWindow {
                 return;
             }
 
-            let text_field =
-                egui::TextEdit::singleline(&mut self.chat_input).hint_text("new message");
-
-            // Don't indent the widget. Hacky, but we don't have access to ui.placer, which controls the layout.
-            let mut pos = ui.available_rect_before_wrap();
-            pos.set_left(pos.left() - ui.spacing().item_spacing.x);
-            pos.set_right(pos.right() + ui.spacing().item_spacing.x);
-
-            let response = ui.put(pos, text_field);
+            let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                .hint_text("new message")
+                .frame(false);
+            let response = ui.centered_and_justified(|ui| ui.add(text_field)).inner;
             self.response_widget_id = Some(response.id);
 
             if let Some(ch) = state.active_chat() {
