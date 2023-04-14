@@ -132,21 +132,21 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
         ui.close_menu();
     }
 
-    ui.menu_button("📄 Copy", |ui| {
-        if ui.button("Message").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.copied_text = message.to_string();
-            });
-            ui.close_menu();
-        }
+    ui.separator();
 
-        if ui.button("Username").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.copied_text = message.username.clone();
-            });
-            ui.close_menu();
-        }
-    });
+    if ui.button("Copy message").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.copied_text = message.to_string();
+        });
+        ui.close_menu();
+    }
+
+    if ui.button("Copy username").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.copied_text = message.username.clone();
+        });
+        ui.close_menu();
+    }
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
