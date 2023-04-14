@@ -18,15 +18,20 @@ impl ChatWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-            if !state.is_connected() {
-                ui.centered_and_justified(|ui| ui.label("(chat not available in offline mode)"));
-                return;
-            }
-
             let text_field = egui::TextEdit::singleline(&mut self.chat_input)
                 .hint_text("new message")
-                .frame(false);
-            let response = ui.centered_and_justified(|ui| ui.add(text_field)).inner;
+                .frame(false)
+                .interactive(state.is_connected());
+            let response = ui
+                .centered_and_justified(|ui| {
+                    let response = ui.add(text_field);
+                    if !state.is_connected() {
+                        response.on_hover_text_at_pointer("you are offline")
+                    } else {
+                        response
+                    }
+                })
+                .inner;
             self.response_widget_id = Some(response.id);
 
             if let Some(ch) = state.active_chat() {
@@ -59,14 +64,16 @@ impl ChatWindow {
         });
     }
 
-    pub fn return_focus(&mut self, ctx: &egui::Context) {
-        ctx.memory_mut(|mem| {
-            if mem.focus().is_none() {
-                if let Some(id) = self.response_widget_id {
-                    mem.request_focus(id);
+    pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
+        if state.is_connected() {
+            ctx.memory_mut(|mem| {
+                if mem.focus().is_none() {
+                    if let Some(id) = self.response_widget_id {
+                        mem.request_focus(id);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     fn display_chat_message(

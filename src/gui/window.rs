@@ -206,7 +206,7 @@ impl eframe::App for ApplicationWindow {
         self.about.show(ctx, &self.s, &mut self.menu.show_about);
 
         if !self.menu.dialogs_visible() {
-            self.chat.return_focus(ctx);
+            self.chat.return_focus(ctx, &self.s);
         }
     }
 
