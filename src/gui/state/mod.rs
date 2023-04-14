@@ -29,6 +29,7 @@ pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
     chats: BTreeMap<String, Chat>,
+    pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
     pub core: client::CoreClient,
@@ -45,6 +46,7 @@ impl UIState {
             connection: ConnectionStatus::default(),
             settings: Settings::default(),
             chats: BTreeMap::default(),
+            server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
             core: client::CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
@@ -133,6 +135,10 @@ impl UIState {
                 }
             }
         }
+    }
+
+    pub fn push_server_message(&mut self, text: &str) {
+        self.server_messages.push(Message::new_system(text));
     }
 
     pub fn get_chunks(&self, target: &str, message_id: usize) -> Vec<MessageChunk> {

@@ -21,13 +21,14 @@ impl ChatTabs {
             }
             self.show_chats(state, ui, ChatType::Channel);
 
-            ui.separator();
-
             ui.heading("private messages");
             if state.is_connected() {
                 self.show_new_chat_input(state, ui, ChatType::Person);
             }
             self.show_chats(state, ui, ChatType::Person);
+
+            ui.heading("system");
+            self.show_system_tabs(state, ui);
         });
     }
 }
@@ -160,6 +161,15 @@ impl ChatTabs {
 
         for target in chats_to_clear {
             state.clear_chat(&target);
+        }
+    }
+
+    fn show_system_tabs(&self, state: &mut UIState, ui: &mut Ui) {
+        for label in [
+            super::HIGHLIGHTS_TAB_NAME.to_owned(),
+            super::SERVER_TAB_NAME.to_owned(),
+        ] {
+            ui.selectable_value(&mut state.active_chat_tab_name, label.to_owned(), label);
         }
     }
 }

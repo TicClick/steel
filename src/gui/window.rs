@@ -142,7 +142,9 @@ impl ApplicationWindow {
                     self.s
                         .push_chat_message(target, message, !frame.info().window_info.focused);
                 }
-                UIMessageIn::NewServerMessageReceived(_) => {}
+                UIMessageIn::NewServerMessageReceived(text) => {
+                    self.s.push_server_message(&text);
+                }
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
                 }

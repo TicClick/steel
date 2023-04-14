@@ -11,6 +11,9 @@ use crate::core::chat::{ChatState, Message};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
 
+const HIGHLIGHTS_TAB_NAME: &str = "highlights";
+const SERVER_TAB_NAME: &str = "server";
+
 #[derive(Debug)]
 pub enum UIMessageIn {
     SettingsChanged(Settings),
