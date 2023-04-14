@@ -81,11 +81,10 @@ impl UIState {
     pub fn add_new_chat(&mut self, target: String, state: ChatState) {
         let name = match target.chat_type() {
             ChatType::Channel => {
-                let tmp = target.to_lowercase();
-                if !tmp.is_channel() {
-                    format!("#{}", tmp)
+                if !target.is_channel() {
+                    format!("#{}", target)
                 } else {
-                    tmp
+                    target
                 }
             }
             ChatType::Person => target,
@@ -94,9 +93,10 @@ impl UIState {
         let mut chat = Chat::new(name.to_owned());
         chat.state = state;
 
-        self.chats.insert(name.to_owned(), chat);
+        let normalized = chat.name.to_lowercase();
+        self.chats.insert(normalized.to_owned(), chat);
         if !name.is_channel() {
-            self.active_chat_tab_name = name;
+            self.active_chat_tab_name = normalized;
         }
     }
 
@@ -105,14 +105,21 @@ impl UIState {
     }
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState, reason: Option<&str>) {
-        if let Some(ch) = self.chats.get_mut(target) {
+        let normalized = target.to_lowercase();
+        if let Some(ch) = self.chats.get_mut(&normalized) {
             ch.set_state(state, reason);
         }
     }
 
     pub fn push_chat_message(&mut self, target: String, message: Message, window_unfocused: bool) {
-        let tab_inactive = !self.is_active_tab(&target);
-        if let Some(ch) = self.chats.get_mut(&target) {
+        let normalized = target.to_lowercase();
+        let tab_inactive = !self.is_active_tab(&normalized);
+        if let Some(ch) = self.chats.get_mut(&normalized) {
+            // If the chat was open with an improper case, fix it!
+            if ch.name != target {
+                ch.name = target;
+            }
+
             let id = ch.messages.len();
 
             if let Some(chunks) = message.chunked_text() {
@@ -125,7 +132,7 @@ impl UIState {
             ch.push(message);
             let has_highlight_keyword = self.highlights.maybe_add(ch, id);
             let activate_tab_notification = (window_unfocused || tab_inactive)
-                && (has_highlight_keyword || !target.is_channel());
+                && (has_highlight_keyword || !normalized.is_channel());
             if activate_tab_notification {
                 self.highlights.mark_as_unread(&ch.name);
                 if window_unfocused {
@@ -138,20 +145,22 @@ impl UIState {
     }
 
     pub fn get_chunks(&self, target: &str, message_id: usize) -> Vec<MessageChunk> {
-        if let Some(messages) = self.message_chunks.get(target) {
+        let normalized = target.to_lowercase();
+        if let Some(messages) = self.message_chunks.get(&normalized) {
             if let Some(val) = messages.get(&message_id) {
                 return val.clone();
             }
         }
-        if let Some(ch) = self.chats.get(target) {
+        if let Some(ch) = self.chats.get(&normalized) {
             return vec![MessageChunk::Text(ch.messages[message_id].text.clone())];
         }
         Vec::new()
     }
 
     pub fn remove_chat(&mut self, target: String) {
-        self.chats.remove(&target);
-        self.highlights.drop(&target);
+        let normalized = target.to_lowercase();
+        self.chats.remove(&normalized);
+        self.highlights.drop(&normalized);
     }
 
     pub fn clear_chat(&mut self, target: &str) {
@@ -173,7 +182,7 @@ impl UIState {
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.chats.contains_key(target)
+        self.chats.contains_key(&target.to_lowercase())
     }
 
     pub fn push_to_all_chats(&mut self, message: Message) {
