@@ -78,12 +78,20 @@ pub struct Settings {
     autojoin: AutojoinSection,
     username_input: String,
     username_colour_input: settings::Colour,
+    visible_password: bool,
 
     highlights_input: String,
     notifications_builtin_sound: settings::BuiltInSound,
 }
 
 impl Settings {
+    pub fn new() -> Self {
+        Self {
+            visible_password: false,
+            ..Default::default()
+        }
+    }
+
     fn show_active_tab_contents(
         &mut self,
         ctx: &egui::Context,
@@ -147,13 +155,30 @@ impl Settings {
             match state.settings.chat.backend {
                 settings::ChatBackend::IRC => {
                     ui.vertical(|ui| {
+                        let total_width = ui
+                            .horizontal(|ui| {
+                                let mut sz = ui.label("username").rect.width();
+                                sz += ui
+                                    .text_edit_singleline(&mut state.settings.chat.irc.username)
+                                    .rect
+                                    .width();
+                                sz
+                            })
+                            .inner;
+
                         ui.horizontal(|ui| {
-                            ui.label("username");
-                            ui.text_edit_singleline(&mut state.settings.chat.irc.username);
-                        });
-                        ui.horizontal(|ui| {
-                            ui.hyperlink_to("password", "https://osu.ppy.sh/p/irc");
-                            ui.text_edit_singleline(&mut state.settings.chat.irc.password);
+                            let label_width = ui
+                                .hyperlink_to("IRC password", "https://osu.ppy.sh/p/irc")
+                                .rect
+                                .width();
+                            let input =
+                                egui::TextEdit::singleline(&mut state.settings.chat.irc.password)
+                                    .password(!self.visible_password)
+                                    .desired_width(total_width - label_width - 26.);
+                            ui.add(input);
+                            if ui.button("👁").clicked() {
+                                self.visible_password = !self.visible_password;
+                            }
                         });
                     });
                 }
@@ -357,6 +382,8 @@ impl Settings {
                 ui.separator();
                 self.show_active_tab_contents(ctx, ui, state);
             });
+
+            ui.add_space(10.);
 
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {

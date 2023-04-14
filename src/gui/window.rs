@@ -98,7 +98,7 @@ impl ApplicationWindow {
             menu: gui::menu::Menu::new(),
             chat: gui::chat::ChatWindow::new(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
-            settings: gui::settings::Settings::default(),
+            settings: gui::settings::Settings::new(),
             about: gui::about::About::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
