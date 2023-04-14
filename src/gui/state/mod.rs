@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatState, ChatType, Message, MessageChunk};
+use crate::core::chat::{Chat, ChatLike, ChatState, Message, MessageChunk};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
@@ -80,18 +80,7 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, target: String, state: ChatState) {
-        let name = match target.chat_type() {
-            ChatType::Channel => {
-                if !target.is_channel() {
-                    format!("#{}", target)
-                } else {
-                    target
-                }
-            }
-            ChatType::Person => target,
-        };
-
+    pub fn add_new_chat(&mut self, name: String, state: ChatState) {
         let mut chat = Chat::new(name.to_owned());
         chat.state = state;
 
