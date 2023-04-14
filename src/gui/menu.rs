@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::core::settings;
 use crate::{app::AppMessageIn, core::irc::ConnectionStatus};
 
-use super::UIState;
+use crate::gui::state::UIState;
 
 #[derive(Default)]
 pub struct Menu {

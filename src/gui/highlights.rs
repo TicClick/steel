@@ -33,7 +33,7 @@ impl HighlightTracker {
         {
             if self.highlights.contains(token) || token == self.username {
                 self.messages
-                    .entry(chat.name.clone())
+                    .entry(chat.name.to_lowercase())
                     .or_default()
                     .insert(message_id);
                 return true;
@@ -43,7 +43,7 @@ impl HighlightTracker {
     }
 
     pub fn message_contains_highlight(&self, chat: &chat::Chat, message_id: usize) -> bool {
-        if let Some(ids) = self.messages.get(&chat.name) {
+        if let Some(ids) = self.messages.get(&chat.name.to_lowercase()) {
             ids.contains(&message_id)
         } else {
             false

@@ -2,7 +2,7 @@ use eframe::egui;
 
 use crate::core::updater::UpdateState;
 
-use super::UIState;
+use crate::gui::state::UIState;
 use crate::VersionString;
 
 #[derive(Default)]

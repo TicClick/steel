@@ -194,8 +194,9 @@ impl Application {
     }
 
     fn maybe_remember_chat(&mut self, target: &str) {
-        if !self.state.chats.contains(target) {
-            self.state.chats.insert(target.to_owned());
+        let normalized = target.to_lowercase();
+        if !self.state.chats.contains(&normalized) {
+            self.state.chats.insert(normalized);
             self.push_chat_to_ui(target);
         }
     }
@@ -233,7 +234,8 @@ impl Application {
     }
 
     pub fn ui_handle_close_chat(&mut self, name: &str) {
-        self.state.chats.remove(name);
+        let normalized = name.to_lowercase();
+        self.state.chats.remove(&normalized);
         if name.is_channel() {
             self.leave_channel(name);
         }

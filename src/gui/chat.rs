@@ -3,7 +3,7 @@ use eframe::egui;
 use crate::app::AppMessageIn;
 use crate::core::chat::{Chat, Message, MessageChunk, MessageType};
 
-use super::UIState;
+use crate::gui::state::UIState;
 
 #[derive(Default)]
 pub struct ChatWindow {
