@@ -8,7 +8,6 @@ use eframe::egui;
 use crate::core::chat::ChatLike;
 use crate::core::settings;
 
-use crate::app::AppMessageIn;
 use crate::gui::state::UIState;
 
 #[derive(Clone, Debug, Default, cmp::PartialEq, cmp::Eq)]
@@ -393,16 +392,10 @@ impl Settings {
                         .on_hover_text_at_pointer("double click to discard changes")
                         .double_clicked()
                     {
-                        state
-                            .app_queue_handle
-                            .blocking_send(AppMessageIn::UISettingsRequested)
-                            .unwrap();
+                        state.core.settings_requested();
                     }
                     if ui.button("save settings").clicked() {
-                        state
-                            .app_queue_handle
-                            .blocking_send(AppMessageIn::UISettingsUpdated(state.settings.clone()))
-                            .unwrap();
+                        state.core.settings_updated(&state.settings.clone());
                         save_clicked = true;
                     }
                 });

@@ -1,7 +1,7 @@
 use eframe::egui;
 
+use crate::core::irc::ConnectionStatus;
 use crate::core::settings;
-use crate::{app::AppMessageIn, core::irc::ConnectionStatus};
 
 use crate::gui::state::UIState;
 
@@ -31,10 +31,7 @@ impl Menu {
                         settings::ThemeMode::Light
                     };
                     if state.settings.ui.theme != old_theme {
-                        state
-                            .app_queue_handle
-                            .blocking_send(AppMessageIn::UISettingsUpdated(state.settings.clone()))
-                            .unwrap();
+                        state.core.settings_updated(&state.settings);
                     }
                 }
 
@@ -68,19 +65,9 @@ impl Menu {
                     .clicked()
                 {
                     match state.connection {
-                        ConnectionStatus::Disconnected { .. } => {
-                            state
-                                .app_queue_handle
-                                .blocking_send(AppMessageIn::UIConnectRequested)
-                                .unwrap();
-                        }
+                        ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
                         ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                        ConnectionStatus::Connected => {
-                            state
-                                .app_queue_handle
-                                .blocking_send(AppMessageIn::UIDisconnectRequested)
-                                .unwrap();
-                        }
+                        ConnectionStatus::Connected => state.core.disconnect_requested(),
                     }
                 }
 

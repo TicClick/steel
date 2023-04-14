@@ -190,10 +190,7 @@ impl eframe::App for ApplicationWindow {
     }
 
     fn on_close_event(&mut self) -> bool {
-        self.s
-            .app_queue_handle
-            .blocking_send(AppMessageIn::UIExitRequested)
-            .unwrap();
+        self.s.core.exit_requested();
         true
     }
 }

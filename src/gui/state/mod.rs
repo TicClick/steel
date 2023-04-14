@@ -1,3 +1,5 @@
+pub mod client;
+
 use std::collections::BTreeMap;
 
 use tokio::sync::mpsc::Sender;
@@ -29,7 +31,7 @@ pub struct UIState {
     chats: BTreeMap<String, Chat>,
     pub active_chat_tab_name: String,
 
-    pub app_queue_handle: Sender<AppMessageIn>,
+    pub core: client::CoreClient,
     pub highlights: highlights::HighlightTracker,
     pub message_chunks: BTreeMap<String, BTreeMap<usize, Vec<MessageChunk>>>,
 
@@ -44,7 +46,7 @@ impl UIState {
             settings: Settings::default(),
             chats: BTreeMap::default(),
             active_chat_tab_name: String::new(),
-            app_queue_handle,
+            core: client::CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
             message_chunks: BTreeMap::default(),
             updater: Updater::new(),

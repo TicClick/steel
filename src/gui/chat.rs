@@ -1,6 +1,5 @@
 use eframe::egui;
 
-use crate::app::AppMessageIn;
 use crate::core::chat::{Chat, Message, MessageChunk, MessageType};
 
 use crate::gui::state::UIState;
@@ -36,13 +35,7 @@ impl ChatWindow {
 
             if let Some(ch) = state.active_chat() {
                 if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    state
-                        .app_queue_handle
-                        .blocking_send(AppMessageIn::UIChatMessageSent {
-                            target: ch.name.clone(),
-                            text: self.chat_input.clone(),
-                        })
-                        .unwrap();
+                    state.core.chat_message_sent(&ch.name, &self.chat_input);
                     self.chat_input.clear();
                     response.request_focus();
                 }
@@ -105,10 +98,7 @@ impl ChatWindow {
 
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
-        state
-            .app_queue_handle
-            .blocking_send(AppMessageIn::UIPrivateChatOpened(message.username.clone()))
-            .unwrap();
+        state.core.private_chat_opened(&message.username);
         ui.close_menu();
     }
 
