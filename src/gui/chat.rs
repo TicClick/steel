@@ -18,20 +18,20 @@ impl ChatWindow {
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-            if !state.is_connected() {
-                ui.centered_and_justified(|ui| ui.label("(chat not available in offline mode)"));
-                return;
-            }
-
-            let text_field =
-                egui::TextEdit::singleline(&mut self.chat_input).hint_text("new message");
-
-            // Don't indent the widget. Hacky, but we don't have access to ui.placer, which controls the layout.
-            let mut pos = ui.available_rect_before_wrap();
-            pos.set_left(pos.left() - ui.spacing().item_spacing.x);
-            pos.set_right(pos.right() + ui.spacing().item_spacing.x);
-
-            let response = ui.put(pos, text_field);
+            let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                .hint_text("new message")
+                .frame(false)
+                .interactive(state.is_connected());
+            let response = ui
+                .centered_and_justified(|ui| {
+                    let response = ui.add(text_field);
+                    if !state.is_connected() {
+                        response.on_hover_text_at_pointer("you are offline")
+                    } else {
+                        response
+                    }
+                })
+                .inner;
             self.response_widget_id = Some(response.id);
 
             if let Some(ch) = state.active_chat() {
@@ -64,14 +64,16 @@ impl ChatWindow {
         });
     }
 
-    pub fn return_focus(&mut self, ctx: &egui::Context) {
-        ctx.memory_mut(|mem| {
-            if mem.focus().is_none() {
-                if let Some(id) = self.response_widget_id {
-                    mem.request_focus(id);
+    pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
+        if state.is_connected() {
+            ctx.memory_mut(|mem| {
+                if mem.focus().is_none() {
+                    if let Some(id) = self.response_widget_id {
+                        mem.request_focus(id);
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     fn display_chat_message(
@@ -137,21 +139,21 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
         ui.close_menu();
     }
 
-    ui.menu_button("📄 Copy", |ui| {
-        if ui.button("Message").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.copied_text = message.to_string();
-            });
-            ui.close_menu();
-        }
+    ui.separator();
 
-        if ui.button("Username").clicked() {
-            ui.ctx().output_mut(|o| {
-                o.copied_text = message.username.clone();
-            });
-            ui.close_menu();
-        }
-    });
+    if ui.button("Copy message").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.copied_text = message.to_string();
+        });
+        ui.close_menu();
+    }
+
+    if ui.button("Copy username").clicked() {
+        ui.ctx().output_mut(|o| {
+            o.copied_text = message.username.clone();
+        });
+        ui.close_menu();
+    }
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) {

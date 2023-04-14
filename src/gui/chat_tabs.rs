@@ -62,13 +62,17 @@ impl ChatTabs {
                 // but for now let's add it to the interface.
                 match mode {
                     ChatType::Channel => {
+                        let channel_name = match input.is_channel() {
+                            true => input.clone(),
+                            false => format!("#{}", input),
+                        };
                         state
                             .app_queue_handle
-                            .blocking_send(AppMessageIn::UIChannelOpened(input.clone()))
+                            .blocking_send(AppMessageIn::UIChannelOpened(channel_name.clone()))
                             .unwrap();
                         state
                             .app_queue_handle
-                            .blocking_send(AppMessageIn::UIChannelJoinRequested(input.clone()))
+                            .blocking_send(AppMessageIn::UIChannelJoinRequested(channel_name))
                             .unwrap();
                     }
                     ChatType::Person => {
