@@ -150,7 +150,7 @@ impl Application {
             }
             ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
             ConnectionStatus::Disconnected { by_user } => {
-                if !by_user {
+                if self.state.settings.chat.reconnect && !by_user {
                     self.queue_reconnect();
                 }
             }
@@ -171,7 +171,7 @@ impl Application {
             std::thread::sleep(delta.to_std().unwrap());
             queue
                 .blocking_send(AppMessageIn::UIConnectRequested)
-                .unwrap();
+                .expect("failed to trigger reconnection");
         });
     }
 
@@ -218,7 +218,7 @@ impl Application {
     }
 
     pub fn connect(&mut self) {
-        if matches!(self.state.connection, ConnectionStatus::Connected) {
+        if !matches!(self.state.connection, ConnectionStatus::Disconnected { .. }) {
             return;
         }
         let irc_config = self.state.settings.chat.irc.clone();
@@ -226,6 +226,9 @@ impl Application {
     }
 
     pub fn disconnect(&mut self) {
+        if !matches!(self.state.connection, ConnectionStatus::Connected) {
+            return;
+        }
         self.irc.disconnect();
     }
 
