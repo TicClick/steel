@@ -387,13 +387,18 @@ impl Settings {
 
             ui.horizontal(|ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                    if ui.button("reset").clicked() {
+                    let reset_button = egui::Button::new("reset");
+                    if ui
+                        .add(reset_button)
+                        .on_hover_text_at_pointer("double click to discard changes")
+                        .double_clicked()
+                    {
                         state
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UISettingsRequested)
                             .unwrap();
                     }
-                    if ui.button("save").clicked() {
+                    if ui.button("save settings").clicked() {
                         state
                             .app_queue_handle
                             .blocking_send(AppMessageIn::UISettingsUpdated(state.settings.clone()))
