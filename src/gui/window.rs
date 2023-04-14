@@ -1,10 +1,11 @@
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::core::chat::{ChatLike, ChatState, Message};
+use crate::core::chat::{ChatState, Message};
 use crate::{app::AppMessageIn, gui};
 use eframe::egui;
 
-use super::{UIMessageIn, UIState};
+use super::UIMessageIn;
+use crate::gui::state::UIState;
 
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings;
@@ -115,37 +116,16 @@ impl ApplicationWindow {
                     self.s.connection = conn;
                     match conn {
                         ConnectionStatus::Disconnected { .. } => {
-                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
-                            for name in chat_names {
-                                let reason = if name.is_channel() {
-                                    "You have left the channel (disconnected)"
-                                } else {
-                                    "You have left the chat (disconnected)"
-                                };
-                                self.s.set_chat_state(&name, ChatState::Left, Some(reason));
-                            }
+                            self.s.mark_all_as_disconnected();
                         }
                         ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
                         ConnectionStatus::Connected => {
-                            let chat_names: Vec<String> = self.s.chats.keys().cloned().collect();
-                            for name in chat_names {
-                                if name.is_channel() {
-                                    // Joins are handled by the app server
-                                    self.s
-                                        .set_chat_state(&name, ChatState::JoinInProgress, None);
-                                } else {
-                                    self.s.set_chat_state(
-                                        &name,
-                                        ChatState::Joined,
-                                        Some("You are online"),
-                                    );
-                                }
-                            }
+                            self.s.mark_all_as_connected();
                         }
                     }
                 }
                 UIMessageIn::NewChatRequested(name, state) => {
-                    if self.s.chats.contains_key(&name) {
+                    if self.s.has_chat(&name) {
                         self.s.set_chat_state(&name, state, None);
                     } else {
                         self.s.add_new_chat(name, state);
@@ -168,12 +148,11 @@ impl ApplicationWindow {
                 }
                 UIMessageIn::DateChanged => {
                     let now = chrono::Local::now();
-                    for (_, chat) in self.s.chats.iter_mut() {
-                        chat.push(Message::new_system(&format!(
-                            "A new day is born ({})",
-                            now.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
-                        )));
-                    }
+                    let text = format!(
+                        "A new day is born ({})",
+                        now.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
+                    );
+                    self.s.push_to_all_chats(Message::new_system(&text));
                 }
             }
         }

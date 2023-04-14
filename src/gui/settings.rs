@@ -8,8 +8,8 @@ use eframe::egui;
 use crate::core::chat::ChatLike;
 use crate::core::settings;
 
-use super::UIState;
 use crate::app::AppMessageIn;
+use crate::gui::state::UIState;
 
 #[derive(Clone, Debug, Default, cmp::PartialEq, cmp::Eq)]
 pub enum Tab {

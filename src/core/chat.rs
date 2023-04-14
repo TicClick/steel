@@ -431,6 +431,13 @@ impl Chat {
     pub fn r#type(&self) -> ChatType {
         self.name.chat_type()
     }
+
+    pub fn set_state(&mut self, state: ChatState, reason: Option<&str>) {
+        self.state = state;
+        if let Some(reason) = reason {
+            self.push(Message::new_system(reason));
+        }
+    }
 }
 
 pub trait ChatLike {

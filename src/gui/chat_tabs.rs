@@ -5,7 +5,7 @@ use eframe::egui::{self, Ui};
 use crate::app::AppMessageIn;
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
-use super::UIState;
+use crate::gui::state::UIState;
 
 #[derive(Default)]
 pub struct ChatTabs {
@@ -89,39 +89,42 @@ impl ChatTabs {
     }
 
     fn show_chats(&self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
-        let it = state.chats.values().filter(|ch| match mode {
-            ChatType::Channel => ch.name.is_channel(),
-            ChatType::Person => !ch.name.is_channel(),
-        });
+        let it: Vec<(String, ChatState)> = state
+            .filter_chats(|ch| match mode {
+                ChatType::Channel => ch.name.is_channel(),
+                ChatType::Person => !ch.name.is_channel(),
+            })
+            .map(|ch| (ch.name.to_owned(), ch.state.to_owned()))
+            .collect();
 
         let mut chats_to_clear = BTreeSet::new();
 
-        for ch in it {
-            let is_active_tab = state.is_active_tab(&ch.name);
+        for (chat_name, chat_state) in it {
+            let is_active_tab = state.is_active_tab(&chat_name);
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
-                    let mut label = egui::RichText::new(&ch.name);
+                    let mut label = egui::RichText::new(&chat_name);
                     if is_active_tab {
-                        state.highlights.mark_as_read(&ch.name);
-                    } else if state.highlights.tab_contains_highlight(&ch.name) {
+                        state.highlights.mark_as_read(&chat_name);
+                    } else if state.highlights.tab_contains_highlight(&chat_name) {
                         label = label.color(state.settings.notifications.highlights.colour.clone());
                     }
 
                     let chat_tab = ui.selectable_value(
                         &mut state.active_chat_tab_name,
-                        ch.name.to_owned(),
+                        chat_name.to_owned(),
                         label,
                     );
-                    if matches!(ch.state, ChatState::JoinInProgress) {
+                    if matches!(chat_state, ChatState::JoinInProgress) {
                         ui.spinner();
                     }
 
                     let mut close_tab = chat_tab.middle_clicked();
                     chat_tab.context_menu(|ui| {
                         if matches!(mode, ChatType::Channel) {
-                            if state.settings.chat.autojoin.contains(&ch.name) {
+                            if state.settings.chat.autojoin.contains(&chat_name) {
                                 if ui.button("Remove from favourites").clicked() {
-                                    state.settings.chat.autojoin.remove(&ch.name);
+                                    state.settings.chat.autojoin.remove(&chat_name);
                                     // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                                     state
                                         .app_queue_handle
@@ -132,7 +135,7 @@ impl ChatTabs {
                                     ui.close_menu();
                                 }
                             } else if ui.button("Add to favourites").clicked() {
-                                state.settings.chat.autojoin.insert(ch.name.to_owned());
+                                state.settings.chat.autojoin.insert(chat_name.to_owned());
                                 // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                                 state
                                     .app_queue_handle
@@ -145,7 +148,7 @@ impl ChatTabs {
                         }
 
                         if ui.button("Clear messages").clicked() {
-                            chats_to_clear.insert(ch.name.to_owned());
+                            chats_to_clear.insert(chat_name.to_owned());
                             ui.close_menu();
                         }
 
@@ -162,7 +165,7 @@ impl ChatTabs {
                     if close_tab {
                         state
                             .app_queue_handle
-                            .blocking_send(AppMessageIn::UIChatClosed(ch.name.to_owned()))
+                            .blocking_send(AppMessageIn::UIChatClosed(chat_name.to_owned()))
                             .unwrap();
                     }
                 });
