@@ -72,6 +72,18 @@ impl UIState {
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
+    pub fn chat_message_count(&self) -> usize {
+        if let Some(ch) = self.active_chat() {
+            ch.messages.len()
+        } else {
+            match self.active_chat_tab_name.as_str() {
+                super::SERVER_TAB_NAME => self.server_messages.len(),
+                super::HIGHLIGHTS_TAB_NAME => self.highlights.ordered().len(),
+                _ => 0,
+            }
+        }
+    }
+
     pub fn active_chat(&self) -> Option<&Chat> {
         self.chats.get(&self.active_chat_tab_name)
     }

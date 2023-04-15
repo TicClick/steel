@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use eframe::egui;
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
@@ -45,18 +47,24 @@ impl ChatWindow {
             });
         }
 
-        // TODO: use show_rows() instead
         egui::CentralPanel::default().show(ctx, |ui| {
+            let row_height = ui.text_style_height(&egui::TextStyle::Body); // XXX: may need adjustments if the style changes
+            let message_count = state.chat_message_count();
+
             egui::ScrollArea::vertical()
                 .auto_shrink([false, true])
                 .stick_to_bottom(true)
-                .show(ui, |ui| {
+                .show_rows(ui, row_height, message_count, |ui, row_range| {
                     if let Some(ch) = state.active_chat() {
-                        self.show_chat_messages(ui, state, ch);
+                        self.show_chat_messages(ui, state, ch, row_range);
                     } else {
                         match state.active_chat_tab_name.as_str() {
-                            super::SERVER_TAB_NAME => self.show_server_messages(ui, state),
-                            super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state),
+                            super::SERVER_TAB_NAME => {
+                                self.show_server_messages(ui, state, row_range)
+                            }
+                            super::HIGHLIGHTS_TAB_NAME => {
+                                self.show_highlights(ui, state, row_range)
+                            }
                             _ => (),
                         }
                     }
@@ -64,8 +72,8 @@ impl ChatWindow {
         });
     }
 
-    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState) {
-        for (chat_name, msg) in state.highlights.ordered() {
+    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+        for (chat_name, msg) in &state.highlights.ordered()[row_range.start..row_range.end] {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
@@ -76,8 +84,8 @@ impl ChatWindow {
         }
     }
 
-    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState) {
-        for msg in state.server_messages.iter() {
+    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+        for msg in state.server_messages[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
@@ -106,8 +114,14 @@ impl ChatWindow {
         }
     }
 
-    fn show_chat_messages(&self, ui: &mut egui::Ui, state: &UIState, chat: &Chat) {
-        for msg in chat.messages.iter() {
+    fn show_chat_messages(
+        &self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        chat: &Chat,
+        row_range: Range<usize>,
+    ) {
+        for msg in chat.messages[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
