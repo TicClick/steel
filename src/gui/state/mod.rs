@@ -130,7 +130,7 @@ impl UIState {
                 (window_unfocused || tab_inactive) && (highlight || !normalized.is_channel());
 
             if activate_tab_notification {
-                self.highlights.mark_as_unread(&ch.name);
+                self.highlights.mark_as_unread(&normalized);
                 if window_unfocused {
                     if let Some(sound) = &self.settings.notifications.highlights.sound {
                         self.sound_player.play(sound);
