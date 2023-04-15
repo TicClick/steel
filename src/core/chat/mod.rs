@@ -1,5 +1,6 @@
 pub mod links;
 
+use std::collections::BTreeSet;
 use std::fmt;
 
 use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
@@ -24,7 +25,11 @@ pub struct Message {
     pub r#type: MessageType,
     pub username: String,
     pub text: String,
+
+    // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
+    pub id: Option<usize>,
+    pub highlight: bool,
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -56,7 +61,10 @@ impl Message {
             r#type,
             username: username.to_string(),
             text: text.to_string(),
+
             chunks: None,
+            id: None,
+            highlight: false,
         }
     }
 
@@ -85,6 +93,19 @@ impl Message {
             .naive_utc()
             .format(DEFAULT_DATETIME_FORMAT)
             .to_string()
+    }
+
+    pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>) {
+        for token in self
+            .text
+            .to_lowercase()
+            .split(|ch: char| ch.is_whitespace() || ch.is_ascii_punctuation())
+        {
+            if keywords.contains(token) {
+                self.highlight = true;
+                break;
+            }
+        }
     }
 }
 

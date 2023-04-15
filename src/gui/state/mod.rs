@@ -115,14 +115,19 @@ impl UIState {
             if ch.name != target {
                 ch.name = target;
             }
+
+            message.id = Some(ch.messages.len());
             message.parse_for_links();
+            message.detect_highlights(self.highlights.keywords());
+
+            let highlight = message.highlight;
+            if highlight {
+                self.highlights.add(&normalized, &message);
+            }
             ch.push(message);
 
-            let id = ch.messages.len();
-            let has_highlight_keyword = self.highlights.maybe_add(ch, id);
-
-            let activate_tab_notification = (window_unfocused || tab_inactive)
-                && (has_highlight_keyword || !normalized.is_channel());
+            let activate_tab_notification =
+                (window_unfocused || tab_inactive) && (highlight || !normalized.is_channel());
 
             if activate_tab_notification {
                 self.highlights.mark_as_unread(&ch.name);

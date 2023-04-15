@@ -52,9 +52,7 @@ impl ChatWindow {
                 .stick_to_bottom(true)
                 .show(ui, |ui| {
                     if let Some(ch) = state.active_chat() {
-                        for i in 0..ch.messages.len() {
-                            self.display_chat_message(ui, state, ch, i);
-                        }
+                        self.show_chat_messages(ui, state, ch);
                     } else {
                         match state.active_chat_tab_name.as_str() {
                             super::SERVER_TAB_NAME => self.show_server_messages(ui, state),
@@ -95,25 +93,17 @@ impl ChatWindow {
         }
     }
 
-    fn display_chat_message(
-        &self,
-        ui: &mut egui::Ui,
-        state: &UIState,
-        chat: &Chat,
-        message_id: usize,
-    ) {
-        let msg = &chat.messages[message_id];
-        ui.horizontal(|ui| {
-            ui.spacing_mut().item_spacing.x /= 2.;
-            show_datetime(ui, msg);
-
-            match msg.r#type {
-                MessageType::Action | MessageType::Text => {
-                    format_chat_message(ui, state, chat, msg, message_id)
+    fn show_chat_messages(&self, ui: &mut egui::Ui, state: &UIState, chat: &Chat) {
+        for msg in chat.messages.iter() {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x /= 2.;
+                show_datetime(ui, msg);
+                match msg.r#type {
+                    MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
+                    MessageType::System => format_system_message(ui, msg),
                 }
-                MessageType::System => format_system_message(ui, msg),
-            }
-        });
+            });
+        }
     }
 }
 
@@ -180,18 +170,9 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
     ui.add_enabled(false, egui::Button::new(&msg.text));
 }
 
-fn format_chat_message(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    chat: &Chat,
-    msg: &Message,
-    message_id: usize,
-) {
+fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     format_username(ui, state, msg);
-    let mark_as_highlight = state
-        .highlights
-        .message_contains_highlight(chat, message_id);
-    format_chat_message_text(ui, state, msg, mark_as_highlight);
+    format_chat_message_text(ui, state, msg, msg.highlight);
 }
 
 fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {

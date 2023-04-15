@@ -182,6 +182,8 @@ mod tests {
             username: "abc".into(),
             text: s.into(),
             chunks: None,
+            id: None,
+            highlight: false,
         };
         m.parse_for_links();
         m
