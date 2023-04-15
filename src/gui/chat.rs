@@ -187,6 +187,14 @@ fn format_chat_message(
     msg: &Message,
     message_id: usize,
 ) {
+    format_username(ui, state, msg);
+    let mark_as_highlight = state
+        .highlights
+        .message_contains_highlight(chat, message_id);
+    format_chat_message_text(ui, state, msg, mark_as_highlight);
+}
+
+fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours.own.clone())
     } else {
@@ -205,10 +213,14 @@ fn format_chat_message(
 
     ui.button(username_text)
         .context_menu(|ui| show_username_menu(ui, state, msg));
+}
 
-    let is_highlight = state
-        .highlights
-        .message_contains_highlight(chat, message_id);
+fn format_chat_message_text(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    msg: &Message,
+    mark_as_highlight: bool,
+) {
     let is_action = matches!(msg.r#type, MessageType::Action);
 
     let layout = egui::Layout::from_main_dir_and_cross_align(
@@ -220,29 +232,31 @@ fn format_chat_message(
 
     ui.with_layout(layout, |ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
-        for c in state.get_chunks(&chat.name, message_id) {
-            match &c {
-                MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
-                    let mut text_chunk = egui::RichText::new(s);
-                    if is_highlight {
-                        text_chunk = text_chunk
-                            .color(state.settings.notifications.highlights.colour.clone());
-                    }
-                    if is_action {
-                        text_chunk = text_chunk.italics();
-                    }
+        if let Some(chunks) = &msg.chunks {
+            for c in chunks {
+                match &c {
+                    MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
+                        let mut text_chunk = egui::RichText::new(s);
+                        if mark_as_highlight {
+                            text_chunk = text_chunk
+                                .color(state.settings.notifications.highlights.colour.clone());
+                        }
+                        if is_action {
+                            text_chunk = text_chunk.italics();
+                        }
 
-                    if let MessageChunk::Link { location: loc, .. } = c {
-                        ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
-                            if ui.button("Copy URL").clicked() {
-                                ui.ctx().output_mut(|o| {
-                                    o.copied_text = loc;
-                                });
-                                ui.close_menu();
-                            }
-                        });
-                    } else {
-                        ui.label(text_chunk);
+                        if let MessageChunk::Link { location: loc, .. } = c {
+                            ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
+                                if ui.button("Copy URL").clicked() {
+                                    ui.ctx().output_mut(|o| {
+                                        o.copied_text = loc.to_owned();
+                                    });
+                                    ui.close_menu();
+                                }
+                            });
+                        } else {
+                            ui.label(text_chunk);
+                        }
                     }
                 }
             }

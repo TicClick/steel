@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use tokio::sync::mpsc::Sender;
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatState, Message, MessageChunk};
+use crate::core::chat::{Chat, ChatLike, ChatState, Message};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
@@ -34,7 +34,6 @@ pub struct UIState {
 
     pub core: client::CoreClient,
     pub highlights: highlights::HighlightTracker,
-    pub message_chunks: BTreeMap<String, BTreeMap<usize, Vec<MessageChunk>>>,
 
     pub updater: Updater,
     pub sound_player: crate::core::sound::SoundPlayer,
@@ -50,7 +49,6 @@ impl UIState {
             active_chat_tab_name: String::new(),
             core: client::CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
-            message_chunks: BTreeMap::default(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),
         }
@@ -104,7 +102,12 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(&mut self, target: String, message: Message, window_unfocused: bool) {
+    pub fn push_chat_message(
+        &mut self,
+        target: String,
+        mut message: Message,
+        window_unfocused: bool,
+    ) {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
         if let Some(ch) = self.chats.get_mut(&normalized) {
@@ -112,20 +115,15 @@ impl UIState {
             if ch.name != target {
                 ch.name = target;
             }
+            message.parse_for_links();
+            ch.push(message);
 
             let id = ch.messages.len();
-
-            if let Some(chunks) = message.chunked_text() {
-                self.message_chunks
-                    .entry(ch.name.clone())
-                    .or_default()
-                    .insert(id, chunks);
-            }
-
-            ch.push(message);
             let has_highlight_keyword = self.highlights.maybe_add(ch, id);
+
             let activate_tab_notification = (window_unfocused || tab_inactive)
                 && (has_highlight_keyword || !normalized.is_channel());
+
             if activate_tab_notification {
                 self.highlights.mark_as_unread(&ch.name);
                 if window_unfocused {
@@ -141,19 +139,6 @@ impl UIState {
         self.server_messages.push(Message::new_system(text));
     }
 
-    pub fn get_chunks(&self, target: &str, message_id: usize) -> Vec<MessageChunk> {
-        let normalized = target.to_lowercase();
-        if let Some(messages) = self.message_chunks.get(&normalized) {
-            if let Some(val) = messages.get(&message_id) {
-                return val.clone();
-            }
-        }
-        if let Some(ch) = self.chats.get(&normalized) {
-            return vec![MessageChunk::Text(ch.messages[message_id].text.clone())];
-        }
-        Vec::new()
-    }
-
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
         self.chats.remove(&normalized);
@@ -164,7 +149,6 @@ impl UIState {
         if let Some(chat) = self.chats.get_mut(target) {
             chat.messages.clear();
         }
-        self.message_chunks.remove(target);
         self.highlights.drop(target);
     }
 

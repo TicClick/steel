@@ -1,49 +1,4 @@
-use std::fmt;
-
-use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
-
-#[derive(Clone, Debug)]
-pub enum MessageType {
-    Text,
-    Action,
-    System,
-}
-
-#[derive(Clone, Debug)]
-pub struct User {
-    pub id: i32,
-    pub name: String,
-}
-
-#[derive(Clone, Debug)]
-pub struct Message {
-    pub time: chrono::DateTime<chrono::Local>,
-    pub r#type: MessageType,
-    pub username: String,
-    pub text: String,
-}
-
-#[derive(Clone, Debug, Hash)]
-pub enum ChatType {
-    Channel,
-    Person,
-}
-
-impl fmt::Display for Message {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.time.format(DATETIME_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
-            MessageType::Text => {
-                write!(f, " <{}> {}", self.username, self.text)
-            }
-            MessageType::Action => {
-                write!(f, " * {} {}", self.username, self.text)
-            }
-            MessageType::System => {
-                write!(f, " {}", self.text)
-            }
-        })
-    }
-}
+use crate::core::chat::Message;
 
 #[derive(PartialEq, Debug)]
 pub enum LinkLocation {
@@ -92,43 +47,7 @@ pub enum MessageChunk {
 }
 
 impl Message {
-    pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
-        Self {
-            time: chrono::Local::now(),
-            r#type,
-            username: username.to_string(),
-            text: text.to_string(),
-        }
-    }
-
-    pub fn new_text(username: &str, text: &str) -> Self {
-        Self::new(username, text, MessageType::Text)
-    }
-
-    pub fn new_action(username: &str, text: &str) -> Self {
-        Self::new(username, text, MessageType::Action)
-    }
-
-    pub fn new_system(text: &str) -> Self {
-        Self::new("", text, MessageType::System)
-    }
-
-    pub fn formatted_time(&self) -> String {
-        self.time.format(DEFAULT_TIME_FORMAT).to_string()
-    }
-
-    pub fn formatted_date_local(&self) -> String {
-        self.time.format(DEFAULT_DATETIME_FORMAT).to_string()
-    }
-
-    pub fn formatted_date_utc(&self) -> String {
-        self.time
-            .naive_utc()
-            .format(DEFAULT_DATETIME_FORMAT)
-            .to_string()
-    }
-
-    pub fn chunked_text(&self) -> Option<Vec<MessageChunk>> {
+    pub fn parse_for_links(&mut self) {
         let mut ret: Vec<MessageChunk> = Vec::new();
         let mut links: Vec<LinkLocation> = Vec::new();
 
@@ -220,7 +139,8 @@ impl Message {
         }
 
         if links.is_empty() {
-            return None;
+            self.chunks = Some(vec![MessageChunk::Text(self.text.clone())]);
+            return;
         }
 
         for i in 0..links.len() {
@@ -246,34 +166,38 @@ impl Message {
                 self.text[last_pos.1..self.text.len()].to_owned(),
             ));
         }
-        Some(ret)
+        self.chunks = Some(ret);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::chat::MessageType;
 
     fn m(s: &str) -> Message {
-        Message {
+        let mut m = Message {
             time: chrono::Local::now(),
             r#type: MessageType::Text,
             username: "abc".into(),
             text: s.into(),
-        }
+            chunks: None,
+        };
+        m.parse_for_links();
+        m
     }
 
     #[test]
     fn no_links() {
         let message = m("Test (no links here)");
-        assert!(message.chunked_text().is_none());
+        assert!(message.chunks.is_none());
     }
 
     #[test]
     fn simple_markdown() {
         let message = m("[http://test Test (links here)]]");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![MessageChunk::Link {
                 location: "http://test".into(),
                 title: "Test (links here)]".into()
@@ -282,7 +206,7 @@ mod tests {
 
         let message = m("[http://test Test (links here)");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Text("[".into()),
                 MessageChunk::Link {
@@ -298,7 +222,7 @@ mod tests {
     fn two_markdown_links() {
         let message = m("[http://test Test (links here)] [http://test Test (links here)]");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "http://test".into(),
@@ -314,7 +238,7 @@ mod tests {
 
         let message = m("[http://test Test (links here)][http://test Test (links here)] and after");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "http://test".into(),
@@ -333,7 +257,7 @@ mod tests {
     fn wiki() {
         let message = m("[[rules]] is the way to go");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rules".into(),
@@ -345,7 +269,7 @@ mod tests {
 
         let message = m("[[rule]]s]] is the way to go");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rule".into(),
@@ -360,7 +284,7 @@ mod tests {
     fn raw() {
         let message = m("https://a https://bhttps:// c");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "https://a".into(),
@@ -380,7 +304,7 @@ mod tests {
     fn multiple() {
         let message = m("https://ya.ru [http://example.com example][[silence]]");
         assert_eq!(
-            message.chunked_text().unwrap(),
+            message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
                     location: "https://ya.ru".into(),
@@ -397,74 +321,5 @@ mod tests {
                 },
             ]
         );
-    }
-}
-
-#[derive(Clone, Debug, Default)]
-pub enum ChatState {
-    #[default]
-    Left,
-    JoinInProgress,
-    Joined,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct Chat {
-    pub name: String,
-    pub messages: Vec<Message>,
-    pub state: ChatState,
-}
-
-impl Chat {
-    pub fn new(name: String) -> Self {
-        Self {
-            name,
-            messages: Vec::new(),
-            state: ChatState::Left,
-        }
-    }
-
-    pub fn push(&mut self, msg: Message) {
-        self.messages.push(msg);
-    }
-
-    pub fn r#type(&self) -> ChatType {
-        self.name.chat_type()
-    }
-
-    pub fn set_state(&mut self, state: ChatState, reason: Option<&str>) {
-        self.state = state;
-        if let Some(reason) = reason {
-            self.push(Message::new_system(reason));
-        }
-    }
-}
-
-pub trait ChatLike {
-    fn is_channel(&self) -> bool;
-    fn chat_type(&self) -> ChatType;
-}
-
-impl ChatLike for &str {
-    fn is_channel(&self) -> bool {
-        self.starts_with('#')
-    }
-
-    fn chat_type(&self) -> ChatType {
-        if self.is_channel() {
-            ChatType::Channel
-        } else {
-            ChatType::Person
-        }
-    }
-}
-
-impl ChatLike for String {
-    fn is_channel(&self) -> bool {
-        self.as_str().is_channel()
-    }
-
-    fn chat_type(&self) -> ChatType {
-        self.as_str().chat_type()
     }
 }
