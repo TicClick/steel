@@ -21,6 +21,7 @@ pub enum UIMessageIn {
     NewMessageReceived { target: String, message: Message },
     NewServerMessageReceived(String),
     NewChatRequested(String, ChatState),
+    ChatSwitchRequested(String, usize),
     ChannelJoined(String),
     ChatClosed(String),
     DateChanged,

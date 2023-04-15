@@ -76,6 +76,9 @@ impl Application {
                 | AppMessageIn::UIPrivateChatOpened(target) => {
                     self.maybe_remember_chat(&target);
                 }
+                AppMessageIn::UIChatSwitchRequested(target, id) => {
+                    self.ui_handle_chat_switch_requested(target, id);
+                }
                 AppMessageIn::UIChannelJoinRequested(channel) => {
                     self.handle_ui_channel_join_requested(channel);
                 }
@@ -100,6 +103,12 @@ impl Application {
     pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
         self.maybe_remember_chat(&channel);
         self.join_channel(&channel);
+    }
+
+    pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: usize) {
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChatSwitchRequested(chat, message_id))
+            .unwrap();
     }
 
     pub fn initialize(&mut self) {

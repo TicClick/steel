@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::core::chat::{Chat, Message, MessageChunk, MessageType};
+use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 
 use crate::gui::state::UIState;
 
@@ -56,11 +56,24 @@ impl ChatWindow {
                     } else {
                         match state.active_chat_tab_name.as_str() {
                             super::SERVER_TAB_NAME => self.show_server_messages(ui, state),
+                            super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state),
                             _ => (),
                         }
                     }
                 });
         });
+    }
+
+    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState) {
+        for (chat_name, msg) in state.highlights.ordered() {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x /= 2.;
+                show_datetime(ui, msg);
+                format_chat_name(ui, state, chat_name, msg.id);
+                format_username(ui, state, msg);
+                format_chat_message_text(ui, state, msg, false);
+            });
+        }
     }
 
     fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState) {
@@ -173,6 +186,31 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
 fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     format_username(ui, state, msg);
     format_chat_message_text(ui, state, msg, msg.highlight);
+}
+
+fn format_chat_name(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    chat_name: &String,
+    message_id: Option<usize>,
+) {
+    let chat_button = ui.button(match chat_name.is_channel() {
+        true => chat_name,
+        false => "(PM)",
+    });
+
+    if let Some(id) = message_id {
+        let mut switch_requested = chat_button.clicked();
+        chat_button.context_menu(|ui| {
+            if ui.button("Go to message").clicked() {
+                switch_requested = true;
+                ui.close_menu();
+            }
+        });
+        if switch_requested {
+            state.core.chat_switch_requested(chat_name, id);
+        }
+    }
 }
 
 fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {

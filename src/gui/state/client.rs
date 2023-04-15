@@ -77,4 +77,13 @@ impl CoreClient {
             .blocking_send(AppMessageIn::UIExitRequested)
             .unwrap();
     }
+
+    pub fn chat_switch_requested(&self, target: &str, message_id: usize) {
+        self.server
+            .blocking_send(AppMessageIn::UIChatSwitchRequested(
+                target.to_owned(),
+                message_id,
+            ))
+            .unwrap();
+    }
 }
