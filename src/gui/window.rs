@@ -182,7 +182,8 @@ impl eframe::App for ApplicationWindow {
         self.process_pending_events(frame);
         self.set_theme(ctx);
 
-        self.menu.show(ctx, &mut self.s);
+        self.menu
+            .show(ctx, &mut self.s, &mut self.chat.response_widget_id);
         self.chat_tabs.show(ctx, &mut self.s);
         self.chat.show(ctx, &self.s);
 

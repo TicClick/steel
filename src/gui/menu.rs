@@ -20,7 +20,12 @@ impl Menu {
         self.show_settings || self.show_about
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
+    pub fn show(
+        &mut self,
+        ctx: &egui::Context,
+        state: &mut UIState,
+        response_widget_id: &mut Option<egui::Id>,
+    ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
@@ -67,7 +72,10 @@ impl Menu {
                     match state.connection {
                         ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
                         ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                        ConnectionStatus::Connected => state.core.disconnect_requested(),
+                        ConnectionStatus::Connected => {
+                            response_widget_id.take();
+                            state.core.disconnect_requested();
+                        }
                     }
                 }
 

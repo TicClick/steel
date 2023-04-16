@@ -6,6 +6,8 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 
 use crate::gui::state::UIState;
 
+use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
@@ -20,34 +22,44 @@ impl ChatWindow {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
-        // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-        if state.active_chat().is_some() {
-            egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                let text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                    .hint_text("new message")
-                    .frame(false)
-                    .interactive(state.is_connected());
-                let response = ui
-                    .centered_and_justified(|ui| {
-                        let response = ui.add(text_field);
-                        if !state.is_connected() {
-                            response.on_hover_text_at_pointer("you are offline")
-                        } else {
-                            response
-                        }
-                    })
-                    .inner;
-                self.response_widget_id = Some(response.id);
+        egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+            // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+            let interactive = state.is_connected() && state.active_chat().is_some();
 
-                if let Some(ch) = state.active_chat() {
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        state.core.chat_message_sent(&ch.name, &self.chat_input);
-                        self.chat_input.clear();
-                        response.request_focus();
+            let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                .id_source("chat-input")
+                .hint_text("new message")
+                .interactive(interactive);
+            let response = ui
+                .centered_and_justified(|ui| {
+                    let response = ui.add(text_field);
+                    match interactive {
+                        true => response,
+                        false => {
+                            let hint = match state.active_chat_tab_name.as_str() {
+                                HIGHLIGHTS_TAB_NAME | SERVER_TAB_NAME => {
+                                    "this tab doesn't accept messages"
+                                }
+                                _ => match state.active_chat().is_none() {
+                                    true => "open a chat tab to send messages",
+                                    false => "you are offline",
+                                },
+                            };
+                            response.on_hover_text_at_pointer(hint)
+                        }
                     }
+                })
+                .inner;
+            self.response_widget_id = Some(response.id);
+
+            if let Some(ch) = state.active_chat() {
+                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    state.core.chat_message_sent(&ch.name, &self.chat_input);
+                    self.chat_input.clear();
+                    response.request_focus();
                 }
-            });
-        }
+            }
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let row_height = match self.chat_row_height {
