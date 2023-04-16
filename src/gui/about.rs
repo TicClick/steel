@@ -24,16 +24,19 @@ pub struct About {
 
 impl About {
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
-        egui::Window::new("about").open(is_open).show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                self.show_app_icon(ctx, ui, state);
-                ui.vertical(|ui| {
-                    self.show_initial_section(ui);
-                    self.show_credits(ui);
-                    self.show_update_section(ui, state);
+        egui::Window::new("about")
+            .open(is_open)
+            .default_size((420., 200.))
+            .show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    self.show_app_icon(ctx, ui, state);
+                    ui.vertical(|ui| {
+                        self.show_initial_section(ui);
+                        self.show_credits(ui);
+                        self.show_update_section(ui, state);
+                    });
                 });
             });
-        });
     }
 
     fn show_app_icon(
@@ -79,13 +82,10 @@ impl About {
                 }
             }
             UpdateState::UpdateError(text) => {
-                ui.label(
-                    egui::RichText::new(format!(
-                        "failed to fetch updates: {} (runtime.log may have details)",
-                        text
-                    ))
-                    .color(egui::Color32::RED),
-                );
+                ui.label(format!(
+                    "❌ failed to fetch updates: {} (runtime.log may have details)",
+                    text
+                ));
                 if ui.button("check for updates").clicked() {
                     state.updater.check_version();
                 }
@@ -98,25 +98,16 @@ impl About {
             }
             UpdateState::MetadataReady(m) => {
                 if crate::VERSION.semver() >= m.tag_name.semver() {
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "no updates, {} is the latest version",
-                            m.tag_name
-                        ))
-                        .color(egui::Color32::GREEN),
-                    );
+                    ui.label(format!("no updates, {} is the latest version", m.tag_name));
                     if ui.button("check again").clicked() {
                         state.updater.check_version();
                     }
                 } else {
-                    ui.label(
-                        egui::RichText::new(format!(
-                            "last release: {} from {}",
-                            m.tag_name,
-                            m.published_at.format("%Y-%m-%d")
-                        ))
-                        .color(egui::Color32::YELLOW),
-                    );
+                    ui.label(format!(
+                        "✨ new release: {} from {}",
+                        m.tag_name,
+                        m.published_at.format("%Y-%m-%d")
+                    ));
                     ui.horizontal(|ui| {
                         if ui.button("check again").clicked() {
                             state.updater.check_version();
@@ -137,36 +128,40 @@ impl About {
                 });
             }
             UpdateState::ReleaseReady(m) => {
-                ui.label(
-                    egui::RichText::new(format!(
-                        "{} downloaded -- restart the app whenever you wish",
-                        m.tag_name
-                    ))
-                    .color(egui::Color32::GREEN),
-                );
+                ui.label(format!(
+                    "{} downloaded, restart the app whenever you wish",
+                    m.tag_name
+                ));
             }
         }
     }
 
     fn show_credits(&self, ui: &mut egui::Ui) {
-        ui.heading("credits");
-        ui.collapsing("libraries", |ui| {
+        ui.collapsing("credits", |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = 0.0;
                 ui.label("- interface: ");
                 ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                ui.label(" by Emil Ernerfeldt, MIT License\n");
+                ui.label("\n");
 
                 ui.label("- fonts: ");
                 ui.hyperlink_to("Google Noto", "https://fonts.google.com/noto");
-                ui.label(", SIL Open Font License\n");
+                ui.label("\n");
 
-                ui.label("- a lot of ");
+                ui.label("- cool packages: ");
                 ui.hyperlink_to(
-                    "cool packages",
+                    "different vendors",
                     "https://github.com/TicClick/steel/blob/master/Cargo.toml",
                 );
                 ui.label("\n");
+
+                ui.label("- app icon: ");
+                ui.hyperlink_to("Freepik", "https://www.flaticon.com/free-icon/rust_5883364");
+                ui.label(", sounds: ");
+                ui.hyperlink_to(
+                    "various artists",
+                    "https://github.com/TicClick/steel/blob/master/media/sounds/ATTRIBUTION",
+                );
             });
         });
     }
