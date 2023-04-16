@@ -118,7 +118,7 @@ impl UIState {
         &mut self,
         target: String,
         mut message: Message,
-        window_unfocused: bool,
+        frame: &mut eframe::Frame,
     ) {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
@@ -138,15 +138,15 @@ impl UIState {
             }
             ch.push(message);
 
-            let activate_tab_notification =
-                (window_unfocused || tab_inactive) && (highlight || !normalized.is_channel());
-
-            if activate_tab_notification {
+            let requires_attention = highlight || !normalized.is_channel();
+            if tab_inactive && requires_attention {
                 self.highlights.mark_as_unread(&normalized);
-                if window_unfocused {
-                    if let Some(sound) = &self.settings.notifications.highlights.sound {
-                        self.sound_player.play(sound);
-                    }
+            }
+
+            if !frame.info().window_info.focused && requires_attention {
+                frame.request_user_attention(Some(eframe::egui::UserAttentionType::Critical));
+                if let Some(sound) = &self.settings.notifications.highlights.sound {
+                    self.sound_player.play(sound);
                 }
             }
         }

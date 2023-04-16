@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# TODO: use eframe >= 0.21.3 after https://github.com/emilk/egui/pull/2900 is merged
-eframe = { git = "https://github.com/TicClick/egui.git", branch = "test-set-focus" }
+# TODO: use eframe >= 0.21.3 after https://github.com/emilk/egui/pull/2905 is merged
+eframe = { git = "https://github.com/TicClick/egui.git", branch = "user-attention" }
 chrono = { version = "0.4.24", features = ["serde"] }
 irc = "0.15.0"
 irc-proto = "0.15.0"
