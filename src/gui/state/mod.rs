@@ -166,7 +166,9 @@ impl UIState {
     }
 
     pub fn push_server_message(&mut self, text: &str) {
-        self.server_messages.push(Message::new_system(text));
+        let mut msg = Message::new_system(text);
+        msg.parse_for_links();
+        self.server_messages.push(msg);
     }
 
     pub fn remove_chat(&mut self, target: String) {

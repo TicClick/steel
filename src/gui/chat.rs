@@ -93,7 +93,7 @@ impl ChatWindow {
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
                 format_username(ui, state, msg);
-                format_chat_message_text(ui, state, msg, false);
+                format_chat_message_text(ui, state, msg, false, false);
             });
         }
     }
@@ -103,15 +103,7 @@ impl ChatWindow {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
-                ui.label(egui::RichText::new(&msg.text).monospace())
-                    .context_menu(|ui| {
-                        if ui.button("Copy message").clicked() {
-                            ui.ctx().output_mut(|o| {
-                                o.copied_text = msg.text.to_owned();
-                            });
-                            ui.close_menu();
-                        }
-                    });
+                format_chat_message_text(ui, state, msg, false, true);
             });
         }
     }
@@ -223,7 +215,7 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
 
 fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     format_username(ui, state, msg);
-    format_chat_message_text(ui, state, msg, msg.highlight);
+    format_chat_message_text(ui, state, msg, msg.highlight, false);
 }
 
 fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, message: &Message) {
@@ -274,6 +266,7 @@ fn format_chat_message_text(
     state: &UIState,
     msg: &Message,
     mark_as_highlight: bool,
+    monospace: bool,
 ) {
     let is_action = matches!(msg.r#type, MessageType::Action);
 
@@ -297,6 +290,8 @@ fn format_chat_message_text(
                         }
                         if is_action {
                             text_chunk = text_chunk.italics();
+                        } else if monospace {
+                            text_chunk = text_chunk.monospace();
                         }
 
                         if let MessageChunk::Link { location: loc, .. } = c {
