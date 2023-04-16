@@ -1,9 +1,11 @@
+pub mod client;
+
 use std::collections::BTreeMap;
 
 use tokio::sync::mpsc::Sender;
 
 use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatState, ChatType, Message, MessageChunk};
+use crate::core::chat::{Chat, ChatLike, ChatState, Message};
 use crate::core::irc::ConnectionStatus;
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
@@ -27,11 +29,11 @@ pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
     chats: BTreeMap<String, Chat>,
+    pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
-    pub app_queue_handle: Sender<AppMessageIn>,
+    pub core: client::CoreClient,
     pub highlights: highlights::HighlightTracker,
-    pub message_chunks: BTreeMap<String, BTreeMap<usize, Vec<MessageChunk>>>,
 
     pub updater: Updater,
     pub sound_player: crate::core::sound::SoundPlayer,
@@ -43,10 +45,10 @@ impl UIState {
             connection: ConnectionStatus::default(),
             settings: Settings::default(),
             chats: BTreeMap::default(),
+            server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
-            app_queue_handle,
+            core: client::CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
-            message_chunks: BTreeMap::default(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),
         }
@@ -70,6 +72,18 @@ impl UIState {
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
+    pub fn chat_message_count(&self) -> usize {
+        if let Some(ch) = self.active_chat() {
+            ch.messages.len()
+        } else {
+            match self.active_chat_tab_name.as_str() {
+                super::SERVER_TAB_NAME => self.server_messages.len(),
+                super::HIGHLIGHTS_TAB_NAME => self.highlights.ordered().len(),
+                _ => 0,
+            }
+        }
+    }
+
     pub fn active_chat(&self) -> Option<&Chat> {
         self.chats.get(&self.active_chat_tab_name)
     }
@@ -78,18 +92,7 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, target: String, state: ChatState) {
-        let name = match target.chat_type() {
-            ChatType::Channel => {
-                if !target.is_channel() {
-                    format!("#{}", target)
-                } else {
-                    target
-                }
-            }
-            ChatType::Person => target,
-        };
-
+    pub fn add_new_chat(&mut self, name: String, state: ChatState) {
         let mut chat = Chat::new(name.to_owned());
         chat.state = state;
 
@@ -111,7 +114,12 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(&mut self, target: String, message: Message, window_unfocused: bool) {
+    pub fn push_chat_message(
+        &mut self,
+        target: String,
+        mut message: Message,
+        window_unfocused: bool,
+    ) {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
         if let Some(ch) = self.chats.get_mut(&normalized) {
@@ -120,21 +128,21 @@ impl UIState {
                 ch.name = target;
             }
 
-            let id = ch.messages.len();
+            message.id = Some(ch.messages.len());
+            message.parse_for_links();
+            message.detect_highlights(self.highlights.keywords());
 
-            if let Some(chunks) = message.chunked_text() {
-                self.message_chunks
-                    .entry(ch.name.clone())
-                    .or_default()
-                    .insert(id, chunks);
+            let highlight = message.highlight;
+            if highlight {
+                self.highlights.add(&normalized, &message);
             }
-
             ch.push(message);
-            let has_highlight_keyword = self.highlights.maybe_add(ch, id);
-            let activate_tab_notification = (window_unfocused || tab_inactive)
-                && (has_highlight_keyword || !normalized.is_channel());
+
+            let activate_tab_notification =
+                (window_unfocused || tab_inactive) && (highlight || !normalized.is_channel());
+
             if activate_tab_notification {
-                self.highlights.mark_as_unread(&ch.name);
+                self.highlights.mark_as_unread(&normalized);
                 if window_unfocused {
                     if let Some(sound) = &self.settings.notifications.highlights.sound {
                         self.sound_player.play(sound);
@@ -144,17 +152,23 @@ impl UIState {
         }
     }
 
-    pub fn get_chunks(&self, target: &str, message_id: usize) -> Vec<MessageChunk> {
-        let normalized = target.to_lowercase();
-        if let Some(messages) = self.message_chunks.get(&normalized) {
-            if let Some(val) = messages.get(&message_id) {
-                return val.clone();
-            }
+    pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
+        match highlight.id {
+            None => false,
+            Some(id) => match self.chats.get(chat_name) {
+                None => false,
+                Some(ch) => match ch.messages.get(id) {
+                    None => false,
+                    Some(msg) => highlight.time == msg.time,
+                },
+            },
         }
-        if let Some(ch) = self.chats.get(&normalized) {
-            return vec![MessageChunk::Text(ch.messages[message_id].text.clone())];
-        }
-        Vec::new()
+    }
+
+    pub fn push_server_message(&mut self, text: &str) {
+        let mut msg = Message::new_system(text);
+        msg.parse_for_links();
+        self.server_messages.push(msg);
     }
 
     pub fn remove_chat(&mut self, target: String) {
@@ -167,7 +181,6 @@ impl UIState {
         if let Some(chat) = self.chats.get_mut(target) {
             chat.messages.clear();
         }
-        self.message_chunks.remove(target);
         self.highlights.drop(target);
     }
 

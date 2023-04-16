@@ -131,6 +131,12 @@ impl ApplicationWindow {
                         self.s.add_new_chat(name, state);
                     }
                 }
+                UIMessageIn::ChatSwitchRequested(name, message_id) => {
+                    if self.s.has_chat(&name) {
+                        self.s.active_chat_tab_name = name;
+                        self.chat.scroll_to = Some(message_id);
+                    }
+                }
                 UIMessageIn::ChannelJoined(name) => {
                     self.s.set_chat_state(
                         &name,
@@ -142,7 +148,9 @@ impl ApplicationWindow {
                     self.s
                         .push_chat_message(target, message, !frame.info().window_info.focused);
                 }
-                UIMessageIn::NewServerMessageReceived(_) => {}
+                UIMessageIn::NewServerMessageReceived(text) => {
+                    self.s.push_server_message(&text);
+                }
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
                 }
@@ -190,10 +198,7 @@ impl eframe::App for ApplicationWindow {
     }
 
     fn on_close_event(&mut self) -> bool {
-        self.s
-            .app_queue_handle
-            .blocking_send(AppMessageIn::UIExitRequested)
-            .unwrap();
+        self.s.core.exit_requested();
         true
     }
 }

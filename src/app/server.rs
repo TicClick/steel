@@ -76,6 +76,9 @@ impl Application {
                 | AppMessageIn::UIPrivateChatOpened(target) => {
                     self.maybe_remember_chat(&target);
                 }
+                AppMessageIn::UIChatSwitchRequested(target, id) => {
+                    self.ui_handle_chat_switch_requested(target, id);
+                }
                 AppMessageIn::UIChannelJoinRequested(channel) => {
                     self.handle_ui_channel_join_requested(channel);
                 }
@@ -100,6 +103,12 @@ impl Application {
     pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
         self.maybe_remember_chat(&channel);
         self.join_channel(&channel);
+    }
+
+    pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: usize) {
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChatSwitchRequested(chat, message_id))
+            .unwrap();
     }
 
     pub fn initialize(&mut self) {
@@ -266,11 +275,10 @@ impl Application {
 
 fn date_announcer(sender: Sender<UIMessageIn>) {
     loop {
-        let tomorrow = chrono::Local::now()
-            .checked_add_days(chrono::Days::new(1))
-            .unwrap();
+        let now = chrono::Local::now();
+        let tomorrow = now.checked_add_days(chrono::Days::new(1)).unwrap();
         let midnight = tomorrow.duration_trunc(chrono::Duration::days(1)).unwrap();
-        let delta = midnight - tomorrow;
+        let delta = midnight - now;
         if delta.num_seconds() > 0 {
             std::thread::sleep(delta.to_std().unwrap());
         }
