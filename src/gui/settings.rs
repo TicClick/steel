@@ -28,7 +28,7 @@ impl AutojoinSection {
         ui.collapsing("auto-join channels", |ui| {
             ui.horizontal(|ui| {
                 // TODO: this will overflow the window if too many channels are added
-                let add_autojoin_channel = ui.button("+");
+                let add_autojoin_channel = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
                 let response = ui.add(
                     egui::TextEdit::singleline(&mut self.autojoin_channel_input)
                         .hint_text("channel name"),
@@ -52,7 +52,9 @@ impl AutojoinSection {
             });
             let mut to_remove = BTreeSet::new();
             for name in settings.chat.autojoin.iter() {
-                let channel_button = ui.button(name);
+                let channel_button = ui
+                    .button(name)
+                    .on_hover_text_at_pointer("middle click = remove");
                 let mut remove_channel = channel_button.middle_clicked();
                 channel_button.context_menu(|ui| {
                     if ui.button("Remove").clicked() {
@@ -112,7 +114,12 @@ impl Settings {
     ) {
         ui.vertical(|ui| {
             ui.heading("general");
-            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup");
+
+            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup")
+                .on_hover_text_at_pointer(
+                    "when launched, connect to the chat automatically using your credentials",
+                );
+
             ui.checkbox(
                 &mut state.settings.chat.reconnect,
                 "automatically reconnect",
@@ -159,6 +166,7 @@ impl Settings {
                                 let mut sz = ui.label("username").rect.width();
                                 sz += ui
                                     .text_edit_singleline(&mut state.settings.chat.irc.username)
+                                    .on_hover_text_at_pointer("replace spaces with underscores")
                                     .rect
                                     .width();
                                 sz
@@ -174,8 +182,14 @@ impl Settings {
                                 egui::TextEdit::singleline(&mut state.settings.chat.irc.password)
                                     .password(!self.visible_password)
                                     .desired_width(total_width - label_width - 26.);
-                            ui.add(input);
-                            if ui.button("👁").clicked() {
+                            ui.add(input).on_hover_text_at_pointer(
+                                "if you don't have an IRC password, click the link on the left",
+                            );
+                            if ui
+                                .button("👁")
+                                .on_hover_text_at_pointer("show/hide password")
+                                .clicked()
+                            {
                                 self.visible_password = !self.visible_password;
                             }
                         });
@@ -199,15 +213,19 @@ impl Settings {
 
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().own.as_u8());
-                ui.label("self");
+                ui.label("self")
+                    .on_hover_text_at_pointer("colour for your username");
             });
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().highlight.as_u8());
-                ui.label("highlights");
+                ui.label("highlights").on_hover_text_at_pointer(
+                    "colour for chat messages and tabs containing unread highlights",
+                );
             });
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().default_users.as_u8());
-                ui.label("default users");
+                ui.label("default users")
+                    .on_hover_text_at_pointer("default colour for all chat users");
             });
 
             ui.heading(format!("{prefix} user colours"));
@@ -219,7 +237,9 @@ impl Settings {
                         .desired_width(200.0),
                 );
                 ui.color_edit_button_srgb(self.username_colour_input.as_u8());
-                let add_user = ui.button("add colour");
+                let add_user = ui
+                    .button("add colour")
+                    .on_hover_text_at_pointer("<Enter> = add");
 
                 let add_user = !self.username_input.is_empty()
                     && (add_user.clicked()
@@ -240,7 +260,9 @@ impl Settings {
             for (username, colour) in state.settings.ui.colours_mut().custom_users.iter_mut() {
                 ui.horizontal(|ui| {
                     ui.color_edit_button_srgb(colour.as_u8());
-                    let user_button = ui.button(username);
+                    let user_button = ui
+                        .button(username)
+                        .on_hover_text_at_pointer("middle click = remove");
 
                     let mut remove_user = user_button.middle_clicked();
                     user_button.context_menu(|ui| {
@@ -269,8 +291,16 @@ impl Settings {
                 self.highlights_input = state.settings.notifications.highlights.words.join(" ");
             }
             let hl = egui::TextEdit::multiline(&mut self.highlights_input)
-                .hint_text("list of words, separated by space");
-            if ui.add(hl).changed() {
+                .hint_text("space-separated words");
+            if ui
+                .add(hl)
+                .on_hover_text_at_pointer(
+                    "list of words which will trigger notifications:\n\
+                - exact case does not matter\n\
+                - full match required (\"ha\" will not highlight a message with \"haha\")",
+                )
+                .changed()
+            {
                 state.update_highlights(&self.highlights_input);
             }
 
@@ -387,9 +417,9 @@ impl Settings {
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
-                    ui.selectable_value(&mut self.active_tab, Tab::Chat, "Chat");
-                    ui.selectable_value(&mut self.active_tab, Tab::Interface, "Interface");
-                    ui.selectable_value(&mut self.active_tab, Tab::Notifications, "Notifications");
+                    ui.selectable_value(&mut self.active_tab, Tab::Chat, "chat");
+                    ui.selectable_value(&mut self.active_tab, Tab::Interface, "interface");
+                    ui.selectable_value(&mut self.active_tab, Tab::Notifications, "notifications");
                 });
                 ui.separator();
                 self.show_active_tab_contents(ctx, ui, state);
@@ -407,7 +437,11 @@ impl Settings {
                     {
                         state.core.settings_requested();
                     }
-                    if ui.button("save settings").clicked() {
+                    if ui
+                        .button("save settings")
+                        .on_hover_text_at_pointer("save active settings to file")
+                        .clicked()
+                    {
                         state.core.settings_updated(&state.settings.clone());
                         save_clicked = true;
                     }

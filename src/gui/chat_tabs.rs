@@ -40,7 +40,7 @@ impl ChatTabs {
             ChatType::Person => &mut self.new_chat_input,
         };
         ui.horizontal(|ui| {
-            let add_chat = ui.button("+");
+            let add_chat = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
             let hint = match mode {
                 ChatType::Channel => "channel",
                 ChatType::Person => "user",
