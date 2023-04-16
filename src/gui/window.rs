@@ -106,7 +106,7 @@ impl ApplicationWindow {
         }
     }
 
-    pub fn process_pending_events(&mut self, frame: &eframe::Frame) {
+    pub fn process_pending_events(&mut self, frame: &mut eframe::Frame) {
         while let Ok(event) = self.ui_queue.try_recv() {
             match event {
                 UIMessageIn::SettingsChanged(settings) => {
@@ -145,8 +145,7 @@ impl ApplicationWindow {
                     );
                 }
                 UIMessageIn::NewMessageReceived { target, message } => {
-                    self.s
-                        .push_chat_message(target, message, !frame.info().window_info.focused);
+                    self.s.push_chat_message(target, message, frame);
                 }
                 UIMessageIn::NewServerMessageReceived(text) => {
                     self.s.push_server_message(&text);
