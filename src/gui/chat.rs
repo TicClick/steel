@@ -256,19 +256,14 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, mess
 
 fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     let username_text = if msg.username == state.settings.chat.irc.username {
-        egui::RichText::new(&msg.username).color(state.settings.ui.colours.own.clone())
+        egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
     } else {
-        let mut label = egui::RichText::new(&msg.username);
-        if let Some(c) = state
+        let colour = state
             .settings
             .ui
-            .colours
-            .users
-            .get(&msg.username.to_lowercase())
-        {
-            label = label.color(c.clone())
-        }
-        label
+            .colours()
+            .username_colour(&msg.username.to_lowercase());
+        egui::RichText::new(&msg.username).color(colour.clone())
     };
 
     ui.button(username_text)
@@ -291,6 +286,8 @@ fn format_chat_message_text(
     .with_main_wrap(true)
     .with_cross_justify(false);
 
+    let highlight_colour = state.settings.ui.colours().highlight.clone();
+
     ui.with_layout(layout, |ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         if let Some(chunks) = &msg.chunks {
@@ -299,8 +296,7 @@ fn format_chat_message_text(
                     MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
                         let mut text_chunk = egui::RichText::new(s);
                         if mark_as_highlight {
-                            text_chunk = text_chunk
-                                .color(state.settings.notifications.highlights.colour.clone());
+                            text_chunk = text_chunk.color(highlight_colour.clone());
                         }
                         if is_action {
                             text_chunk = text_chunk.italics();

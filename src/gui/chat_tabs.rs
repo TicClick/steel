@@ -102,7 +102,7 @@ impl ChatTabs {
                         .highlights
                         .tab_contains_highlight(&normalized_chat_name)
                     {
-                        label = label.color(state.settings.notifications.highlights.colour.clone());
+                        label = label.color(state.settings.ui.colours().highlight.clone());
                     }
 
                     let chat_tab = ui.selectable_value(

@@ -1,30 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-use crate::core::settings::colour::Colour;
-
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Notifications {
     pub highlights: Highlights,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Highlights {
-    pub colour: Colour,
     pub words: Vec<String>,
     pub sound: Option<Sound>,
-}
-
-impl Default for Highlights {
-    fn default() -> Self {
-        Self {
-            colour: Colour::from_rgb(250, 200, 255),
-            words: Vec::default(),
-            sound: None,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
