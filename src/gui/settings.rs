@@ -228,7 +228,7 @@ impl Settings {
 
                 if add_user {
                     state.settings.ui.colours_mut().custom_users.insert(
-                        self.username_input.to_lowercase(),
+                        self.username_input.to_lowercase().replace(' ', "_"),
                         self.username_colour_input.clone(),
                     );
                     self.username_input.clear();
