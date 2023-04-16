@@ -92,13 +92,13 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, state: ChatState) {
-        let mut chat = Chat::new(name.to_owned());
+    pub fn add_new_chat(&mut self, name: String, state: ChatState, switch_to_chat: bool) {
+        let mut chat = Chat::new(name);
         chat.state = state;
 
         let normalized = chat.name.to_lowercase();
         self.chats.insert(normalized.to_owned(), chat);
-        if !name.is_channel() {
+        if switch_to_chat {
             self.active_chat_tab_name = normalized;
         }
     }

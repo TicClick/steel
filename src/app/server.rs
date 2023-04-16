@@ -51,7 +51,7 @@ impl Application {
                     self.handle_connection_status(status);
                 }
                 AppMessageIn::ChatMessageReceived { target, message } => {
-                    self.handle_chat_message(target, message);
+                    self.handle_chat_message(target, message, false);
                 }
                 AppMessageIn::ServerMessageReceived { content } => {
                     self.handle_server_message(content);
@@ -74,7 +74,7 @@ impl Application {
                 }
                 AppMessageIn::UIChannelOpened(target)
                 | AppMessageIn::UIPrivateChatOpened(target) => {
-                    self.maybe_remember_chat(&target);
+                    self.maybe_remember_chat(&target, true);
                 }
                 AppMessageIn::UIChatSwitchRequested(target, id) => {
                     self.ui_handle_chat_switch_requested(target, id);
@@ -101,7 +101,7 @@ impl Application {
 
 impl Application {
     pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
-        self.maybe_remember_chat(&channel);
+        self.maybe_remember_chat(&channel, true);
         self.join_channel(&channel);
     }
 
@@ -151,7 +151,7 @@ impl Application {
                 chats.append(&mut self.state.chats.iter().cloned().collect());
 
                 for chat in chats {
-                    self.maybe_remember_chat(&chat);
+                    self.maybe_remember_chat(&chat, false);
                     if chat.is_channel() {
                         self.join_channel(&chat);
                     }
@@ -184,29 +184,38 @@ impl Application {
         });
     }
 
-    fn push_chat_to_ui(&self, target: &str) {
+    fn push_chat_to_ui(&self, target: &str, switch: bool) {
         let chat_state = if target.is_channel() {
             ChatState::JoinInProgress
         } else {
             ChatState::Joined
         };
         self.ui_queue
-            .blocking_send(UIMessageIn::NewChatRequested(target.to_owned(), chat_state))
+            .blocking_send(UIMessageIn::NewChatRequested(
+                target.to_owned(),
+                chat_state,
+                switch,
+            ))
             .unwrap();
     }
 
-    pub fn handle_chat_message(&mut self, target: String, message: Message) {
-        self.maybe_remember_chat(&target);
+    pub fn handle_chat_message(
+        &mut self,
+        target: String,
+        message: Message,
+        switch_if_missing: bool,
+    ) {
+        self.maybe_remember_chat(&target, switch_if_missing);
         self.ui_queue
             .blocking_send(UIMessageIn::NewMessageReceived { target, message })
             .unwrap();
     }
 
-    fn maybe_remember_chat(&mut self, target: &str) {
+    fn maybe_remember_chat(&mut self, target: &str, switch_if_missing: bool) {
         let normalized = target.to_lowercase();
         if !self.state.chats.contains(&normalized) {
             self.state.chats.insert(normalized);
-            self.push_chat_to_ui(target);
+            self.push_chat_to_ui(target, switch_if_missing);
         }
     }
 

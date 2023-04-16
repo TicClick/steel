@@ -124,11 +124,11 @@ impl ApplicationWindow {
                         }
                     }
                 }
-                UIMessageIn::NewChatRequested(name, state) => {
+                UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
                     if self.s.has_chat(&name) {
                         self.s.set_chat_state(&name, state, None);
                     } else {
-                        self.s.add_new_chat(name, state);
+                        self.s.add_new_chat(name, state, switch_to_chat);
                     }
                 }
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {

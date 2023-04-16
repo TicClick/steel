@@ -20,7 +20,7 @@ pub enum UIMessageIn {
     ConnectionStatusChanged(ConnectionStatus),
     NewMessageReceived { target: String, message: Message },
     NewServerMessageReceived(String),
-    NewChatRequested(String, ChatState),
+    NewChatRequested(String, ChatState, bool),
     ChatSwitchRequested(String, usize),
     ChannelJoined(String),
     ChatClosed(String),
