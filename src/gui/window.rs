@@ -131,11 +131,11 @@ impl ApplicationWindow {
                         self.s.add_new_chat(name, state);
                     }
                 }
-                UIMessageIn::ChatSwitchRequested(_name, _message_id) => {
-                    // TODO:
-                    // - check if message_id is valid
-                    // - switch to the chat
-                    // - implement scrolling to a message
+                UIMessageIn::ChatSwitchRequested(name, message_id) => {
+                    if self.s.has_chat(&name) {
+                        self.s.active_chat_tab_name = name;
+                        self.chat.scroll_to = Some(message_id);
+                    }
                 }
                 UIMessageIn::ChannelJoined(name) => {
                     self.s.set_chat_state(

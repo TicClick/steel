@@ -152,6 +152,19 @@ impl UIState {
         }
     }
 
+    pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
+        match highlight.id {
+            None => false,
+            Some(id) => match self.chats.get(chat_name) {
+                None => false,
+                Some(ch) => match ch.messages.get(id) {
+                    None => false,
+                    Some(msg) => highlight.time == msg.time,
+                },
+            },
+        }
+    }
+
     pub fn push_server_message(&mut self, text: &str) {
         self.server_messages.push(Message::new_system(text));
     }

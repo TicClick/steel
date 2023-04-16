@@ -9,7 +9,9 @@ use crate::gui::state::UIState;
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
+    chat_row_height: Option<f32>,
     pub response_widget_id: Option<egui::Id>,
+    pub scroll_to: Option<usize>,
 }
 
 impl ChatWindow {
@@ -48,36 +50,48 @@ impl ChatWindow {
         }
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let row_height = ui.text_style_height(&egui::TextStyle::Body); // XXX: may need adjustments if the style changes
+            let row_height = match self.chat_row_height {
+                Some(h) => h,
+                None => {
+                    let h = ui.text_style_height(&egui::TextStyle::Body); // XXX: may need adjustments if the style changes
+                    self.chat_row_height = Some(h);
+                    h
+                }
+            };
             let message_count = state.chat_message_count();
 
-            egui::ScrollArea::vertical()
-                .auto_shrink([false, true])
-                .stick_to_bottom(true)
-                .show_rows(ui, row_height, message_count, |ui, row_range| {
-                    if let Some(ch) = state.active_chat() {
-                        self.show_chat_messages(ui, state, ch, row_range);
-                    } else {
-                        match state.active_chat_tab_name.as_str() {
-                            super::SERVER_TAB_NAME => {
-                                self.show_server_messages(ui, state, row_range)
-                            }
-                            super::HIGHLIGHTS_TAB_NAME => {
-                                self.show_highlights(ui, state, row_range)
-                            }
-                            _ => (),
-                        }
+            let mut area = egui::ScrollArea::vertical().auto_shrink([false, true]);
+            area = match self.scroll_to {
+                Some(message_id) => {
+                    let offset = (row_height + ui.spacing().item_spacing.y) * message_id as f32;
+                    area.vertical_scroll_offset(offset)
+                }
+                None => area.stick_to_bottom(true),
+            };
+
+            area.show_rows(ui, row_height, message_count, |ui, row_range| {
+                if let Some(ch) = state.active_chat() {
+                    self.show_chat_messages(ui, state, ch, row_range);
+                } else {
+                    match state.active_chat_tab_name.as_str() {
+                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, row_range),
+                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, row_range),
+                        _ => (),
                     }
-                });
+                }
+            });
         });
+
+        // By now, scrolling has been handled in the block above
+        self.scroll_to = None;
     }
 
     fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
-        for (chat_name, msg) in &state.highlights.ordered()[row_range.start..row_range.end] {
+        for (chat_name, msg) in state.highlights.ordered()[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
-                format_chat_name(ui, state, chat_name, msg.id);
+                format_chat_name(ui, state, chat_name, msg);
                 format_username(ui, state, msg);
                 format_chat_message_text(ui, state, msg, false);
             });
@@ -121,26 +135,36 @@ impl ChatWindow {
         chat: &Chat,
         row_range: Range<usize>,
     ) {
-        for msg in chat.messages[row_range.start..row_range.end].iter() {
-            ui.horizontal(|ui| {
+        for (i, msg) in chat.messages[row_range.start..row_range.end]
+            .iter()
+            .enumerate()
+        {
+            let id = i + row_range.start;
+            let resp = ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
-                show_datetime(ui, msg);
+                let resp = show_datetime(ui, msg);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
                     MessageType::System => format_system_message(ui, msg),
                 }
+                resp
             });
+            if let Some(message_id) = self.scroll_to {
+                if message_id == id {
+                    resp.inner.scroll_to_me(Some(egui::Align::Center));
+                }
+            }
         }
     }
 }
 
-fn show_datetime(ui: &mut egui::Ui, msg: &Message) {
+fn show_datetime(ui: &mut egui::Ui, msg: &Message) -> egui::Response {
     ui.label(msg.formatted_time()).on_hover_ui_at_pointer(|ui| {
         ui.vertical(|ui| {
             ui.label(format!("{} (local time zone)", msg.formatted_date_local()));
             ui.label(format!("{} (UTC)", msg.formatted_date_utc()));
         });
-    });
+    })
 }
 
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
@@ -202,18 +226,13 @@ fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     format_chat_message_text(ui, state, msg, msg.highlight);
 }
 
-fn format_chat_name(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    chat_name: &String,
-    message_id: Option<usize>,
-) {
+fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, message: &Message) {
     let chat_button = ui.button(match chat_name.is_channel() {
         true => chat_name,
         false => "(PM)",
     });
 
-    if let Some(id) = message_id {
+    if state.validate_reference(chat_name, message) {
         let mut switch_requested = chat_button.clicked();
         chat_button.context_menu(|ui| {
             if ui.button("Go to message").clicked() {
@@ -222,7 +241,9 @@ fn format_chat_name(
             }
         });
         if switch_requested {
-            state.core.chat_switch_requested(chat_name, id);
+            state
+                .core
+                .chat_switch_requested(chat_name, message.id.unwrap());
         }
     }
 }
