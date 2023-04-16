@@ -192,7 +192,10 @@ mod tests {
     #[test]
     fn no_links() {
         let message = m("Test (no links here)");
-        assert!(message.chunks.is_none());
+        match message.chunks.unwrap().first().unwrap() {
+            MessageChunk::Text(text) => assert_eq!(text, &message.text),
+            _ => assert!(false),
+        }
     }
 
     #[test]
