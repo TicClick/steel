@@ -4,6 +4,7 @@ const BELL: &[u8] = include_bytes!("../../media/sounds/bell.mp3");
 const DOUBLE_BELL: &[u8] = include_bytes!("../../media/sounds/double-bell.mp3");
 const PARTY_HORN: &[u8] = include_bytes!("../../media/sounds/party-horn.mp3");
 const PING: &[u8] = include_bytes!("../../media/sounds/ping.mp3");
+const TICK: &[u8] = include_bytes!("../../media/sounds/tick.mp3");
 const TWO_TONE: &[u8] = include_bytes!("../../media/sounds/two-tone.mp3");
 
 pub struct SoundPlayer {
@@ -65,6 +66,7 @@ impl SoundPlayer {
                     BuiltInSound::DoubleBell => DOUBLE_BELL,
                     BuiltInSound::PartyHorn => PARTY_HORN,
                     BuiltInSound::Ping => PING,
+                    BuiltInSound::Tick => TICK,
                     BuiltInSound::TwoTone => TWO_TONE,
                 },
             };

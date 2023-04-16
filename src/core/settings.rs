@@ -111,6 +111,7 @@ pub enum BuiltInSound {
     DoubleBell,
     PartyHorn,
     Ping,
+    Tick,
     TwoTone,
 }
 
@@ -124,6 +125,7 @@ impl Display for BuiltInSound {
                 Self::DoubleBell => "double bell",
                 Self::PartyHorn => "party horn",
                 Self::Ping => "ping",
+                Self::Tick => "tick",
                 Self::TwoTone => "two-tone",
             }
         )

@@ -5,18 +5,59 @@ use crate::core::updater::UpdateState;
 use crate::gui::state::UIState;
 use crate::VersionString;
 
+fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
+    match crate::png_to_rgba(include_bytes!("../../media/icons/about.png")) {
+        Ok((data, (width, height))) => {
+            let image =
+                egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &data);
+            ctx.load_texture("about-icon", image, egui::TextureOptions::default())
+        }
+        Err(_) => panic!("failed to load the large app icon"),
+    }
+}
+
 #[derive(Default)]
-pub struct About {}
+pub struct About {
+    texture: Option<egui::TextureHandle>,
+    rotation: f32,
+}
 
 impl About {
-    pub fn show(&mut self, ctx: &eframe::egui::Context, state: &UIState, is_open: &mut bool) {
+    pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
         egui::Window::new("about").open(is_open).show(ctx, |ui| {
-            ui.vertical(|ui| {
-                self.show_initial_section(ui);
-                self.show_credits(ui);
-                self.show_update_section(ui, state);
+            ui.horizontal(|ui| {
+                self.show_app_icon(ctx, ui, state);
+                ui.vertical(|ui| {
+                    self.show_initial_section(ui);
+                    self.show_credits(ui);
+                    self.show_update_section(ui, state);
+                });
             });
         });
+    }
+
+    fn show_app_icon(
+        &mut self,
+        ctx: &eframe::egui::Context,
+        ui: &mut egui::Ui,
+        state: &mut UIState,
+    ) {
+        let texture = self.texture.get_or_insert_with(|| icon_as_texture(ctx));
+        let img = egui::Image::new(texture.id(), texture.size_vec2() / 2.0)
+            .sense(egui::Sense::click())
+            .rotate(self.rotation, egui::Vec2::splat(0.5));
+        let resp = ui.add(img);
+        if resp.clicked() || resp.secondary_clicked() {
+            state
+                .sound_player
+                .play(&crate::core::settings::Sound::BuiltIn(
+                    crate::core::settings::BuiltInSound::Tick,
+                ));
+            self.rotation += match resp.clicked() {
+                true => 0.02,
+                false => -0.02,
+            }
+        }
     }
 
     fn show_initial_section(&self, ui: &mut egui::Ui) {
