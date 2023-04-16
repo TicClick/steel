@@ -28,6 +28,25 @@ fn setup_logging() {
     log_panics::init();
 }
 
+fn read_icon() -> Option<eframe::IconData> {
+    let bytes = include_bytes!("../media/icons/taskbar.png").to_vec();
+    let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
+    let mut reader = decoder.read_info().unwrap();
+
+    let mut buf = vec![0; reader.output_buffer_size()];
+    match reader.next_frame(&mut buf) {
+        Ok(_) => Some(eframe::IconData {
+            rgba: buf,
+            width: reader.info().width,
+            height: reader.info().height,
+        }),
+        Err(e) => {
+            log::error!("failed to read the app taskbar icon: {:?}", e);
+            None
+        }
+    }
+}
+
 fn main() {
     setup_logging();
 
@@ -41,7 +60,10 @@ fn main() {
         app.run();
     });
 
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        icon_data: read_icon(),
+        ..Default::default()
+    };
     eframe::run_native(
         "steel",
         native_options,

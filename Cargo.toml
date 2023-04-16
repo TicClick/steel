@@ -29,3 +29,4 @@ md5 = "0.7.0"
 
 # dependency of the alsa-sys crate: librust-alsa-sys-dev
 rodio = "0.17.1"
+png = "0.17.8"
