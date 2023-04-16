@@ -53,17 +53,19 @@ impl ChatWindow {
             let row_height = match self.chat_row_height {
                 Some(h) => h,
                 None => {
-                    let h = ui.text_style_height(&egui::TextStyle::Body); // XXX: may need adjustments if the style changes
+                    let h = ui.text_style_height(&egui::TextStyle::Body);
                     self.chat_row_height = Some(h);
                     h
                 }
             };
             let message_count = state.chat_message_count();
 
-            let mut area = egui::ScrollArea::vertical().auto_shrink([false, true]);
+            let mut area = egui::ScrollArea::vertical()
+                .id_source(&state.active_chat_tab_name)
+                .auto_shrink([false, false]);
             area = match self.scroll_to {
                 Some(message_id) => {
-                    let offset = (row_height + ui.spacing().item_spacing.y) * message_id as f32;
+                    let offset = row_height * message_id as f32;
                     area.vertical_scroll_offset(offset)
                 }
                 None => area.stick_to_bottom(true),
@@ -71,11 +73,11 @@ impl ChatWindow {
 
             area.show_rows(ui, row_height, message_count, |ui, row_range| {
                 if let Some(ch) = state.active_chat() {
-                    self.show_chat_messages(ui, state, ch, row_range);
+                    self.show_chat_messages(ui, state, ch, &row_range);
                 } else {
                     match state.active_chat_tab_name.as_str() {
-                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, row_range),
-                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, row_range),
+                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, &row_range),
+                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, &row_range),
                         _ => (),
                     }
                 }
@@ -86,7 +88,7 @@ impl ChatWindow {
         self.scroll_to = None;
     }
 
-    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
         for (chat_name, msg) in state.highlights.ordered()[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -98,7 +100,7 @@ impl ChatWindow {
         }
     }
 
-    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
         for msg in state.server_messages[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -125,7 +127,7 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         chat: &Chat,
-        row_range: Range<usize>,
+        row_range: &Range<usize>,
     ) {
         for (i, msg) in chat.messages[row_range.start..row_range.end]
             .iter()
