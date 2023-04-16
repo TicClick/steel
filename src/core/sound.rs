@@ -1,4 +1,4 @@
-use crate::core::settings::{BuiltInSound, Sound};
+use crate::core::settings::notifications::{BuiltInSound, Sound};
 
 const BELL: &[u8] = include_bytes!("../../media/sounds/bell.mp3");
 const DOUBLE_BELL: &[u8] = include_bytes!("../../media/sounds/double-bell.mp3");

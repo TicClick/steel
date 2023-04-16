@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::core::irc::ConnectionStatus;
-use crate::core::settings;
+use crate::core::settings::ui::ThemeMode;
 
 use crate::gui::state::UIState;
 
@@ -31,9 +31,9 @@ impl Menu {
                 if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
                     let old_theme = state.settings.ui.theme.clone();
                     state.settings.ui.theme = if theme.dark_mode {
-                        settings::ThemeMode::Dark
+                        ThemeMode::Dark
                     } else {
-                        settings::ThemeMode::Light
+                        ThemeMode::Light
                     };
                     if state.settings.ui.theme != old_theme {
                         state.core.settings_updated(&state.settings);

@@ -1,5 +1,6 @@
 use eframe::egui;
 
+use crate::core::settings::{BuiltInSound, Sound};
 use crate::core::updater::UpdateState;
 
 use crate::gui::state::UIState;
@@ -51,11 +52,7 @@ impl About {
             .rotate(self.rotation, egui::Vec2::splat(0.5));
         let resp = ui.add(img);
         if resp.clicked() || resp.secondary_clicked() {
-            state
-                .sound_player
-                .play(&crate::core::settings::Sound::BuiltIn(
-                    crate::core::settings::BuiltInSound::Tick,
-                ));
+            state.sound_player.play(&Sound::BuiltIn(BuiltInSound::Tick));
             self.rotation += match resp.clicked() {
                 true => 0.02,
                 false => -0.02,
