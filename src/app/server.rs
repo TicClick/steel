@@ -275,11 +275,10 @@ impl Application {
 
 fn date_announcer(sender: Sender<UIMessageIn>) {
     loop {
-        let tomorrow = chrono::Local::now()
-            .checked_add_days(chrono::Days::new(1))
-            .unwrap();
+        let now = chrono::Local::now();
+        let tomorrow = now.checked_add_days(chrono::Days::new(1)).unwrap();
         let midnight = tomorrow.duration_trunc(chrono::Duration::days(1)).unwrap();
-        let delta = midnight - tomorrow;
+        let delta = midnight - now;
         if delta.num_seconds() > 0 {
             std::thread::sleep(delta.to_std().unwrap());
         }
