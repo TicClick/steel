@@ -1,9 +1,7 @@
-use std::ops::Range;
-
 use eframe::egui;
+use egui_extras::{Column, TableBuilder};
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
-
 use crate::gui::state::UIState;
 
 use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
@@ -11,9 +9,11 @@ use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
-    chat_row_height: Option<f32>,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
+
+    chat_row_height: Option<f32>,
+    cached_row_heights: Vec<f32>,
 }
 
 impl ChatWindow {
@@ -61,65 +61,133 @@ impl ChatWindow {
             }
         });
 
+        // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
+        // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination.
+        //
+        // Each of the individual display functions (chat/server message or highlight) report the height
+        // of a rendered text piece ("galley"), which may be wrapped and therefore occupy several non-wrapped rows.
+        //
+        // The values are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
+        // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
+
         egui::CentralPanel::default().show(ctx, |ui| {
-            let row_height = match self.chat_row_height {
-                Some(h) => h,
-                None => {
-                    let h = ui.text_style_height(&egui::TextStyle::Body);
-                    self.chat_row_height = Some(h);
-                    h
-                }
-            };
-            let message_count = state.chat_message_count();
+            // Default spacing, which is by default zero for table rows.
+            ui.spacing_mut().item_spacing.y = 4.;
 
-            let mut area = egui::ScrollArea::vertical()
-                .id_source(&state.active_chat_tab_name)
-                .auto_shrink([false, false]);
-            area = match self.scroll_to {
-                Some(message_id) => {
-                    let offset = row_height * message_id as f32;
-                    area.vertical_scroll_offset(offset)
-                }
-                None => area.stick_to_bottom(true),
-            };
+            if self.chat_row_height.is_none() {
+                self.chat_row_height = Some(ui.text_style_height(&egui::TextStyle::Body));
+            }
+            if let Some(h) = self.chat_row_height {
+                self.cached_row_heights
+                    .resize(state.chat_message_count(), h);
+            }
 
-            area.show_rows(ui, row_height, message_count, |ui, row_range| {
-                if let Some(ch) = state.active_chat() {
-                    self.show_chat_messages(ui, state, ch, &row_range);
+            ui.push_id(&state.active_chat_tab_name, |ui| {
+                let view_height = ui.available_height();
+                let mut builder = TableBuilder::new(ui);
+                if let Some(message_id) = self.scroll_to {
+                    builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
+                    self.scroll_to = None;
                 } else {
-                    match state.active_chat_tab_name.as_str() {
-                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, &row_range),
-                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, &row_range),
-                        _ => (),
-                    }
+                    builder = builder.stick_to_bottom(true);
                 }
+
+                let heights = self.cached_row_heights.clone().into_iter();
+                builder
+                    .max_scroll_height(view_height)
+                    .column(Column::remainder())
+                    .auto_shrink([false; 2])
+                    .body(|body| {
+                        if let Some(ch) = state.active_chat() {
+                            body.heterogeneous_rows(heights, |row_index, mut row| {
+                                row.col(|ui| {
+                                    self.show_regular_chat_single_message(ui, state, ch, row_index)
+                                });
+                            });
+                        } else {
+                            match state.active_chat_tab_name.as_str() {
+                                super::SERVER_TAB_NAME => {
+                                    body.heterogeneous_rows(heights, |row_index, mut row| {
+                                        row.col(|ui| {
+                                            self.show_server_tab_single_message(
+                                                ui, state, row_index,
+                                            )
+                                        });
+                                    });
+                                }
+                                super::HIGHLIGHTS_TAB_NAME => {
+                                    body.heterogeneous_rows(heights, |row_index, mut row| {
+                                        row.col(|ui| {
+                                            self.show_highlights_tab_single_message(
+                                                ui, state, row_index,
+                                            )
+                                        });
+                                    });
+                                }
+                                _ => (),
+                            }
+                        }
+                    });
             });
         });
-
-        // By now, scrolling has been handled in the block above
-        self.scroll_to = None;
     }
 
-    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
-        for (chat_name, msg) in state.highlights.ordered()[row_range.start..row_range.end].iter() {
-            ui.horizontal(|ui| {
+    fn show_regular_chat_single_message(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        ch: &Chat,
+        message_index: usize,
+    ) {
+        let msg = &ch.messages[message_index];
+        let updated_height = ui
+            .horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x /= 2.;
+                ui.style_mut().wrap = Some(true);
+                show_datetime(ui, msg);
+                match msg.r#type {
+                    MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
+                    MessageType::System => format_system_message(ui, msg),
+                }
+            })
+            .inner;
+        self.cached_row_heights[message_index] = updated_height;
+    }
+
+    fn show_highlights_tab_single_message(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        message_index: usize,
+    ) {
+        let (chat_name, msg) = &state.highlights.ordered()[message_index];
+        let updated_height = ui
+            .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
                 format_username(ui, state, msg);
-                format_chat_message_text(ui, state, msg, false, false);
-            });
-        }
+                format_chat_message_text(ui, state, msg, false, false)
+            })
+            .inner;
+        self.cached_row_heights[message_index] = updated_height;
     }
 
-    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
-        for msg in state.server_messages[row_range.start..row_range.end].iter() {
-            ui.horizontal(|ui| {
+    fn show_server_tab_single_message(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        message_index: usize,
+    ) {
+        let msg = &state.server_messages[message_index];
+        let updated_height = ui
+            .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
-                format_chat_message_text(ui, state, msg, false, true);
-            });
-        }
+                format_chat_message_text(ui, state, msg, false, true)
+            })
+            .inner;
+        self.cached_row_heights[message_index] = updated_height;
     }
 
     pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
@@ -131,35 +199,6 @@ impl ChatWindow {
                     }
                 }
             });
-        }
-    }
-
-    fn show_chat_messages(
-        &self,
-        ui: &mut egui::Ui,
-        state: &UIState,
-        chat: &Chat,
-        row_range: &Range<usize>,
-    ) {
-        for (i, msg) in chat.messages[row_range.start..row_range.end]
-            .iter()
-            .enumerate()
-        {
-            let id = i + row_range.start;
-            let resp = ui.horizontal(|ui| {
-                ui.spacing_mut().item_spacing.x /= 2.;
-                let resp = show_datetime(ui, msg);
-                match msg.r#type {
-                    MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
-                    MessageType::System => format_system_message(ui, msg),
-                }
-                resp
-            });
-            if let Some(message_id) = self.scroll_to {
-                if message_id == id {
-                    resp.inner.scroll_to_me(Some(egui::Align::Center));
-                }
-            }
         }
     }
 }
@@ -223,13 +262,15 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
     }
 }
 
-fn format_system_message(ui: &mut egui::Ui, msg: &Message) {
-    ui.add_enabled(false, egui::Button::new(&msg.text));
+fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
+    ui.add_enabled(false, egui::Button::new(&msg.text))
+        .rect
+        .height()
 }
 
-fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
+fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) -> f32 {
     format_username(ui, state, msg);
-    format_chat_message_text(ui, state, msg, msg.highlight, false);
+    format_chat_message_text(ui, state, msg, msg.highlight, false)
 }
 
 fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, message: &Message) {
@@ -276,7 +317,7 @@ fn format_chat_message_text(
     msg: &Message,
     mark_as_highlight: bool,
     monospace: bool,
-) {
+) -> f32 {
     let is_action = matches!(msg.r#type, MessageType::Action);
 
     let layout = egui::Layout::from_main_dir_and_cross_align(
@@ -288,7 +329,7 @@ fn format_chat_message_text(
 
     let highlight_colour = state.settings.ui.colours().highlight.clone();
 
-    ui.with_layout(layout, |ui| {
+    let resp = ui.with_layout(layout, |ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         if let Some(chunks) = &msg.chunks {
             for c in chunks {
@@ -321,4 +362,5 @@ fn format_chat_message_text(
             }
         }
     });
+    resp.response.rect.height()
 }
