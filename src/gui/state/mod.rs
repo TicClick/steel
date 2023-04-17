@@ -148,7 +148,7 @@ impl UIState {
             }
 
             if !frame.info().window_info.focused && requires_attention {
-                frame.request_user_attention(Some(eframe::egui::UserAttentionType::Critical));
+                frame.request_user_attention(eframe::egui::UserAttentionType::Critical);
                 if let Some(sound) = &self.settings.notifications.highlights.sound {
                     self.sound_player.play(sound);
                 }
