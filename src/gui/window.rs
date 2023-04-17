@@ -133,6 +133,7 @@ impl ApplicationWindow {
                 }
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
                     if self.s.has_chat(&name) {
+                        self.s.highlights.mark_as_read(&name);
                         self.s.active_chat_tab_name = name;
                         self.chat.scroll_to = Some(message_id);
                     }

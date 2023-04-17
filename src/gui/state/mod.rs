@@ -139,8 +139,12 @@ impl UIState {
             ch.push(message);
 
             let requires_attention = highlight || !normalized.is_channel();
-            if tab_inactive && requires_attention {
-                self.highlights.mark_as_unread(&normalized);
+            if tab_inactive {
+                if requires_attention {
+                    self.highlights.mark_as_highlighted(&normalized);
+                } else {
+                    self.highlights.mark_as_unread(&normalized);
+                }
             }
 
             if !frame.info().window_info.focused && requires_attention {
