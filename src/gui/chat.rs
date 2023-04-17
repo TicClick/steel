@@ -6,6 +6,8 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 
 use crate::gui::state::UIState;
 
+use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
@@ -20,50 +22,62 @@ impl ChatWindow {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
-        // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-        if state.active_chat().is_some() {
-            egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                let text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                    .hint_text("new message")
-                    .frame(false)
-                    .interactive(state.is_connected());
-                let response = ui
-                    .centered_and_justified(|ui| {
-                        let response = ui.add(text_field);
-                        if !state.is_connected() {
-                            response.on_hover_text_at_pointer("you are offline")
-                        } else {
-                            response
-                        }
-                    })
-                    .inner;
-                self.response_widget_id = Some(response.id);
+        egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+            // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+            let interactive = state.is_connected() && state.active_chat().is_some();
 
-                if let Some(ch) = state.active_chat() {
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        state.core.chat_message_sent(&ch.name, &self.chat_input);
-                        self.chat_input.clear();
-                        response.request_focus();
+            let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                .id_source("chat-input")
+                .hint_text("new message")
+                .interactive(interactive);
+            let response = ui
+                .centered_and_justified(|ui| {
+                    let response = ui.add(text_field);
+                    match interactive {
+                        true => response,
+                        false => {
+                            let hint = match state.active_chat_tab_name.as_str() {
+                                HIGHLIGHTS_TAB_NAME | SERVER_TAB_NAME => {
+                                    "this tab doesn't accept messages"
+                                }
+                                _ => match state.active_chat().is_none() {
+                                    true => "open a chat tab to send messages",
+                                    false => "you are offline",
+                                },
+                            };
+                            response.on_hover_text_at_pointer(hint)
+                        }
                     }
+                })
+                .inner;
+            self.response_widget_id = Some(response.id);
+
+            if let Some(ch) = state.active_chat() {
+                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                    state.core.chat_message_sent(&ch.name, &self.chat_input);
+                    self.chat_input.clear();
+                    response.request_focus();
                 }
-            });
-        }
+            }
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
             let row_height = match self.chat_row_height {
                 Some(h) => h,
                 None => {
-                    let h = ui.text_style_height(&egui::TextStyle::Body); // XXX: may need adjustments if the style changes
+                    let h = ui.text_style_height(&egui::TextStyle::Body);
                     self.chat_row_height = Some(h);
                     h
                 }
             };
             let message_count = state.chat_message_count();
 
-            let mut area = egui::ScrollArea::vertical().auto_shrink([false, true]);
+            let mut area = egui::ScrollArea::vertical()
+                .id_source(&state.active_chat_tab_name)
+                .auto_shrink([false, false]);
             area = match self.scroll_to {
                 Some(message_id) => {
-                    let offset = (row_height + ui.spacing().item_spacing.y) * message_id as f32;
+                    let offset = row_height * message_id as f32;
                     area.vertical_scroll_offset(offset)
                 }
                 None => area.stick_to_bottom(true),
@@ -71,11 +85,11 @@ impl ChatWindow {
 
             area.show_rows(ui, row_height, message_count, |ui, row_range| {
                 if let Some(ch) = state.active_chat() {
-                    self.show_chat_messages(ui, state, ch, row_range);
+                    self.show_chat_messages(ui, state, ch, &row_range);
                 } else {
                     match state.active_chat_tab_name.as_str() {
-                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, row_range),
-                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, row_range),
+                        super::SERVER_TAB_NAME => self.show_server_messages(ui, state, &row_range),
+                        super::HIGHLIGHTS_TAB_NAME => self.show_highlights(ui, state, &row_range),
                         _ => (),
                     }
                 }
@@ -86,7 +100,7 @@ impl ChatWindow {
         self.scroll_to = None;
     }
 
-    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+    fn show_highlights(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
         for (chat_name, msg) in state.highlights.ordered()[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -98,7 +112,7 @@ impl ChatWindow {
         }
     }
 
-    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: Range<usize>) {
+    fn show_server_messages(&self, ui: &mut egui::Ui, state: &UIState, row_range: &Range<usize>) {
         for msg in state.server_messages[row_range.start..row_range.end].iter() {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -125,7 +139,7 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         chat: &Chat,
-        row_range: Range<usize>,
+        row_range: &Range<usize>,
     ) {
         for (i, msg) in chat.messages[row_range.start..row_range.end]
             .iter()
@@ -242,19 +256,14 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, mess
 
 fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     let username_text = if msg.username == state.settings.chat.irc.username {
-        egui::RichText::new(&msg.username).color(state.settings.ui.colours.own.clone())
+        egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
     } else {
-        let mut label = egui::RichText::new(&msg.username);
-        if let Some(c) = state
+        let colour = state
             .settings
             .ui
-            .colours
-            .users
-            .get(&msg.username.to_lowercase())
-        {
-            label = label.color(c.clone())
-        }
-        label
+            .colours()
+            .username_colour(&msg.username.to_lowercase());
+        egui::RichText::new(&msg.username).color(colour.clone())
     };
 
     ui.button(username_text)
@@ -277,6 +286,8 @@ fn format_chat_message_text(
     .with_main_wrap(true)
     .with_cross_justify(false);
 
+    let highlight_colour = state.settings.ui.colours().highlight.clone();
+
     ui.with_layout(layout, |ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         if let Some(chunks) = &msg.chunks {
@@ -285,8 +296,7 @@ fn format_chat_message_text(
                     MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
                         let mut text_chunk = egui::RichText::new(s);
                         if mark_as_highlight {
-                            text_chunk = text_chunk
-                                .color(state.settings.notifications.highlights.colour.clone());
+                            text_chunk = text_chunk.color(highlight_colour.clone());
                         }
                         if is_action {
                             text_chunk = text_chunk.italics();

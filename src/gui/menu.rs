@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use crate::core::irc::ConnectionStatus;
-use crate::core::settings;
+use crate::core::settings::ui::ThemeMode;
 
 use crate::gui::state::UIState;
 
@@ -20,15 +20,20 @@ impl Menu {
         self.show_settings || self.show_about
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
+    pub fn show(
+        &mut self,
+        ctx: &egui::Context,
+        state: &mut UIState,
+        response_widget_id: &mut Option<egui::Id>,
+    ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
                 if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
                     let old_theme = state.settings.ui.theme.clone();
                     state.settings.ui.theme = if theme.dark_mode {
-                        settings::ThemeMode::Dark
+                        ThemeMode::Dark
                     } else {
-                        settings::ThemeMode::Light
+                        ThemeMode::Light
                     };
                     if state.settings.ui.theme != old_theme {
                         state.core.settings_updated(&state.settings);
@@ -67,7 +72,10 @@ impl Menu {
                     match state.connection {
                         ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
                         ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                        ConnectionStatus::Connected => state.core.disconnect_requested(),
+                        ConnectionStatus::Connected => {
+                            response_widget_id.take();
+                            state.core.disconnect_requested();
+                        }
                     }
                 }
 

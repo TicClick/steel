@@ -1,6 +1,12 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::core::chat;
+
+#[derive(Debug)]
+pub enum UnreadType {
+    Regular,
+    Highlight,
+}
 
 #[derive(Debug, Default)]
 pub struct HighlightTracker {
@@ -11,7 +17,7 @@ pub struct HighlightTracker {
     ordered: Vec<(String, chat::Message)>,
     keywords: BTreeSet<String>,
 
-    unread_tabs: BTreeSet<String>,
+    unread_tabs: BTreeMap<String, UnreadType>,
 }
 
 impl HighlightTracker {
@@ -41,8 +47,8 @@ impl HighlightTracker {
         &self.ordered
     }
 
-    pub fn tab_contains_highlight(&self, tab_name: &str) -> bool {
-        self.unread_tabs.contains(tab_name)
+    pub fn unread_type(&self, tab_name: &str) -> Option<&UnreadType> {
+        self.unread_tabs.get(tab_name)
     }
 
     pub fn drop(&mut self, name: &str) {
@@ -54,6 +60,14 @@ impl HighlightTracker {
     }
 
     pub fn mark_as_unread(&mut self, name: &str) {
-        self.unread_tabs.insert(name.to_owned());
+        if !self.unread_tabs.contains_key(name) {
+            self.unread_tabs
+                .insert(name.to_owned(), UnreadType::Regular);
+        }
+    }
+
+    pub fn mark_as_highlighted(&mut self, name: &str) {
+        self.unread_tabs
+            .insert(name.to_owned(), UnreadType::Highlight);
     }
 }

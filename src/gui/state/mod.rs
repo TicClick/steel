@@ -92,13 +92,13 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, state: ChatState) {
-        let mut chat = Chat::new(name.to_owned());
+    pub fn add_new_chat(&mut self, name: String, state: ChatState, switch_to_chat: bool) {
+        let mut chat = Chat::new(name);
         chat.state = state;
 
         let normalized = chat.name.to_lowercase();
         self.chats.insert(normalized.to_owned(), chat);
-        if !name.is_channel() {
+        if switch_to_chat {
             self.active_chat_tab_name = normalized;
         }
     }
@@ -139,12 +139,16 @@ impl UIState {
             ch.push(message);
 
             let requires_attention = highlight || !normalized.is_channel();
-            if tab_inactive && requires_attention {
-                self.highlights.mark_as_unread(&normalized);
+            if tab_inactive {
+                if requires_attention {
+                    self.highlights.mark_as_highlighted(&normalized);
+                } else {
+                    self.highlights.mark_as_unread(&normalized);
+                }
             }
 
             if !frame.info().window_info.focused && requires_attention {
-                frame.request_user_attention(Some(eframe::egui::UserAttentionType::Critical));
+                frame.request_user_attention(eframe::egui::UserAttentionType::Critical);
                 if let Some(sound) = &self.settings.notifications.highlights.sound {
                     self.sound_player.play(sound);
                 }

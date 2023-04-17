@@ -124,15 +124,16 @@ impl ApplicationWindow {
                         }
                     }
                 }
-                UIMessageIn::NewChatRequested(name, state) => {
+                UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
                     if self.s.has_chat(&name) {
                         self.s.set_chat_state(&name, state, None);
                     } else {
-                        self.s.add_new_chat(name, state);
+                        self.s.add_new_chat(name, state, switch_to_chat);
                     }
                 }
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
                     if self.s.has_chat(&name) {
+                        self.s.highlights.mark_as_read(&name);
                         self.s.active_chat_tab_name = name;
                         self.chat.scroll_to = Some(message_id);
                     }
@@ -182,14 +183,15 @@ impl eframe::App for ApplicationWindow {
         self.process_pending_events(frame);
         self.set_theme(ctx);
 
-        self.menu.show(ctx, &mut self.s);
+        self.menu
+            .show(ctx, &mut self.s, &mut self.chat.response_widget_id);
         self.chat_tabs.show(ctx, &mut self.s);
         self.chat.show(ctx, &self.s);
 
         self.settings
             .show(ctx, &mut self.s, &mut self.menu.show_settings);
 
-        self.about.show(ctx, &self.s, &mut self.menu.show_about);
+        self.about.show(ctx, &mut self.s, &mut self.menu.show_about);
 
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);

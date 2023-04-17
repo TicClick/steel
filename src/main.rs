@@ -28,6 +28,20 @@ fn setup_logging() {
     log_panics::init();
 }
 
+fn read_icon() -> Option<eframe::IconData> {
+    match steel::png_to_rgba(include_bytes!("../media/icons/taskbar.png")) {
+        Ok((data, (width, height))) => Some(eframe::IconData {
+            rgba: data,
+            width,
+            height,
+        }),
+        Err(e) => {
+            log::error!("failed to read the app taskbar icon: {:?}", e);
+            None
+        }
+    }
+}
+
 fn main() {
     setup_logging();
 
@@ -41,7 +55,10 @@ fn main() {
         app.run();
     });
 
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        icon_data: read_icon(),
+        ..Default::default()
+    };
     eframe::run_native(
         "steel",
         native_options,
