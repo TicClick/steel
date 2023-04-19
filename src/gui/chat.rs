@@ -1,5 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use steel_plugin::PluginManager;
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
@@ -21,7 +22,7 @@ impl ChatWindow {
         Self::default()
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
+    pub fn show(&mut self, ctx: &egui::Context, state: &UIState, pm: &PluginManager) {
         egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
             // Special tabs (server messages and highlights) are 1) fake and 2) read-only
             let interactive = state.is_connected() && state.active_chat().is_some();
@@ -101,7 +102,9 @@ impl ChatWindow {
                         if let Some(ch) = state.active_chat() {
                             body.heterogeneous_rows(heights, |row_index, mut row| {
                                 row.col(|ui| {
-                                    self.show_regular_chat_single_message(ui, state, ch, row_index)
+                                    self.show_regular_chat_single_message(
+                                        ui, state, ch, row_index, pm,
+                                    )
                                 });
                             });
                         } else {
@@ -119,7 +122,7 @@ impl ChatWindow {
                                     body.heterogeneous_rows(heights, |row_index, mut row| {
                                         row.col(|ui| {
                                             self.show_highlights_tab_single_message(
-                                                ui, state, row_index,
+                                                ui, state, row_index, pm,
                                             )
                                         });
                                     });
@@ -138,6 +141,7 @@ impl ChatWindow {
         state: &UIState,
         ch: &Chat,
         message_index: usize,
+        pm: &PluginManager,
     ) {
         let msg = &ch.messages[message_index];
         let updated_height = ui
@@ -146,7 +150,9 @@ impl ChatWindow {
                 ui.style_mut().wrap = Some(true);
                 show_datetime(ui, msg);
                 match msg.r#type {
-                    MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
+                    MessageType::Action | MessageType::Text => {
+                        format_chat_message(ui, state, msg, pm)
+                    }
                     MessageType::System => format_system_message(ui, msg),
                 }
             })
@@ -159,6 +165,7 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         message_index: usize,
+        pm: &PluginManager,
     ) {
         let (chat_name, msg) = &state.highlights.ordered()[message_index];
         let updated_height = ui
@@ -166,7 +173,7 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(ui, state, msg);
+                format_username(ui, state, msg, pm);
                 format_chat_message_text(ui, state, msg, false, false)
             })
             .inner;
@@ -212,7 +219,7 @@ fn show_datetime(ui: &mut egui::Ui, msg: &Message) -> egui::Response {
     })
 }
 
-fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
+fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message, pm: &PluginManager) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);
         ui.close_menu();
@@ -260,6 +267,9 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
         });
         ui.close_menu();
     }
+
+    ui.separator();
+    pm.show_user_context_menu(ui);
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
@@ -268,8 +278,13 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
         .height()
 }
 
-fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) -> f32 {
-    format_username(ui, state, msg);
+fn format_chat_message(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    msg: &Message,
+    pm: &PluginManager,
+) -> f32 {
+    format_username(ui, state, msg, pm);
     format_chat_message_text(ui, state, msg, msg.highlight, false)
 }
 
@@ -295,7 +310,7 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, mess
     }
 }
 
-fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
+fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message, pm: &PluginManager) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
     } else {
@@ -308,7 +323,7 @@ fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     };
 
     ui.button(username_text)
-        .context_menu(|ui| show_username_menu(ui, state, msg));
+        .context_menu(|ui| show_username_menu(ui, state, msg, pm));
 }
 
 fn format_chat_message_text(
