@@ -4,7 +4,6 @@ use eframe::egui::{self, Ui};
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
-use crate::core::settings::ThemeMode;
 use crate::gui::highlights::UnreadType;
 use crate::gui::state::UIState;
 
@@ -102,18 +101,13 @@ impl ChatTabs {
                     let mut label = egui::RichText::new(&chat_name);
 
                     let colour = match state.highlights.unread_type(&normalized_chat_name) {
-                        None => egui::Color32::from_gray(120),
+                        None => &state.settings.ui.colours().read_tabs,
                         Some(unread) => match unread {
-                            UnreadType::Highlight => {
-                                state.settings.ui.colours().highlight.clone().into()
-                            }
-                            UnreadType::Regular => match state.settings.ui.theme {
-                                ThemeMode::Light => egui::Color32::BLACK,
-                                ThemeMode::Dark => egui::Color32::WHITE,
-                            },
+                            UnreadType::Highlight => &state.settings.ui.colours().highlight,
+                            UnreadType::Regular => &state.settings.ui.colours().unread_tabs,
                         },
                     };
-                    label = label.color(colour);
+                    label = label.color(colour.clone());
 
                     let chat_tab = ui.selectable_value(
                         &mut state.active_chat_tab_name,

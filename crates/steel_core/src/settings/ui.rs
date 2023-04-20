@@ -15,6 +15,8 @@ pub enum ThemeMode {
 pub struct ChatColours {
     pub own: Colour,
     pub highlight: Colour,
+    pub read_tabs: Colour,
+    pub unread_tabs: Colour,
     pub default_users: Colour,
     pub custom_users: BTreeMap<String, Colour>,
 }
@@ -25,6 +27,8 @@ impl Default for ChatColours {
         Self {
             own: Colour::from_rgb(250, 214, 60),
             highlight: Colour::from_rgb(250, 214, 60),
+            read_tabs: Colour::from_rgb(120, 120, 120),
+            unread_tabs: Colour::from_rgb(255, 255, 255),
             default_users: Colour::from_rgb(180, 180, 180),
             custom_users: BTreeMap::default(),
         }
@@ -41,6 +45,8 @@ impl ChatColours {
         Self {
             own: Colour::from_rgb(0, 132, 200),
             highlight: Colour::from_rgb(200, 77, 77),
+            read_tabs: Colour::from_rgb(120, 120, 120),
+            unread_tabs: Colour::from_rgb(0, 0, 0),
             default_users: Colour::from_rgb(60, 60, 60),
             ..Default::default()
         }

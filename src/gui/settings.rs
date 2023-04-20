@@ -244,12 +244,26 @@ impl Settings {
                 ui.label("self")
                     .on_hover_text_at_pointer("colour for your username");
             });
+
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().highlight.as_u8());
                 ui.label("highlights").on_hover_text_at_pointer(
                     "colour for chat messages and tabs containing unread highlights",
                 );
             });
+
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgb(state.settings.ui.colours_mut().read_tabs.as_u8());
+                ui.label("read tabs")
+                    .on_hover_text_at_pointer("the colour of read chat tabs");
+            });
+
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgb(state.settings.ui.colours_mut().unread_tabs.as_u8());
+                ui.label("read tabs")
+                    .on_hover_text_at_pointer("the colour of unread chat tabs");
+            });
+
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().default_users.as_u8());
                 ui.label("default users")
