@@ -15,7 +15,9 @@ pub enum ThemeMode {
 pub struct ChatColours {
     pub own: Colour,
     pub highlight: Colour,
+    #[serde(default)]
     pub read_tabs: Colour,
+    #[serde(default)]
     pub unread_tabs: Colour,
     pub default_users: Colour,
     pub custom_users: BTreeMap<String, Colour>,
