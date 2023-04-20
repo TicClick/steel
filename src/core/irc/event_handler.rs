@@ -2,9 +2,9 @@ use tokio::sync::mpsc::Sender;
 
 use irc::client::prelude::*;
 
-use crate::app::AppMessageIn;
-use crate::core::chat;
-use crate::core::irc::IRCError;
+use steel_core::chat::irc::IRCError;
+use steel_core::chat::{Message, MessageType};
+use steel_core::ipc::server::AppMessageIn;
 
 static ACTION_PREFIX: &str = "\x01ACTION";
 
@@ -14,11 +14,11 @@ pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
     if let irc::proto::Command::PRIVMSG(_, ref text) = msg.command {
         let (message_type, text) = if text.starts_with(ACTION_PREFIX) {
             (
-                chat::MessageType::Action,
+                MessageType::Action,
                 text.strip_prefix(ACTION_PREFIX).unwrap().trim(),
             )
         } else {
-            (chat::MessageType::Text, text.as_str())
+            (MessageType::Text, text.as_str())
         };
 
         let message_target = match msg.response_target() {
@@ -32,7 +32,7 @@ pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
         sender
             .blocking_send(AppMessageIn::ChatMessageReceived {
                 target: message_target,
-                message: chat::Message::new(&username, text, message_type),
+                message: Message::new(&username, text, message_type),
             })
             .unwrap();
     }

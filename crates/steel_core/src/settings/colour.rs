@@ -1,4 +1,4 @@
-use eframe::egui::Color32;
+use ecolor::Color32;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
@@ -17,18 +17,6 @@ impl Colour {
     }
 }
 
-impl From<Colour> for Color32 {
-    fn from(val: Colour) -> Self {
-        Color32::from_rgb(val.rgb[0], val.rgb[1], val.rgb[2])
-    }
-}
-
-impl From<Colour> for String {
-    fn from(val: Colour) -> Self {
-        format!("{} {} {}", val.rgb[0], val.rgb[1], val.rgb[2])
-    }
-}
-
 impl From<String> for Colour {
     fn from(value: String) -> Self {
         let values: Vec<u8> = value
@@ -42,5 +30,17 @@ impl From<String> for Colour {
                 value, e
             ),
         }
+    }
+}
+
+impl Into<String> for Colour {
+    fn into(self) -> String {
+        format!("{} {} {}", self.rgb[0], self.rgb[1], self.rgb[2])
+    }
+}
+
+impl From<Colour> for Color32 {
+    fn from(val: Colour) -> Self {
+        Color32::from_rgb(val.rgb[0], val.rgb[1], val.rgb[2])
     }
 }

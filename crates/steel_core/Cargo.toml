@@ -1,22 +1,16 @@
 [package]
-name = "steel"
-version = "0.5.5"
+name = "steel_core"
+version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-steel_plugin = { version = "0.1.0", path = "./crates/steel_plugin" }
-steel_core = { version = "0.1.0", path = "./crates/steel_core" }
-
 # See also: https://github.com/emilk/egui/issues/2898
-eframe = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
-egui_extras = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
+ecolor = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
 chrono = { version = "0.4.24", features = ["serde"] }
-irc = "0.15.0"
 irc-proto = "0.15.0"
-futures = "0.3.28"
-serde = "1.0.159"
+serde = { version = "1.0.159", features = ["serde_derive"] }
 serde_yaml = "0.9.19"
 tokio = { version = "1.27.0", features = ["rt"] }
 thiserror = "1.0.40"
@@ -26,13 +20,3 @@ log-panics = { version = "2.1.0", features = ["with-backtrace"] }
 time = { version = "0.3.20", features = ["macros"] }
 percent-encoding = "2.2.0"
 ureq = { version = "2.6.2", features = ["json", "native-tls"] }
-flate2 = "1.0.25"
-tar = "0.4.38"
-zip = "0.6.4"
-md5 = "0.7.0"
-
-# dependency of the alsa-sys crate: librust-alsa-sys-dev
-rodio = "0.17.1"
-png = "0.17.8"
-
-libloading = "0.8.0"

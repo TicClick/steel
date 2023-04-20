@@ -1,7 +1,7 @@
 use eframe::egui;
 
-use crate::core::irc::ConnectionStatus;
 use crate::core::settings::ui::ThemeMode;
+use steel_core::chat::ConnectionStatus;
 
 use crate::gui::state::UIState;
 

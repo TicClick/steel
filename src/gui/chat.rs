@@ -146,7 +146,9 @@ impl ChatWindow {
                 ui.style_mut().wrap = Some(true);
                 show_datetime(ui, msg);
                 match msg.r#type {
-                    MessageType::Action | MessageType::Text => format_chat_message(ui, state, msg),
+                    MessageType::Action | MessageType::Text => {
+                        format_chat_message(ui, state, &ch.name, msg)
+                    }
                     MessageType::System => format_system_message(ui, msg),
                 }
             })
@@ -166,7 +168,7 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(ui, state, msg);
+                format_username(ui, state, chat_name, msg);
                 format_chat_message_text(ui, state, msg, false, false)
             })
             .inner;
@@ -212,7 +214,7 @@ fn show_datetime(ui: &mut egui::Ui, msg: &Message) -> egui::Response {
     })
 }
 
-fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
+fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);
         ui.close_menu();
@@ -260,6 +262,12 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, message: &Message) {
         });
         ui.close_menu();
     }
+
+    if state.plugin_manager.has_plugins() {
+        state
+            .plugin_manager
+            .show_user_context_menu(ui, &state.core, chat_name, message);
+    }
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
@@ -268,12 +276,12 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
         .height()
 }
 
-fn format_chat_message(ui: &mut egui::Ui, state: &UIState, msg: &Message) -> f32 {
-    format_username(ui, state, msg);
+fn format_chat_message(ui: &mut egui::Ui, state: &UIState, chat_name: &str, msg: &Message) -> f32 {
+    format_username(ui, state, chat_name, msg);
     format_chat_message_text(ui, state, msg, msg.highlight, false)
 }
 
-fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, message: &Message) {
+fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     let chat_button = ui.button(match chat_name.is_channel() {
         true => chat_name,
         false => "(PM)",
@@ -295,7 +303,7 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &String, mess
     }
 }
 
-fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
+fn format_username(ui: &mut egui::Ui, state: &UIState, chat_name: &str, msg: &Message) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
     } else {
@@ -308,7 +316,7 @@ fn format_username(ui: &mut egui::Ui, state: &UIState, msg: &Message) {
     };
 
     ui.button(username_text)
-        .context_menu(|ui| show_username_menu(ui, state, msg));
+        .context_menu(|ui| show_username_menu(ui, state, chat_name, msg));
 }
 
 fn format_chat_message_text(

@@ -1,4 +1,6 @@
-/target
+target
+*.dll
+*.so
 
 Cargo.lock
 settings.yaml

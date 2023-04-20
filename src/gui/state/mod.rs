@@ -1,12 +1,11 @@
-pub mod client;
-
 use std::collections::BTreeMap;
 
+use steel_plugin::PluginManager;
 use tokio::sync::mpsc::Sender;
 
-use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatState, Message};
-use crate::core::irc::ConnectionStatus;
+use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
+use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
 
@@ -32,11 +31,12 @@ pub struct UIState {
     pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
-    pub core: client::CoreClient,
+    pub core: CoreClient,
     pub highlights: highlights::HighlightTracker,
 
     pub updater: Updater,
     pub sound_player: crate::core::sound::SoundPlayer,
+    pub plugin_manager: PluginManager,
 }
 
 impl UIState {
@@ -47,15 +47,34 @@ impl UIState {
             chats: BTreeMap::default(),
             server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
-            core: client::CoreClient::new(app_queue_handle),
+            core: CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),
+            plugin_manager: steel_plugin::PluginManager::new(),
+        }
+    }
+
+    fn maybe_load_plugins(&mut self) {
+        if self.plugin_manager.initialized {
+            return;
+        }
+        log::info!(
+            "plugin support enabled: {}",
+            self.settings.application.plugins.enabled
+        );
+        if !self.settings.application.plugins.enabled {
+            return;
+        }
+        match std::env::current_dir() {
+            Err(e) => log::error!("failed to get current directory: {:?}", e),
+            Ok(d) => self.plugin_manager.discover_plugins(&d),
         }
     }
 
     pub fn set_settings(&mut self, settings: Settings) {
         self.settings = settings;
+        self.maybe_load_plugins();
         self.highlights
             .set_username(&self.settings.chat.irc.username);
         self.highlights

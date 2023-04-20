@@ -1,10 +1,10 @@
 use eframe::egui;
+use steel_core::VersionString;
 
 use crate::core::settings::{BuiltInSound, Sound};
 use crate::core::updater::UpdateState;
 
 use crate::gui::state::UIState;
-use crate::VersionString;
 
 fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
     match crate::png_to_rgba(include_bytes!("../../media/icons/about.png")) {
@@ -33,6 +33,7 @@ impl About {
                     self.show_app_icon(ctx, ui, state);
                     ui.vertical(|ui| {
                         self.show_initial_section(ui);
+                        self.show_plugins(ui, state);
                         self.show_credits(ui);
                         self.show_update_section(ui, state);
                     });
@@ -67,6 +68,19 @@ impl About {
             ui.label(format!("{} by TicClick (", crate::VERSION));
             ui.hyperlink_to("source code", "https://github.com/TicClick/steel");
             ui.label("). not affiliated with peppy or ppy Pty Ltd. have fun!");
+        });
+    }
+
+    fn show_plugins(&self, ui: &mut egui::Ui, state: &UIState) {
+        ui.heading("plugins");
+        let mut versions = Vec::new();
+        for (name, version) in state.plugin_manager.installed() {
+            versions.push(format!("- {} {}", name, version));
+        }
+        ui.label(if versions.is_empty() {
+            "no plugins loaded".to_owned()
+        } else {
+            versions.join("\n")
         });
     }
 

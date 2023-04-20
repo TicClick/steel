@@ -11,7 +11,10 @@ use crate::actor::Actor;
 use crate::core::chat;
 use crate::core::irc::event_handler;
 
-use super::{AppMessageIn, ConnectionStatus, IRCError, IRCMessageIn};
+use steel_core::chat::{irc::IRCError, ConnectionStatus};
+use steel_core::ipc::server::AppMessageIn;
+
+use super::IRCMessageIn;
 
 static IRC_EVENT_WAIT_TIMEOUT: Duration = Duration::from_millis(5);
 

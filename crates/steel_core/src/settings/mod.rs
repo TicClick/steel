@@ -1,3 +1,4 @@
+pub mod application;
 pub mod chat;
 pub mod colour;
 pub mod journal;
@@ -10,6 +11,7 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 
+pub use application::Application;
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
 pub use journal::{AppEvents, Journal};
@@ -22,6 +24,7 @@ pub struct Settings {
     #[serde(skip)]
     settings_path: Source,
 
+    pub application: Application,
     pub chat: Chat,
     pub notifications: Notifications,
     pub ui: UI,
