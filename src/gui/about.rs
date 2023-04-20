@@ -1,11 +1,10 @@
 use eframe::egui;
-use steel_plugin::PluginManager;
+use steel_core::VersionString;
 
 use crate::core::settings::{BuiltInSound, Sound};
 use crate::core::updater::UpdateState;
 
 use crate::gui::state::UIState;
-use crate::VersionString;
 
 fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
     match crate::png_to_rgba(include_bytes!("../../media/icons/about.png")) {
@@ -25,13 +24,7 @@ pub struct About {
 }
 
 impl About {
-    pub fn show(
-        &mut self,
-        ctx: &eframe::egui::Context,
-        state: &mut UIState,
-        is_open: &mut bool,
-        pm: &PluginManager,
-    ) {
+    pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
         egui::Window::new("about")
             .open(is_open)
             .default_size((420., 200.))
@@ -40,7 +33,7 @@ impl About {
                     self.show_app_icon(ctx, ui, state);
                     ui.vertical(|ui| {
                         self.show_initial_section(ui);
-                        self.show_plugins(ui, pm);
+                        self.show_plugins(ui, state);
                         self.show_credits(ui);
                         self.show_update_section(ui, state);
                     });
@@ -78,10 +71,10 @@ impl About {
         });
     }
 
-    fn show_plugins(&self, ui: &mut egui::Ui, pm: &PluginManager) {
+    fn show_plugins(&self, ui: &mut egui::Ui, state: &UIState) {
         ui.heading("plugins");
         let mut versions = Vec::new();
-        for (name, version) in pm.installed() {
+        for (name, version) in state.plugin_manager.installed() {
             versions.push(format!("- {} {}", name, version));
         }
         ui.label(if versions.is_empty() {

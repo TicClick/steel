@@ -12,6 +12,7 @@ use crate::gui::state::UIState;
 
 #[derive(Clone, Debug, Default, cmp::PartialEq, cmp::Eq)]
 pub enum Tab {
+    Application,
     #[default]
     Chat,
     Interface,
@@ -100,10 +101,37 @@ impl Settings {
         state: &mut UIState,
     ) {
         match self.active_tab {
+            Tab::Application => self.show_application_tab(ctx, ui, state),
             Tab::Chat => self.show_chat_tab(ctx, ui, state),
             Tab::Interface => self.show_ui_tab(ui, state),
             Tab::Notifications => self.show_notifications_tab(ui, state),
         }
+    }
+
+    fn show_application_tab(
+        &mut self,
+        _ctx: &egui::Context,
+        ui: &mut eframe::egui::Ui,
+        state: &mut UIState,
+    ) {
+        ui.vertical(|ui| {
+            ui.heading("plugins");
+            if !state.settings.application.plugins.enabled {
+                ui.label(
+                    "plugins are third-party modules (.dll, .so) which add extra functions. \
+                to activate a plugin, place its file into the application's folder and restart it.\n\
+                \n\
+                beware that plugins can THEORETICALLY do anything in the application, or on your PC, that you can, so \
+                only add them if you know and trust their authors.",
+                );
+            }
+
+            ui.checkbox(
+                &mut state.settings.application.plugins.enabled,
+                "enable plugins",
+            )
+            .on_hover_text_at_pointer("requires application restart");
+        });
     }
 
     fn show_chat_tab(
@@ -417,6 +445,7 @@ impl Settings {
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
+                    ui.selectable_value(&mut self.active_tab, Tab::Application, "application");
                     ui.selectable_value(&mut self.active_tab, Tab::Chat, "chat");
                     ui.selectable_value(&mut self.active_tab, Tab::Interface, "interface");
                     ui.selectable_value(&mut self.active_tab, Tab::Notifications, "notifications");

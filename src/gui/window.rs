@@ -1,8 +1,6 @@
 use eframe::egui;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use steel_plugin::PluginManager;
-
 use crate::core::chat::{ChatState, Message};
 use crate::gui;
 
@@ -88,39 +86,9 @@ pub struct ApplicationWindow {
 
     ui_queue: Receiver<UIMessageIn>,
     s: UIState,
-
-    plugin_manager: PluginManager,
 }
 
 impl ApplicationWindow {
-    fn load_plugins() -> PluginManager {
-        let mut plugin_manager = PluginManager::new();
-        match std::env::current_dir() {
-            Err(e) => log::error!("failed to get current directory: {:?}", e),
-            Ok(pb) => match std::fs::read_dir(pb) {
-                Err(e) => log::error!("failed to scan current directory for plugins: {:?}", e),
-                Ok(it) => {
-                    for library in it.into_iter().filter_map(|elem| match elem {
-                        Err(_) => None,
-                        Ok(p) => match p.path().is_file()
-                            && p.path().extension().unwrap_or_default() == "dll"
-                        {
-                            true => Some(p),
-                            false => None,
-                        },
-                    }) {
-                        unsafe {
-                            if let Err(e) = plugin_manager.load_plugin(library.path()) {
-                                log::error!("failed to load plugin {:?}: {:?}", library, e);
-                            }
-                        }
-                    }
-                }
-            },
-        }
-        plugin_manager
-    }
-
     pub fn new(
         cc: &eframe::CreationContext,
         ui_queue: Receiver<UIMessageIn>,
@@ -136,7 +104,6 @@ impl ApplicationWindow {
             about: gui::about::About::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
-            plugin_manager: Self::load_plugins(),
         }
     }
 
@@ -220,17 +187,12 @@ impl eframe::App for ApplicationWindow {
         self.menu
             .show(ctx, &mut self.s, &mut self.chat.response_widget_id);
         self.chat_tabs.show(ctx, &mut self.s);
-        self.chat.show(ctx, &self.s, &self.plugin_manager);
+        self.chat.show(ctx, &self.s);
 
         self.settings
             .show(ctx, &mut self.s, &mut self.menu.show_settings);
 
-        self.about.show(
-            ctx,
-            &mut self.s,
-            &mut self.menu.show_about,
-            &self.plugin_manager,
-        );
+        self.about.show(ctx, &mut self.s, &mut self.menu.show_about);
 
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);
