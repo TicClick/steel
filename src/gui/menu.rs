@@ -44,29 +44,20 @@ impl Menu {
                     self.show_settings = !self.show_settings;
                 }
 
-                let (action, enabled, colour) = match state.connection {
-                    ConnectionStatus::Disconnected { .. } => {
-                        ("connect".to_owned(), true, egui::Color32::GREEN)
-                    }
-                    ConnectionStatus::InProgress => {
-                        ("connecting...".to_owned(), false, egui::Color32::YELLOW)
-                    }
+                let (action, enabled) = match state.connection {
+                    ConnectionStatus::Disconnected { .. } => ("connect".to_owned(), true),
+                    ConnectionStatus::InProgress => ("connecting...".to_owned(), false),
                     ConnectionStatus::Scheduled(when) => {
                         let action = format!(
                             "reconnecting ({}s)",
                             (when - chrono::Local::now()).num_seconds()
                         );
-                        (action, false, egui::Color32::YELLOW)
+                        (action, false)
                     }
-                    ConnectionStatus::Connected => {
-                        ("disconnect".to_owned(), true, egui::Color32::RED)
-                    }
+                    ConnectionStatus::Connected => ("disconnect".to_owned(), true),
                 };
                 if ui
-                    .add_enabled(
-                        enabled,
-                        egui::Button::new(egui::RichText::new(action).color(colour)),
-                    )
+                    .add_enabled(enabled, egui::Button::new(egui::RichText::new(action)))
                     .clicked()
                 {
                     match state.connection {
