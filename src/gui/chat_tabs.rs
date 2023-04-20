@@ -41,40 +41,53 @@ impl ChatTabs {
             ChatType::Channel => &mut self.new_channel_input,
             ChatType::Person => &mut self.new_chat_input,
         };
-        ui.horizontal(|ui| {
-            let add_chat = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
-            let hint = match mode {
-                ChatType::Channel => "channel",
-                ChatType::Person => "user",
-            };
-            let response = ui.add_sized(
-                ui.available_size(),
-                egui::TextEdit::singleline(input)
-                    .hint_text(hint)
-                    .interactive(state.is_connected())
-                    .id(egui::Id::new(mode.clone())),
-            );
 
-            let add_chat = !input.is_empty()
-                && (add_chat.clicked()
-                    || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+        let validation_result = match mode {
+            ChatType::Channel => super::validate_channel_name(input),
+            ChatType::Person => super::validate_username(input),
+        };
 
-            if add_chat {
-                // Whether the channel is valid or not is determined by the server (will send us a message),
-                // but for now let's add it to the interface.
-                match mode {
-                    ChatType::Channel => {
-                        let channel_name = match input.is_channel() {
-                            true => input.clone(),
-                            false => format!("#{}", input),
-                        };
-                        state.core.channel_opened(&channel_name);
-                        state.core.channel_join_requested(&channel_name);
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                let add_chat = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
+                let hint = match mode {
+                    ChatType::Channel => "channel",
+                    ChatType::Person => "user",
+                };
+                let response = ui.add_sized(
+                    ui.available_size(),
+                    egui::TextEdit::singleline(input)
+                        .hint_text(hint)
+                        .interactive(state.is_connected())
+                        .id(egui::Id::new(mode.clone())),
+                );
+
+                let add_chat = !input.is_empty()
+                    && (add_chat.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                if add_chat && validation_result.is_ok() {
+                    // Whether the channel is valid or not is determined by the server (will send us a message),
+                    // but for now let's add it to the interface.
+                    match mode {
+                        ChatType::Channel => {
+                            let channel_name = match input.is_channel() {
+                                true => input.clone(),
+                                false => format!("#{}", input),
+                            };
+                            state.core.channel_opened(&channel_name);
+                            state.core.channel_join_requested(&channel_name);
+                        }
+                        ChatType::Person => state.core.private_chat_opened(input),
                     }
-                    ChatType::Person => state.core.private_chat_opened(input),
+                    input.clear();
+                    response.request_focus();
                 }
-                input.clear();
-                response.request_focus();
+            });
+
+            if let Err(reason) = validation_result {
+                super::chat_validation_error(ui, reason);
             }
         });
     }
