@@ -227,6 +227,26 @@ impl Application {
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
         log::error!("IRC chat error: {:?}", e);
+        let error_text = e.to_string();
+        if let IRCError::ServerError {
+            code: _,
+            chat: Some(chat),
+            content,
+        } = e
+        {
+            let normalized = chat.to_lowercase();
+            self.state.chats.remove(&normalized);
+            self.ui_queue
+                .blocking_send(UIMessageIn::NewChatStatusReceived {
+                    target: chat,
+                    state: ChatState::Left,
+                    details: content,
+                })
+                .unwrap();
+        }
+        self.ui_queue
+            .blocking_send(UIMessageIn::NewServerMessageReceived(error_text))
+            .unwrap();
     }
 
     pub fn handle_channel_join(&mut self, channel: String) {

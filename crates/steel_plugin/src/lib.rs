@@ -32,8 +32,6 @@ pub trait Plugin: Any + Send + Sync {
     fn plugin_system_version(&self) -> &'static str;
 
     fn on_plugin_load(&self) {}
-    fn on_plugin_unload(&self) {}
-
     fn show_user_context_menu(&self, _ui: &mut egui::Ui, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
     fn handle_incoming_message(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
     fn handle_outgoing_message(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
@@ -147,34 +145,11 @@ impl PluginManager {
         }
     }
 
-    pub fn unload(&mut self) {
-        if !self.has_plugins() {
-            return;
-        }
-
-        log::debug!("Unloading plugins");
-        for plugin in self.plugins.drain(..) {
-            log::trace!("Firing on_plugin_unload for {:?}", plugin.name());
-            plugin.on_plugin_unload();
-        }
-        for lib in self.loaded_libraries.drain(..) {
-            drop(lib);
-        }
-    }
-
     pub fn installed(&self) -> Vec<(&str, &str)> {
         let mut ret = Vec::new();
         for p in &self.plugins {
             ret.push((p.name(), p.version()));
         }
         ret
-    }
-}
-
-impl Drop for PluginManager {
-    fn drop(&mut self) {
-        if !self.plugins.is_empty() || !self.loaded_libraries.is_empty() {
-            self.unload();
-        }
     }
 }
