@@ -76,6 +76,10 @@ impl PluginManager {
         Ok(())
     }
 
+    pub fn has_plugins(&self) -> bool {
+        !self.plugins.is_empty()
+    }
+
     pub fn show_user_context_menu(&self, ui: &mut egui::Ui, core: &CoreClient, chat_name: &str, message: &Message) {
         log::debug!("Firing show_user_context_menu hooks");
         for plugin in &self.plugins {

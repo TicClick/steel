@@ -274,8 +274,9 @@ fn show_username_menu(
         ui.close_menu();
     }
 
-    ui.separator();
-    pm.show_user_context_menu(ui, &state.core, chat_name, &message);
+    if pm.has_plugins() {
+        pm.show_user_context_menu(ui, &state.core, chat_name, &message);
+    }
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
