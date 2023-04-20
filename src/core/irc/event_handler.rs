@@ -55,9 +55,17 @@ pub fn default_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
                 Response::ERR_PASSWDMISMATCH => {
                     IRCError::FatalError("either your password is invalid, or you need to wait out some time before trying to connect again".to_owned())
                 }
+                Response::ERR_NOSUCHCHANNEL | Response::ERR_NOSUCHNICK | Response::ERR_CANNOTSENDTOCHAN | Response::ERR_WASNOSUCHNICK | Response::ERR_NOTONCHANNEL => {
+                    IRCError::ServerError {
+                        code: r,
+                        chat: Some(args[1].to_owned()),
+                        content: args[2..].join(" "),
+                    }
+                }
                 _ => {
                     IRCError::ServerError {
                         code: r,
+                        chat: None,
                         content: args[1..].join(" "),
                     }
                 }
