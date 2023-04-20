@@ -1,13 +1,12 @@
 mod actor;
 mod event_handler;
 
-use std::fmt;
-
 use tokio::sync::mpsc::{channel, Sender};
 
 use crate::actor::{Actor, ActorHandle};
-use crate::app::AppMessageIn;
-use crate::core::chat;
+
+use steel_core::chat::MessageType;
+use steel_core::ipc::server::AppMessageIn;
 
 #[derive(Debug)]
 pub enum IRCMessageIn {
@@ -16,50 +15,10 @@ pub enum IRCMessageIn {
     JoinChannel(String),
     LeaveChannel(String),
     SendMessage {
-        r#type: chat::MessageType,
+        r#type: MessageType,
         destination: String,
         content: String,
     },
-}
-
-#[derive(thiserror::Error, Debug)]
-pub enum IRCError {
-    #[error("fatal IRC error: {0}")]
-    FatalError(String),
-    #[error("IRC error {code:?}: {content}")]
-    ServerError {
-        code: irc_proto::Response,
-        content: String,
-    },
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum ConnectionStatus {
-    Disconnected { by_user: bool },
-    InProgress,
-    Connected,
-    Scheduled(chrono::DateTime<chrono::Local>),
-}
-
-impl Default for ConnectionStatus {
-    fn default() -> Self {
-        Self::Disconnected { by_user: false }
-    }
-}
-
-impl fmt::Display for ConnectionStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self {
-                Self::Connected => "connected".into(),
-                Self::InProgress => "connecting".into(),
-                Self::Disconnected { .. } => "disconnected".into(),
-                Self::Scheduled(when) => format!("connecting in {}s", *when - chrono::Local::now()),
-            }
-        )
-    }
 }
 
 pub struct IRCActorHandle {
@@ -109,7 +68,7 @@ impl IRCActorHandle {
     pub fn send_action(&self, destination: &str, action: &str) {
         self.actor
             .blocking_send(IRCMessageIn::SendMessage {
-                r#type: chat::MessageType::Action,
+                r#type: MessageType::Action,
                 destination: destination.to_owned(),
                 content: action.to_owned(),
             })
@@ -119,7 +78,7 @@ impl IRCActorHandle {
     pub fn send_message(&self, destination: &str, content: &str) {
         self.actor
             .blocking_send(IRCMessageIn::SendMessage {
-                r#type: chat::MessageType::Text,
+                r#type: MessageType::Text,
                 destination: destination.to_owned(),
                 content: content.to_owned(),
             })

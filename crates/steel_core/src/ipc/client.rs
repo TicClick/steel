@@ -1,7 +1,7 @@
 use tokio::sync::mpsc::Sender;
 
-use crate::app::AppMessageIn;
-use crate::core::settings::Settings;
+use crate::settings::Settings;
+use crate::ipc::server::AppMessageIn;
 
 #[derive(Debug)]
 pub struct CoreClient {

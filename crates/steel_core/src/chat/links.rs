@@ -1,4 +1,4 @@
-use crate::core::chat::Message;
+use crate::chat::Message;
 
 #[derive(PartialEq, Debug)]
 pub enum LinkLocation {

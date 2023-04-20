@@ -1,3 +1,4 @@
+pub mod irc;
 pub mod links;
 
 use std::collections::BTreeSet;
@@ -175,5 +176,34 @@ impl ChatLike for String {
 
     fn chat_type(&self) -> ChatType {
         self.as_str().chat_type()
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum ConnectionStatus {
+    Disconnected { by_user: bool },
+    InProgress,
+    Connected,
+    Scheduled(chrono::DateTime<chrono::Local>),
+}
+
+impl Default for ConnectionStatus {
+    fn default() -> Self {
+        Self::Disconnected { by_user: false }
+    }
+}
+
+impl fmt::Display for ConnectionStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Connected => "connected".into(),
+                Self::InProgress => "connecting".into(),
+                Self::Disconnected { .. } => "disconnected".into(),
+                Self::Scheduled(when) => format!("connecting in {}s", *when - chrono::Local::now()),
+            }
+        )
     }
 }

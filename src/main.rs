@@ -46,7 +46,7 @@ fn main() {
     setup_logging();
 
     let (ui_queue_handle, ui_queue) = channel(UI_EVENT_QUEUE_SIZE);
-    let mut app = app::server::Application::new(ui_queue_handle);
+    let mut app = app::Application::new(ui_queue_handle);
 
     let app_queue_handle = app.app_queue.clone();
 

@@ -1,10 +1,26 @@
+use std::fmt::Display;
 /// Dynamic library loading tools, as seen at https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html
 
-use std::any::Any;
+use std::{any::Any, error::Error};
 use std::ffi::OsStr;
 
 use eframe::egui;
 use libloading::{Library, Symbol};
+use steel_core::chat::Message;
+use steel_core::ipc::client::CoreClient;
+
+#[derive(Debug)]
+pub enum PluginError {
+    ValidationError(String),
+}
+
+impl Display for PluginError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl Error for PluginError {}
 
 pub trait Plugin: Any + Send + Sync {
     fn name(&self) -> &'static str;
@@ -13,7 +29,7 @@ pub trait Plugin: Any + Send + Sync {
     fn on_plugin_load(&self) {}
     fn on_plugin_unload(&self) {}
 
-    fn show_user_context_menu(&self, _ui: &mut egui::Ui) {}
+    fn show_user_context_menu(&self, _ui: &mut egui::Ui, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
 }
 
 #[macro_export]
@@ -60,11 +76,11 @@ impl PluginManager {
         Ok(())
     }
 
-    pub fn show_user_context_menu(&self, ui: &mut egui::Ui) {
+    pub fn show_user_context_menu(&self, ui: &mut egui::Ui, core: &CoreClient, chat_name: &str, message: &Message) {
         log::debug!("Firing show_user_context_menu hooks");
         for plugin in &self.plugins {
             log::trace!("Firing show_user_context_menu for {:?}", plugin.name());
-            plugin.show_user_context_menu(ui);
+            plugin.show_user_context_menu(ui, core, chat_name, message)
         }
     }
 

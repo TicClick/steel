@@ -1,12 +1,10 @@
-pub mod client;
-
 use std::collections::BTreeMap;
 
 use tokio::sync::mpsc::Sender;
 
-use crate::app::AppMessageIn;
-use crate::core::chat::{Chat, ChatLike, ChatState, Message};
-use crate::core::irc::ConnectionStatus;
+use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
+use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
 
@@ -32,7 +30,7 @@ pub struct UIState {
     pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
-    pub core: client::CoreClient,
+    pub core: CoreClient,
     pub highlights: highlights::HighlightTracker,
 
     pub updater: Updater,
@@ -47,7 +45,7 @@ impl UIState {
             chats: BTreeMap::default(),
             server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
-            core: client::CoreClient::new(app_queue_handle),
+            core: CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),

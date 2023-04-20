@@ -4,12 +4,12 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use steel_plugin::PluginManager;
 
 use crate::core::chat::{ChatState, Message};
-use crate::{app::AppMessageIn, gui};
+use crate::gui;
 
-use super::UIMessageIn;
 use crate::gui::state::UIState;
+use steel_core::chat::ConnectionStatus;
+use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
-use crate::core::irc::ConnectionStatus;
 use crate::core::settings;
 
 // Courtesy of emilk @ https://github.com/emilk/egui/blob/master/examples/custom_font/src/main.rs
