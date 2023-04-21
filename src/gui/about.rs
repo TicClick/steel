@@ -1,8 +1,8 @@
 use eframe::egui;
-use steel_core::VersionString;
+use steel_core::{VersionString, DEFAULT_DATETIME_FORMAT, DEFAULT_DATE_FORMAT};
 
 use crate::core::settings::{BuiltInSound, Sound};
-use crate::core::updater::UpdateState;
+use crate::core::updater::{State, UpdateState};
 
 use crate::gui::state::UIState;
 
@@ -86,45 +86,53 @@ impl About {
 
     fn show_update_section(&self, ui: &mut egui::Ui, state: &UIState) {
         ui.heading("update");
-        match state.updater.state() {
-            UpdateState::Idle => {
+        let UpdateState {
+            state: last_action,
+            when,
+        } = state.updater.state();
+        match last_action {
+            State::Idle => {
                 if ui.button("check for updates").clicked() {
                     state.updater.check_version();
                 }
             }
-            UpdateState::UpdateError(text) => {
-                ui.label(format!(
-                    "❌ failed to fetch updates: {} (runtime.log may have details)",
-                    text
-                ));
+            State::UpdateError(text) => {
+                ui.label(format!("failed to fetch updates: {text}"));
                 if ui.button("check for updates").clicked() {
                     state.updater.check_version();
                 }
             }
-            UpdateState::FetchingMetadata => {
+            State::FetchingMetadata => {
                 ui.horizontal(|ui| {
                     ui.spinner();
                     ui.label("checking for updates...");
                 });
             }
-            UpdateState::MetadataReady(m) => {
+            State::MetadataReady(m) => {
                 if crate::VERSION.semver() >= m.tag_name.semver() {
-                    ui.label(format!("no updates, {} is the latest version", m.tag_name));
+                    let label = format!("no updates, {} is the latest version", m.tag_name);
+                    ui.label(label);
                     if ui.button("check again").clicked() {
                         state.updater.check_version();
                     }
                 } else {
-                    ui.label(format!(
-                        "✨ new release: {} from {}",
+                    let label = format!(
+                        "new release: {} from {}",
                         m.tag_name,
-                        m.published_at.format("%Y-%m-%d")
-                    ));
+                        m.published_at.format(DEFAULT_DATE_FORMAT),
+                    );
+                    ui.label(label);
                     ui.horizontal(|ui| {
                         if ui.button("check again").clicked() {
                             state.updater.check_version();
                         }
                         if ui
-                            .button(format!("update {} → {}", crate::VERSION, m.tag_name))
+                            .button(format!(
+                                "update {} → {} ({} MB)",
+                                crate::VERSION,
+                                m.tag_name,
+                                m.size() >> 20
+                            ))
                             .clicked()
                         {
                             state.updater.download_new_version();
@@ -132,18 +140,22 @@ impl About {
                     });
                 }
             }
-            UpdateState::FetchingRelease => {
+            State::FetchingRelease => {
                 ui.horizontal(|ui| {
                     ui.spinner();
                     ui.label("downloading...");
                 });
             }
-            UpdateState::ReleaseReady(m) => {
+            State::ReleaseReady(m) => {
                 ui.label(format!(
                     "{} downloaded, restart the app whenever you wish",
                     m.tag_name
                 ));
             }
+        }
+        if let Some(when) = when {
+            let label = format!("last action: {}", when.format(DEFAULT_DATETIME_FORMAT));
+            ui.label(label);
         }
     }
 

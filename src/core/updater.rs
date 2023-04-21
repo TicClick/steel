@@ -6,7 +6,13 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 #[derive(Debug, Default, Clone)]
-pub enum UpdateState {
+pub struct UpdateState {
+    pub when: Option<chrono::DateTime<chrono::Local>>,
+    pub state: State,
+}
+
+#[derive(Debug, Default, Clone)]
+pub enum State {
     #[default]
     Idle,
     FetchingMetadata,
@@ -16,19 +22,19 @@ pub enum UpdateState {
     UpdateError(String),
 }
 
-impl From<io::Error> for UpdateState {
+impl From<io::Error> for State {
     fn from(value: io::Error) -> Self {
         Self::UpdateError(value.to_string())
     }
 }
 
-impl From<ureq::Error> for UpdateState {
+impl From<ureq::Error> for State {
     fn from(value: ureq::Error) -> Self {
         Self::UpdateError(value.to_string())
     }
 }
 
-impl From<String> for UpdateState {
+impl From<String> for State {
     fn from(value: String) -> Self {
         Self::UpdateError(value)
     }
@@ -41,7 +47,7 @@ pub enum BackendRequest {
     Quit,
 }
 
-const RELEASE_METADATA_URL: &str = "https://api.github.com/repos/TicClick/steel/releases/latest";
+const RECENT_RELEASES_METADATA_URL: &str = "https://api.github.com/repos/TicClick/steel/releases";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReleaseMetadata {
@@ -67,6 +73,13 @@ impl ReleaseMetadata {
         }
         return self.assets.iter().find(|a| a.name.contains(marker));
     }
+
+    pub fn size(&self) -> usize {
+        match self.platform_specific_asset() {
+            Some(a) => a.size,
+            None => 0,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -80,7 +93,7 @@ pub enum ArchiveType {
 pub struct ReleaseAsset {
     pub name: String,
     pub browser_download_url: String,
-    pub size: u32,
+    pub size: usize,
 }
 
 impl ReleaseAsset {
@@ -154,14 +167,14 @@ impl Updater {
     }
 
     pub fn available_update(&self) -> Option<ReleaseMetadata> {
-        match self.state() {
-            UpdateState::MetadataReady(r) => Some(r),
+        match self.state().state {
+            State::MetadataReady(r) => Some(r),
             _ => None,
         }
     }
 
     pub fn is_update_done(&self) -> bool {
-        matches!(self.state(), UpdateState::ReleaseReady(_))
+        matches!(self.state().state, State::ReleaseReady(_))
     }
 }
 
@@ -211,21 +224,33 @@ impl UpdaterBackend {
         }
     }
 
-    fn set_state(&self, state: UpdateState) {
-        if let UpdateState::UpdateError(ref text) = state {
+    fn set_state(&self, state: State) {
+        if let State::UpdateError(ref text) = state {
             log::error!("failed to perform the update: {}", text);
         }
-        *self.state.lock().unwrap() = state;
+        *self.state.lock().unwrap() = UpdateState {
+            state,
+            when: Some(chrono::Local::now()),
+        };
     }
 
     fn fetch_metadata(&self) {
-        log::info!("updater: checking {}", RELEASE_METADATA_URL);
-        *self.state.lock().unwrap() = UpdateState::FetchingMetadata;
-        match ureq::request("GET", RELEASE_METADATA_URL).call() {
-            Ok(payload) => match payload.into_json() {
-                Ok(p) => {
-                    log::info!("updater: latest release info -> {:?}", p);
-                    self.set_state(UpdateState::MetadataReady(p))
+        log::debug!("updater: checking {}", RECENT_RELEASES_METADATA_URL);
+        self.set_state(State::FetchingMetadata);
+        match ureq::request("GET", RECENT_RELEASES_METADATA_URL).call() {
+            Ok(payload) => match payload.into_json::<Vec<ReleaseMetadata>>() {
+                Ok(releases) => {
+                    log::debug!("updater: latest release info -> {:?}", releases.first());
+                    for release in releases {
+                        if release.platform_specific_asset().is_some() {
+                            log::debug!("latest relevant release: {:?}", release);
+                            self.set_state(State::MetadataReady(release));
+                            return;
+                        }
+                    }
+                    self.set_state(State::UpdateError(
+                        "no suitable release found for your platform".into(),
+                    ));
                 }
                 Err(e) => self.set_state(e.into()),
             },
@@ -234,27 +259,20 @@ impl UpdaterBackend {
     }
 
     fn fetch_release(&self) {
-        let state = self.state.lock().unwrap().clone();
-        if let UpdateState::MetadataReady(m) = state {
-            match m.platform_specific_asset() {
-                None => self.set_state(
-                    "There's no package for your platform in the latest release"
-                        .to_owned()
-                        .into(),
-                ),
-                Some(a) => {
-                    log::info!(
-                        "updater: fetching the new release from {}",
-                        a.browser_download_url
-                    );
-                    self.set_state(UpdateState::FetchingRelease);
-                    match ureq::request("GET", &a.browser_download_url).call() {
-                        Ok(p) => match self.prepare_release(p.into_reader(), a.archive_type()) {
-                            Ok(()) => self.set_state(UpdateState::ReleaseReady(m)),
-                            Err(e) => self.set_state(e.into()),
-                        },
+        let state = self.state.lock().unwrap().clone().state;
+        if let State::MetadataReady(m) = state {
+            if let Some(a) = m.platform_specific_asset() {
+                log::debug!(
+                    "updater: fetching the new release from {}",
+                    a.browser_download_url
+                );
+                self.set_state(State::FetchingRelease);
+                match ureq::request("GET", &a.browser_download_url).call() {
+                    Ok(p) => match self.prepare_release(p.into_reader(), a.archive_type()) {
+                        Ok(()) => self.set_state(State::ReleaseReady(m)),
                         Err(e) => self.set_state(e.into()),
-                    }
+                    },
+                    Err(e) => self.set_state(e.into()),
                 }
             }
         }
