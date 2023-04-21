@@ -65,7 +65,7 @@ impl About {
         ui.heading("steel");
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = 0.0;
-            ui.label(format!("{} by TicClick (", crate::VERSION));
+            ui.label(format!("v{} by TicClick (", crate::VERSION));
             ui.hyperlink_to("source code", "https://github.com/TicClick/steel");
             ui.label("). not affiliated with peppy or ppy Pty Ltd. have fun!");
         });
@@ -75,7 +75,7 @@ impl About {
         ui.heading("plugins");
         let mut versions = Vec::new();
         for (name, version) in state.plugin_manager.installed() {
-            versions.push(format!("- {} {}", name, version));
+            versions.push(format!("- {} v{}", name, version));
         }
         ui.label(if versions.is_empty() {
             "no plugins loaded".to_owned()

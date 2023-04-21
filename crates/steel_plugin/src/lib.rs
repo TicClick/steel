@@ -11,7 +11,7 @@ use steel_core::VersionString;
 use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
 
-pub const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[derive(Debug)]
 pub enum PluginError {

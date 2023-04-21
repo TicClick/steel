@@ -3,7 +3,7 @@ pub mod app;
 pub mod core;
 pub mod gui;
 
-const VERSION: &str = concat!("v", env!("CARGO_PKG_VERSION"));
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub fn png_to_rgba(bytes: &[u8]) -> Result<(Vec<u8>, (u32, u32)), png::DecodingError> {
     let decoder = png::Decoder::new(std::io::Cursor::new(bytes));
