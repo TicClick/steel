@@ -11,6 +11,8 @@ use crate::core::updater::Updater;
 
 use crate::gui::highlights;
 
+use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+
 #[derive(Debug)]
 pub enum UIMessageIn {
     SettingsChanged(Settings),
@@ -154,6 +156,9 @@ impl UIState {
             let highlight = message.highlight;
             if highlight {
                 self.highlights.add(&normalized, &message);
+                if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
+                    self.highlights.mark_as_unread(HIGHLIGHTS_TAB_NAME);
+                }
             }
             ch.push(message);
 
@@ -192,6 +197,9 @@ impl UIState {
         let mut msg = Message::new_system(text);
         msg.parse_for_links();
         self.server_messages.push(msg);
+        if self.active_chat_tab_name != SERVER_TAB_NAME {
+            self.highlights.mark_as_unread(SERVER_TAB_NAME);
+        }
     }
 
     pub fn remove_chat(&mut self, target: String) {

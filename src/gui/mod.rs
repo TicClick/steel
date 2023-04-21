@@ -7,5 +7,5 @@ pub mod settings;
 pub mod state;
 pub mod window;
 
-const HIGHLIGHTS_TAB_NAME: &str = "highlights";
-const SERVER_TAB_NAME: &str = "server";
+const HIGHLIGHTS_TAB_NAME: &str = "$highlights";
+const SERVER_TAB_NAME: &str = "$server";
