@@ -240,33 +240,47 @@ impl Settings {
     }
 
     fn show_ui_tab(&mut self, ui: &mut eframe::egui::Ui, state: &mut UIState) {
-        let prefix = match state.settings.ui.theme {
-            settings::ThemeMode::Dark => "dark",
-            settings::ThemeMode::Light => "light",
+        let suffix = match state.settings.ui.theme {
+            settings::ThemeMode::Dark => "dark theme",
+            settings::ThemeMode::Light => "light theme",
         };
         let validation_result = super::validate_username(&self.username_input);
 
         ui.vertical(|ui| {
-            ui.heading(format!("{prefix} chat colours"));
+            ui.heading(format!("chat colours ({suffix})"));
 
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().own.as_u8());
                 ui.label("self")
-                    .on_hover_text_at_pointer("colour for your username");
+                    .on_hover_text_at_pointer("the colour of your username");
             });
+
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().highlight.as_u8());
                 ui.label("highlights").on_hover_text_at_pointer(
-                    "colour for chat messages and tabs containing unread highlights",
+                    "the colour of chat messages and tabs containing unread highlights",
                 );
             });
+
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgb(state.settings.ui.colours_mut().read_tabs.as_u8());
+                ui.label("read tabs")
+                    .on_hover_text_at_pointer("the colour of read chat tabs");
+            });
+
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgb(state.settings.ui.colours_mut().unread_tabs.as_u8());
+                ui.label("unread tabs")
+                    .on_hover_text_at_pointer("the colour of unread chat tabs");
+            });
+
             ui.horizontal(|ui| {
                 ui.color_edit_button_srgb(state.settings.ui.colours_mut().default_users.as_u8());
                 ui.label("default users")
-                    .on_hover_text_at_pointer("default colour for all chat users");
+                    .on_hover_text_at_pointer("default colour of all chat users");
             });
 
-            ui.heading(format!("{prefix} user colours"));
+            ui.heading(format!("custom user colours ({suffix})"));
 
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {

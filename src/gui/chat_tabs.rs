@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
 use eframe::egui::{self, Ui};
+use steel_core::settings::Colour;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
-use crate::core::settings::ThemeMode;
 use crate::gui::highlights::UnreadType;
 use crate::gui::state::UIState;
 
@@ -33,6 +33,17 @@ impl ChatTabs {
             self.show_system_tabs(state, ui);
         });
     }
+}
+
+fn pick_tab_colour(state: &UIState, normalized_chat_name: &str) -> Colour {
+    let colour = match state.highlights.unread_type(normalized_chat_name) {
+        None => &state.settings.ui.colours().read_tabs,
+        Some(unread) => match unread {
+            UnreadType::Highlight => &state.settings.ui.colours().highlight,
+            UnreadType::Regular => &state.settings.ui.colours().unread_tabs,
+        },
+    };
+    colour.clone()
 }
 
 impl ChatTabs {
@@ -113,20 +124,7 @@ impl ChatTabs {
             ui.vertical(|ui| {
                 ui.horizontal(|ui| {
                     let mut label = egui::RichText::new(&chat_name);
-
-                    let colour = match state.highlights.unread_type(&normalized_chat_name) {
-                        None => egui::Color32::from_gray(120),
-                        Some(unread) => match unread {
-                            UnreadType::Highlight => {
-                                state.settings.ui.colours().highlight.clone().into()
-                            }
-                            UnreadType::Regular => match state.settings.ui.theme {
-                                ThemeMode::Light => egui::Color32::BLACK,
-                                ThemeMode::Dark => egui::Color32::WHITE,
-                            },
-                        },
-                    };
-                    label = label.color(colour);
+                    label = label.color(pick_tab_colour(state, &normalized_chat_name));
 
                     let chat_tab = ui.selectable_value(
                         &mut state.active_chat_tab_name,
@@ -192,7 +190,16 @@ impl ChatTabs {
             super::HIGHLIGHTS_TAB_NAME.to_owned(),
             super::SERVER_TAB_NAME.to_owned(),
         ] {
-            ui.selectable_value(&mut state.active_chat_tab_name, label.to_owned(), label);
+            let coloured_label =
+                egui::RichText::new(label[1..].to_string()).color(pick_tab_colour(state, &label));
+            let chat_tab = ui.selectable_value(
+                &mut state.active_chat_tab_name,
+                label.to_owned(),
+                coloured_label,
+            );
+            if chat_tab.clicked() {
+                state.highlights.mark_as_read(&label);
+            }
         }
     }
 }

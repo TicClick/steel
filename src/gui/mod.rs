@@ -9,8 +9,8 @@ pub mod settings;
 pub mod state;
 pub mod window;
 
-const HIGHLIGHTS_TAB_NAME: &str = "highlights";
-const SERVER_TAB_NAME: &str = "server";
+const HIGHLIGHTS_TAB_NAME: &str = "$highlights";
+const SERVER_TAB_NAME: &str = "$server";
 
 pub fn validate_username(input: &str) -> Result<(), &'static str> {
     match input.contains(|ch: char| !ch.is_ascii_alphanumeric() && !"-_ []".contains(ch)) {
