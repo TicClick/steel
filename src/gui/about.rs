@@ -86,6 +86,7 @@ impl About {
 
     fn show_update_section(&self, ui: &mut egui::Ui, state: &UIState) {
         ui.heading("update");
+
         let UpdateState {
             state: last_action,
             when,
@@ -153,10 +154,19 @@ impl About {
                 ));
             }
         }
+
         if let Some(when) = when {
-            let label = format!("last action: {}", when.format(DEFAULT_DATETIME_FORMAT));
+            let label = format!("- last action: {}", when.format(DEFAULT_DATETIME_FORMAT));
             ui.label(label);
         }
+        let autoupdate_status = format!(
+            "- automatic updates: {}",
+            match state.settings.application.autoupdate.enabled {
+                true => "enabled",
+                false => "disabled",
+            }
+        );
+        ui.label(autoupdate_status);
     }
 
     fn show_credits(&self, ui: &mut egui::Ui) {

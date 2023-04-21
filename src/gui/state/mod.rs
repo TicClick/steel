@@ -81,6 +81,8 @@ impl UIState {
             .set_username(&self.settings.chat.irc.username);
         self.highlights
             .set_highlights(&self.settings.notifications.highlights.words);
+        self.updater
+            .enable_autoupdate(self.settings.application.autoupdate.enabled);
     }
 
     pub fn update_highlights(&mut self, words: &str) {
