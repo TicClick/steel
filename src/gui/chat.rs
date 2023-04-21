@@ -12,6 +12,10 @@ pub struct ChatWindow {
 
     chat_row_height: Option<f32>,
     cached_row_heights: Vec<f32>,
+
+    // FIXME: This is a hack to prevent the context menu from re-sticking to other chat buttons (and therefore messages)
+    // when the chat keeps scrolling to bottom. The menu seems to not care about that and stick to whichever is beneath, which is changing.
+    context_menu_target: Option<Message>,
 }
 
 impl ChatWindow {
@@ -128,7 +132,8 @@ impl ChatWindow {
                 show_datetime(ui, msg);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        format_chat_message(ui, state, &ch.name, msg)
+                        format_username(ui, state, &ch.name, msg, &mut self.context_menu_target);
+                        format_chat_message_text(ui, state, msg, msg.highlight, false)
                     }
                     MessageType::System => format_system_message(ui, msg),
                 }
@@ -149,7 +154,7 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(ui, state, chat_name, msg);
+                format_username(ui, state, chat_name, msg, &mut self.context_menu_target);
                 format_chat_message_text(ui, state, msg, false, false)
             })
             .inner;
@@ -257,11 +262,6 @@ fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
         .height()
 }
 
-fn format_chat_message(ui: &mut egui::Ui, state: &UIState, chat_name: &str, msg: &Message) -> f32 {
-    format_username(ui, state, chat_name, msg);
-    format_chat_message_text(ui, state, msg, msg.highlight, false)
-}
-
 fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     let chat_button = ui.button(match chat_name.is_channel() {
         true => chat_name,
@@ -284,7 +284,13 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
     }
 }
 
-fn format_username(ui: &mut egui::Ui, state: &UIState, chat_name: &str, msg: &Message) {
+fn format_username(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    chat_name: &str,
+    msg: &Message,
+    context_menu_target: &mut Option<Message>,
+) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
     } else {
@@ -296,8 +302,18 @@ fn format_username(ui: &mut egui::Ui, state: &UIState, chat_name: &str, msg: &Me
         egui::RichText::new(&msg.username).color(colour.clone())
     };
 
-    ui.button(username_text)
-        .context_menu(|ui| show_username_menu(ui, state, chat_name, msg));
+    let resp = ui.button(username_text);
+    if resp.hovered() {
+        *context_menu_target = Some(msg.clone());
+    }
+    resp.context_menu(|ui| {
+        show_username_menu(
+            ui,
+            state,
+            chat_name,
+            context_menu_target.as_ref().unwrap_or(msg),
+        )
+    });
 }
 
 fn format_chat_message_text(
