@@ -4,8 +4,6 @@ use egui_extras::{Column, TableBuilder};
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 
-use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
-
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
@@ -22,44 +20,27 @@ impl ChatWindow {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
-        egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-            // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-            let interactive = state.is_connected() && state.active_chat().is_some();
+        let interactive = state.is_connected() && state.active_chat().is_some();
+        if interactive {
+            egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+                // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+                let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                    .id_source("chat-input")
+                    .hint_text("new message");
+                let response = ui.centered_and_justified(|ui| ui.add(text_field)).inner;
+                self.response_widget_id = Some(response.id);
 
-            let text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                .id_source("chat-input")
-                .hint_text("new message")
-                .interactive(interactive);
-            let response = ui
-                .centered_and_justified(|ui| {
-                    let response = ui.add(text_field);
-                    match interactive {
-                        true => response,
-                        false => {
-                            let hint = match state.active_chat_tab_name.as_str() {
-                                HIGHLIGHTS_TAB_NAME | SERVER_TAB_NAME => {
-                                    "this tab doesn't accept messages"
-                                }
-                                _ => match state.active_chat().is_none() {
-                                    true => "open a chat tab to send messages",
-                                    false => "you are offline",
-                                },
-                            };
-                            response.on_hover_text_at_pointer(hint)
-                        }
+                if let Some(ch) = state.active_chat() {
+                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        state.core.chat_message_sent(&ch.name, &self.chat_input);
+                        self.chat_input.clear();
+                        response.request_focus();
                     }
-                })
-                .inner;
-            self.response_widget_id = Some(response.id);
-
-            if let Some(ch) = state.active_chat() {
-                if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    state.core.chat_message_sent(&ch.name, &self.chat_input);
-                    self.chat_input.clear();
-                    response.request_focus();
                 }
-            }
-        });
+            });
+        } else {
+            self.response_widget_id = None;
+        }
 
         // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
         // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination.
