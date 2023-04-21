@@ -26,31 +26,40 @@ pub struct AutojoinSection {
 
 impl AutojoinSection {
     pub fn show(&mut self, settings: &mut settings::Settings, ui: &mut eframe::egui::Ui) {
+        let validation_result = super::validate_channel_name(&self.autojoin_channel_input);
+
         ui.collapsing("auto-join channels", |ui| {
-            ui.horizontal(|ui| {
-                // TODO: this will overflow the window if too many channels are added
-                let add_autojoin_channel = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.autojoin_channel_input)
-                        .hint_text("channel name"),
-                );
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    // TODO: this will overflow the window if too many channels are added
+                    let add_autojoin_channel =
+                        ui.button("+").on_hover_text_at_pointer("<Enter> = add");
+                    let response = ui.add(
+                        egui::TextEdit::singleline(&mut self.autojoin_channel_input)
+                            .hint_text("channel name"),
+                    );
 
-                let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
-                    && (add_autojoin_channel.clicked()
-                        || (response.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+                    let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
+                        && (add_autojoin_channel.clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
 
-                if add_autojoin_channel {
-                    let channel_name = if self.autojoin_channel_input.is_channel() {
-                        self.autojoin_channel_input.to_owned()
-                    } else {
-                        format!("#{}", self.autojoin_channel_input)
-                    };
-                    settings.chat.autojoin.insert(channel_name);
-                    self.autojoin_channel_input.clear();
-                    response.request_focus();
+                    if add_autojoin_channel && validation_result.is_ok() {
+                        let channel_name = if self.autojoin_channel_input.is_channel() {
+                            self.autojoin_channel_input.to_owned()
+                        } else {
+                            format!("#{}", self.autojoin_channel_input)
+                        };
+                        settings.chat.autojoin.insert(channel_name);
+                        self.autojoin_channel_input.clear();
+                        response.request_focus();
+                    }
+                });
+                if let Err(reason) = validation_result {
+                    super::chat_validation_error(ui, reason);
                 }
             });
+
             let mut to_remove = BTreeSet::new();
             for name in settings.chat.autojoin.iter() {
                 let channel_button = ui
@@ -235,6 +244,7 @@ impl Settings {
             settings::ThemeMode::Dark => "dark theme",
             settings::ThemeMode::Light => "light theme",
         };
+        let validation_result = super::validate_username(&self.username_input);
 
         ui.vertical(|ui| {
             ui.heading(format!("chat colours ({suffix})"));
@@ -272,29 +282,35 @@ impl Settings {
 
             ui.heading(format!("custom user colours ({suffix})"));
 
-            ui.horizontal(|ui| {
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.username_input)
-                        .hint_text("username")
-                        .desired_width(200.0),
-                );
-                ui.color_edit_button_srgb(self.username_colour_input.as_u8());
-                let add_user = ui
-                    .button("add colour")
-                    .on_hover_text_at_pointer("<Enter> = add");
-
-                let add_user = !self.username_input.is_empty()
-                    && (add_user.clicked()
-                        || (response.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
-
-                if add_user {
-                    state.settings.ui.colours_mut().custom_users.insert(
-                        self.username_input.to_lowercase().replace(' ', "_"),
-                        self.username_colour_input.clone(),
+            ui.vertical(|ui| {
+                ui.horizontal(|ui| {
+                    let response = ui.add(
+                        egui::TextEdit::singleline(&mut self.username_input)
+                            .hint_text("username")
+                            .desired_width(200.0),
                     );
-                    self.username_input.clear();
-                    response.request_focus();
+                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+                    let add_user = ui
+                        .button("add colour")
+                        .on_hover_text_at_pointer("<Enter> = add");
+
+                    let add_user = !self.username_input.is_empty()
+                        && (add_user.clicked()
+                            || (response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                    if add_user && validation_result.is_ok() {
+                        state.settings.ui.colours_mut().custom_users.insert(
+                            self.username_input.to_lowercase().replace(' ', "_"),
+                            self.username_colour_input.clone(),
+                        );
+                        self.username_input.clear();
+                        response.request_focus();
+                    }
+                });
+
+                if let Err(reason) = validation_result {
+                    super::chat_validation_error(ui, reason);
                 }
             });
 

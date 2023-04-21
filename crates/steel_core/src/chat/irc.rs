@@ -5,6 +5,7 @@ pub enum IRCError {
     #[error("IRC error {code:?}: {content}")]
     ServerError {
         code: irc_proto::Response,
+        chat: Option<String>,
         content: String,
     },
 }

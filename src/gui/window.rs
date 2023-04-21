@@ -132,6 +132,15 @@ impl ApplicationWindow {
                         self.s.add_new_chat(name, state, switch_to_chat);
                     }
                 }
+                UIMessageIn::NewChatStatusReceived {
+                    target,
+                    state,
+                    details,
+                } => {
+                    if self.s.has_chat(&target) {
+                        self.s.set_chat_state(&target, state, Some(&details));
+                    }
+                }
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
                     if self.s.has_chat(&name) {
                         self.s.highlights.mark_as_read(&name);
