@@ -1,10 +1,12 @@
 use std::collections::BTreeMap;
 
-use steel_plugin::PluginManager;
-use tokio::sync::mpsc::Sender;
-
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+
+use steel_plugin::PluginManager;
+
+use eframe::egui;
+use tokio::sync::mpsc::Sender;
 
 use crate::core::settings::Settings;
 use crate::core::updater::Updater;
@@ -74,8 +76,10 @@ impl UIState {
         }
     }
 
-    pub fn set_settings(&mut self, settings: Settings) {
+    pub fn set_settings(&mut self, ctx: &egui::Context, settings: Settings) {
         self.settings = settings;
+        ctx.set_pixels_per_point(self.settings.ui.scaling);
+
         self.maybe_load_plugins();
         self.highlights
             .set_username(&self.settings.chat.irc.username);

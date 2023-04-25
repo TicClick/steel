@@ -118,11 +118,11 @@ impl ApplicationWindow {
         }
     }
 
-    pub fn process_pending_events(&mut self, frame: &mut eframe::Frame) {
+    pub fn process_pending_events(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         while let Ok(event) = self.ui_queue.try_recv() {
             match event {
                 UIMessageIn::SettingsChanged(settings) => {
-                    self.s.set_settings(settings);
+                    self.s.set_settings(ctx, settings);
                 }
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
@@ -201,7 +201,7 @@ const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_milli
 impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
-        self.process_pending_events(frame);
+        self.process_pending_events(ctx, frame);
         self.set_theme(ctx);
 
         self.menu

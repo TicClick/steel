@@ -14,6 +14,17 @@ impl SettingsWindow {
         let validation_result = crate::gui::validate_username(&self.username_input);
 
         ui.vertical(|ui| {
+            ui.heading("application");
+            ui.horizontal(|ui| {
+                ui.label("interface scaling");
+                let font_size_slider = egui::Slider::new(&mut state.settings.ui.scaling, 1.0..=2.5)
+                    .fixed_decimals(2)
+                    .drag_value_speed(0.5);
+                if ui.add(font_size_slider).drag_released() {
+                    ui.ctx().set_pixels_per_point(state.settings.ui.scaling);
+                }
+            });
+
             ui.heading(format!("chat colours ({suffix})"));
 
             ui.horizontal(|ui| {
