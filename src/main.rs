@@ -2,8 +2,12 @@
 
 use tokio::sync::mpsc::channel;
 
-use steel::app;
-use steel::gui;
+pub mod actor;
+pub mod app;
+pub mod core;
+pub mod gui;
+
+const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 const UI_EVENT_QUEUE_SIZE: usize = 1000;
 const LOG_FILE_PATH: &str = "./runtime.log";
@@ -31,7 +35,7 @@ fn setup_logging() {
 }
 
 fn read_icon() -> Option<eframe::IconData> {
-    match steel::png_to_rgba(include_bytes!("../media/icons/taskbar.png")) {
+    match crate::gui::png_to_rgba(include_bytes!("../media/icons/taskbar.png")) {
         Ok((data, (width, height))) => Some(eframe::IconData {
             rgba: data,
             width,
