@@ -78,6 +78,9 @@ impl UpdateWindow {
                             "{} downloaded, restart the app whenever you wish",
                             m.tag_name
                         ));
+                        if ui.button("restart now").clicked() {
+                            crate::core::os::restart();
+                        }
                     }
                 }
 
