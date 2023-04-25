@@ -83,6 +83,7 @@ pub struct ApplicationWindow {
     chat_tabs: gui::chat_tabs::ChatTabs,
     settings: gui::settings::Settings,
     about: gui::about::About,
+    update_window: gui::update_window::UpdateWindow,
 
     ui_queue: Receiver<UIMessageIn>,
     s: UIState,
@@ -102,6 +103,7 @@ impl ApplicationWindow {
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
             settings: gui::settings::Settings::new(),
             about: gui::about::About::default(),
+            update_window: gui::update_window::UpdateWindow::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
         }
@@ -194,7 +196,7 @@ impl eframe::App for ApplicationWindow {
         self.set_theme(ctx);
 
         self.menu
-            .show(ctx, &mut self.s, &mut self.chat.response_widget_id);
+            .show(ctx, frame, &mut self.s, &mut self.chat.response_widget_id);
         self.chat_tabs.show(ctx, &mut self.s);
         self.chat.show(ctx, &self.s);
 
@@ -202,6 +204,9 @@ impl eframe::App for ApplicationWindow {
             .show(ctx, &mut self.s, &mut self.menu.show_settings);
 
         self.about.show(ctx, &mut self.s, &mut self.menu.show_about);
+
+        self.update_window
+            .show(ctx, &mut self.s, &mut self.menu.show_update);
 
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);

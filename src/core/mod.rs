@@ -1,4 +1,5 @@
 pub mod irc;
+pub mod os;
 pub mod sound;
 pub mod updater;
 
