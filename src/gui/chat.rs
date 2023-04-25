@@ -59,13 +59,11 @@ impl ChatWindow {
             // Default spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 4.;
 
-            if self.chat_row_height.is_none() {
-                self.chat_row_height = Some(ui.text_style_height(&egui::TextStyle::Body));
-            }
-            if let Some(h) = self.chat_row_height {
-                self.cached_row_heights
-                    .resize(state.chat_message_count(), h);
-            }
+            let chat_row_height = *self
+                .chat_row_height
+                .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
+            self.cached_row_heights
+                .resize(state.chat_message_count(), chat_row_height);
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
