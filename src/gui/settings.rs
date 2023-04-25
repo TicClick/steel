@@ -94,6 +94,7 @@ pub struct Settings {
 
     highlights_input: String,
     notifications_builtin_sound: settings::BuiltInSound,
+    text_row_height: Option<f32>,
 }
 
 impl Settings {
@@ -299,62 +300,71 @@ impl Settings {
 
             ui.heading(format!("custom user colours ({suffix})"));
 
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    let response = ui.add(
-                        egui::TextEdit::singleline(&mut self.username_input)
-                            .hint_text("username")
-                            .desired_width(200.0),
+            ui.horizontal(|ui| {
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.username_input)
+                        .hint_text("username")
+                        .desired_width(200.0),
+                );
+                ui.color_edit_button_srgb(self.username_colour_input.as_u8());
+                let add_user = ui
+                    .button("add colour")
+                    .on_hover_text_at_pointer("<Enter> = add");
+
+                let add_user = !self.username_input.is_empty()
+                    && (add_user.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                if add_user && validation_result.is_ok() {
+                    state.settings.ui.colours_mut().custom_users.insert(
+                        self.username_input.to_lowercase().replace(' ', "_"),
+                        self.username_colour_input.clone(),
                     );
-                    ui.color_edit_button_srgb(self.username_colour_input.as_u8());
-                    let add_user = ui
-                        .button("add colour")
-                        .on_hover_text_at_pointer("<Enter> = add");
-
-                    let add_user = !self.username_input.is_empty()
-                        && (add_user.clicked()
-                            || (response.lost_focus()
-                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
-
-                    if add_user && validation_result.is_ok() {
-                        state.settings.ui.colours_mut().custom_users.insert(
-                            self.username_input.to_lowercase().replace(' ', "_"),
-                            self.username_colour_input.clone(),
-                        );
-                        self.username_input.clear();
-                        response.request_focus();
-                    }
-                });
-
-                if let Err(reason) = validation_result {
-                    super::chat_validation_error(ui, reason);
+                    self.username_input.clear();
+                    response.request_focus();
                 }
             });
 
-            let mut to_remove = Vec::new();
-            for (username, colour) in state.settings.ui.colours_mut().custom_users.iter_mut() {
-                ui.horizontal(|ui| {
-                    ui.color_edit_button_srgb(colour.as_u8());
-                    let user_button = ui
-                        .button(username)
-                        .on_hover_text_at_pointer("middle click = remove");
+            if let Err(reason) = validation_result {
+                super::chat_validation_error(ui, reason);
+            }
 
-                    let mut remove_user = user_button.middle_clicked();
-                    user_button.context_menu(|ui| {
-                        if ui.button("Remove").clicked() {
-                            remove_user = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if remove_user {
-                        to_remove.push(username.clone());
+            let username_row_height = *self.text_row_height.get_or_insert_with(|| {
+                ui.text_style_height(&egui::TextStyle::Body) + 2. * ui.spacing().item_spacing.y
+            });
+            let area_height = username_row_height
+                * (state.settings.ui.colours().custom_users.len().clamp(0, 10) as f32);
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .min_scrolled_height(area_height)
+                .show(ui, |ui| {
+                    let mut to_remove = Vec::new();
+                    for (username, colour) in
+                        state.settings.ui.colours_mut().custom_users.iter_mut()
+                    {
+                        ui.horizontal(|ui| {
+                            ui.color_edit_button_srgb(colour.as_u8());
+                            let user_button = ui
+                                .button(username)
+                                .on_hover_text_at_pointer("middle click = remove");
+
+                            let mut remove_user = user_button.middle_clicked();
+                            user_button.context_menu(|ui| {
+                                if ui.button("Remove").clicked() {
+                                    remove_user = true;
+                                    ui.close_menu();
+                                }
+                            });
+                            if remove_user {
+                                to_remove.push(username.clone());
+                            }
+                        });
+                    }
+                    for name in to_remove {
+                        state.settings.ui.colours_mut().custom_users.remove(&name);
                     }
                 });
-            }
-            for name in to_remove {
-                state.settings.ui.colours_mut().custom_users.remove(&name);
-            }
-            // });
         });
     }
 
