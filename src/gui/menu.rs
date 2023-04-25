@@ -9,6 +9,7 @@ use crate::gui::state::UIState;
 pub struct Menu {
     pub show_settings: bool,
     pub show_about: bool,
+    pub show_update: bool,
 }
 
 impl Menu {
@@ -17,12 +18,13 @@ impl Menu {
     }
 
     pub fn dialogs_visible(&self) -> bool {
-        self.show_settings || self.show_about
+        self.show_settings || self.show_about || self.show_update
     }
 
     pub fn show(
         &mut self,
         ctx: &egui::Context,
+        frame: &mut eframe::Frame,
         state: &mut UIState,
         response_widget_id: &mut Option<egui::Id>,
     ) {
@@ -40,40 +42,89 @@ impl Menu {
                     }
                 }
 
-                if ui.button("settings").clicked() {
-                    self.show_settings = !self.show_settings;
-                }
-
-                let (action, enabled) = match state.connection {
-                    ConnectionStatus::Disconnected { .. } => ("connect".to_owned(), true),
-                    ConnectionStatus::InProgress => ("connecting...".to_owned(), false),
-                    ConnectionStatus::Scheduled(when) => {
-                        let action = format!(
-                            "reconnecting ({}s)",
-                            (when - chrono::Local::now()).num_seconds()
-                        );
-                        (action, false)
-                    }
-                    ConnectionStatus::Connected => ("disconnect".to_owned(), true),
-                };
-                if ui
-                    .add_enabled(enabled, egui::Button::new(egui::RichText::new(action)))
-                    .clicked()
-                {
-                    match state.connection {
-                        ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
-                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                        ConnectionStatus::Connected => {
-                            response_widget_id.take();
-                            state.core.disconnect_requested();
-                        }
-                    }
-                }
-
-                if ui.button("about").clicked() {
-                    self.show_about = !self.show_about;
-                }
+                self.show_application_menu(ui, ctx, frame, state);
+                self.show_chat_menu(ui, ctx, state, response_widget_id);
+                self.show_help_menu(ui, ctx, state);
             });
+        });
+    }
+
+    fn show_application_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        _ctx: &egui::Context,
+        frame: &mut eframe::Frame,
+        _state: &mut UIState,
+    ) {
+        ui.menu_button("application", |ui| {
+            if ui.button("settings").clicked() {
+                self.show_settings = !self.show_settings;
+                ui.close_menu();
+            }
+
+            ui.separator();
+
+            if ui.button("restart").clicked() {
+                crate::core::os::restart();
+                ui.close_menu();
+            }
+            if ui.button("exit").clicked() {
+                frame.close();
+                ui.close_menu();
+            }
+        });
+    }
+
+    fn show_chat_menu(
+        &mut self,
+        ui: &mut egui::Ui,
+        _ctx: &egui::Context,
+        state: &mut UIState,
+        response_widget_id: &mut Option<egui::Id>,
+    ) {
+        ui.menu_button("chat", |ui| {
+            let (action, enabled) = match state.connection {
+                ConnectionStatus::Disconnected { .. } => ("connect".to_owned(), true),
+                ConnectionStatus::InProgress => ("connecting...".to_owned(), false),
+                ConnectionStatus::Scheduled(when) => {
+                    let action = format!(
+                        "reconnecting ({}s)",
+                        (when - chrono::Local::now()).num_seconds()
+                    );
+                    (action, false)
+                }
+                ConnectionStatus::Connected => ("disconnect".to_owned(), true),
+            };
+            if ui
+                .add_enabled(enabled, egui::Button::new(egui::RichText::new(action)))
+                .clicked()
+            {
+                match state.connection {
+                    ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
+                    ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+                    ConnectionStatus::Connected => {
+                        response_widget_id.take();
+                        state.core.disconnect_requested();
+                    }
+                }
+            }
+        });
+    }
+
+    fn show_help_menu(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, _state: &mut UIState) {
+        ui.menu_button("help", |ui| {
+            if ui.button("open diagnostic log").clicked() {
+                crate::core::os::open_runtime_log();
+                ui.close_menu();
+            }
+            if ui.button("check for updates").clicked() {
+                self.show_update = !self.show_update;
+                ui.close_menu();
+            }
+            if ui.button("about").clicked() {
+                self.show_about = !self.show_about;
+                ui.close_menu();
+            }
         });
     }
 }

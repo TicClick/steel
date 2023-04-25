@@ -21,6 +21,8 @@ fn setup_logging() {
         simplelog::LevelFilter::Trace,
         simplelog::ConfigBuilder::new()
             .set_time_format_custom(time_format)
+            .set_time_offset_to_local()
+            .unwrap()
             .build(),
         file,
     )

@@ -39,6 +39,15 @@ pub enum ChatType {
     Person,
 }
 
+impl fmt::Display for ChatType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            ChatType::Channel => "channel",
+            ChatType::Person => "person",
+        })
+    }
+}
+
 impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.time.format(DATETIME_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
