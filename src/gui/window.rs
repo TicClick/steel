@@ -81,7 +81,7 @@ pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
     chat_tabs: gui::chat_tabs::ChatTabs,
-    settings: gui::settings::Settings,
+    settings: gui::settings::SettingsWindow,
     about: gui::about::About,
     update_window: gui::update_window::UpdateWindow,
 
@@ -101,7 +101,7 @@ impl ApplicationWindow {
             menu: gui::menu::Menu::new(),
             chat: gui::chat::ChatWindow::new(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
-            settings: gui::settings::Settings::new(),
+            settings: gui::settings::SettingsWindow::new(),
             about: gui::about::About::default(),
             update_window: gui::update_window::UpdateWindow::default(),
             ui_queue,
