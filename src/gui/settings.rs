@@ -28,57 +28,58 @@ impl AutojoinSection {
     pub fn show(&mut self, settings: &mut settings::Settings, ui: &mut eframe::egui::Ui) {
         let validation_result = super::validate_channel_name(&self.autojoin_channel_input);
 
-        ui.collapsing("auto-join channels", |ui| {
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    // TODO: this will overflow the window if too many channels are added
-                    let add_autojoin_channel =
-                        ui.button("+").on_hover_text_at_pointer("<Enter> = add");
-                    let response = ui.add(
-                        egui::TextEdit::singleline(&mut self.autojoin_channel_input)
-                            .hint_text("channel name"),
-                    );
+        ui.vertical(|ui| {
+            ui.heading("auto-join channels");
+            ui.horizontal(|ui| {
+                let add_autojoin_channel = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
+                let response = ui.add(
+                    egui::TextEdit::singleline(&mut self.autojoin_channel_input)
+                        .hint_text("channel name"),
+                );
 
-                    let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
-                        && (add_autojoin_channel.clicked()
-                            || (response.lost_focus()
-                                && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+                let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
+                    && (add_autojoin_channel.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
 
-                    if add_autojoin_channel && validation_result.is_ok() {
-                        let channel_name = if self.autojoin_channel_input.is_channel() {
-                            self.autojoin_channel_input.to_owned()
-                        } else {
-                            format!("#{}", self.autojoin_channel_input)
-                        };
-                        settings.chat.autojoin.insert(channel_name);
-                        self.autojoin_channel_input.clear();
-                        response.request_focus();
-                    }
-                });
-                if let Err(reason) = validation_result {
-                    super::chat_validation_error(ui, reason);
+                if add_autojoin_channel && validation_result.is_ok() {
+                    let channel_name = if self.autojoin_channel_input.is_channel() {
+                        self.autojoin_channel_input.to_owned()
+                    } else {
+                        format!("#{}", self.autojoin_channel_input)
+                    };
+                    settings.chat.autojoin.insert(channel_name);
+                    self.autojoin_channel_input.clear();
+                    response.request_focus();
                 }
             });
+            if let Err(reason) = validation_result {
+                super::chat_validation_error(ui, reason);
+            }
 
             let mut to_remove = BTreeSet::new();
-            for name in settings.chat.autojoin.iter() {
-                let channel_button = ui
-                    .button(name)
-                    .on_hover_text_at_pointer("middle click = remove");
-                let mut remove_channel = channel_button.middle_clicked();
-                channel_button.context_menu(|ui| {
-                    if ui.button("Remove").clicked() {
-                        remove_channel = true;
-                        ui.close_menu();
+            let layout = egui::Layout::left_to_right(egui::Align::Max).with_main_wrap(true);
+            ui.with_layout(layout, |ui| {
+                ui.spacing_mut().item_spacing.x /= 2.;
+                for name in settings.chat.autojoin.iter() {
+                    let channel_button = ui
+                        .button(name)
+                        .on_hover_text_at_pointer("middle click = remove");
+                    let mut remove_channel = channel_button.middle_clicked();
+                    channel_button.context_menu(|ui| {
+                        if ui.button("Remove").clicked() {
+                            remove_channel = true;
+                            ui.close_menu();
+                        }
+                    });
+                    if remove_channel {
+                        to_remove.insert(name.to_owned());
                     }
-                });
-                if remove_channel {
-                    to_remove.insert(name.to_owned());
                 }
-            }
-            for name in to_remove.iter() {
-                settings.chat.autojoin.remove(name);
-            }
+                for name in to_remove.iter() {
+                    settings.chat.autojoin.remove(name);
+                }
+            });
         });
     }
 }
