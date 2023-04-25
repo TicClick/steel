@@ -154,9 +154,13 @@ impl Updater {
     }
 
     pub fn enable_autoupdate(&self, enable: bool) {
-        self.channel.blocking_send(BackendRequest::SetAutoupdateStatus(enable)).unwrap();
+        self.channel
+            .blocking_send(BackendRequest::SetAutoupdateStatus(enable))
+            .unwrap();
         if enable {
-            self.channel.blocking_send(BackendRequest::InitiateAutoupdate).unwrap();
+            self.channel
+                .blocking_send(BackendRequest::InitiateAutoupdate)
+                .unwrap();
         }
     }
 
@@ -216,33 +220,8 @@ impl UpdaterBackend {
         }
     }
 
-    fn cleanup_after_last_update(&self) {
-        if let Ok(executable) = std::env::current_exe() {
-            let mut old_backup = executable.clone();
-            old_backup.set_file_name(format!(
-                "{}.bak",
-                executable.file_name().unwrap().to_str().unwrap()
-            ));
-            if !old_backup.exists() {
-                return;
-            }
-            if let Err(e) = std::fs::remove_file(&old_backup) {
-                log::warn!(
-                    "failed to remove old executable ({:?}) which was left after SUCCESSFUL update: {:?}",
-                    old_backup,
-                    e
-                );
-            } else {
-                log::debug!(
-                    "removed old executable ({:?}) which was left after SUCCESSFUL update",
-                    old_backup
-                );
-            }
-        }
-    }
-
     fn run(&mut self) {
-        self.cleanup_after_last_update();
+        crate::core::os::cleanup_after_update();
         while let Some(msg) = self.channel.blocking_recv() {
             match msg {
                 BackendRequest::Quit => break,
@@ -373,7 +352,7 @@ impl UpdaterBackend {
         let target = std::env::current_exe()?;
         let mut backup = target.clone();
         backup.set_file_name(format!(
-            "{}.bak",
+            "{}.old",
             target.file_name().unwrap().to_str().unwrap()
         ));
         log::info!(

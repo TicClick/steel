@@ -18,6 +18,31 @@ pub fn open_runtime_log() {
     }
 }
 
+pub fn cleanup_after_update() {
+    if let Ok(executable) = std::env::current_exe() {
+        let mut old_backup = executable.clone();
+        old_backup.set_file_name(format!(
+            "{}.old",
+            executable.file_name().unwrap().to_str().unwrap()
+        ));
+        if !old_backup.exists() {
+            return;
+        }
+        if let Err(e) = std::fs::remove_file(&old_backup) {
+            log::warn!(
+                "failed to remove old executable ({:?}) which was left after SUCCESSFUL update: {:?}",
+                old_backup,
+                e
+            );
+        } else {
+            log::debug!(
+                "removed old executable ({:?}) which was left after SUCCESSFUL update",
+                old_backup
+            );
+        }
+    }
+}
+
 pub fn restart() {
     if let Ok(image) = std::env::current_exe() {
         log::debug!("restart: going to launch another copy of myself and then exit");
