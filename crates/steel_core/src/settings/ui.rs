@@ -65,6 +65,7 @@ impl ChatColours {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct UI {
+    pub scaling: f32,
     pub theme: ThemeMode,
     pub light_colours: ChatColours,
     pub dark_colours: ChatColours,
@@ -74,6 +75,7 @@ impl Default for UI {
     fn default() -> Self {
         Self {
             theme: ThemeMode::Dark,
+            scaling: 1.0,
             light_colours: ChatColours::light(),
             dark_colours: ChatColours::dark(),
         }

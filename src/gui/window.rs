@@ -10,6 +10,15 @@ use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 use crate::core::settings;
 
+pub const NOTO_ARABIC: &str = "noto-arabic";
+pub const NOTO_HEBREW: &str = "noto-hebrew";
+pub const NOTO_JAPANESE: &str = "noto-japanese";
+pub const NOTO_CHINESE_SIMPLIFIED: &str = "noto-chinese-simplified";
+pub const NOTO_CHINESE_TRADITIONAL: &str = "noto-chinese-traditional";
+pub const NOTO_KOREAN: &str = "noto-korean";
+pub const NOTO_THAI: &str = "noto-thai";
+pub const NOTO_REGULAR: &str = "noto-regular";
+
 // Courtesy of emilk @ https://github.com/emilk/egui/blob/master/examples/custom_font/src/main.rs
 fn add_font(fonts: &mut egui::FontDefinitions, name: &str, payload: &'static [u8]) {
     // Install my own font (maybe supporting non-latin characters).
@@ -36,42 +45,42 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     add_font(
         &mut fonts,
-        "noto-arabic",
+        NOTO_ARABIC,
         include_bytes!("../../media/fonts/noto-arabic/NotoNaskhArabic-VariableFont_wght.ttf"),
     );
     add_font(
         &mut fonts,
-        "noto-hebrew",
+        NOTO_HEBREW,
         include_bytes!("../../media/fonts/noto-hebrew/NotoSansHebrew-VariableFont_wdth,wght.ttf"),
     );
     add_font(
         &mut fonts,
-        "noto-japanese",
+        NOTO_JAPANESE,
         include_bytes!("../../media/fonts/noto-japanese/NotoSansJP-Regular.otf"),
     );
     add_font(
         &mut fonts,
-        "noto-chinese-simplified",
+        NOTO_CHINESE_SIMPLIFIED,
         include_bytes!("../../media/fonts/noto-chinese-simplified/NotoSansSC-Regular.otf"),
     );
     add_font(
         &mut fonts,
-        "noto-chinese-traditional",
+        NOTO_CHINESE_TRADITIONAL,
         include_bytes!("../../media/fonts/noto-chinese-traditional/NotoSansTC-Regular.otf"),
     );
     add_font(
         &mut fonts,
-        "noto-korean",
+        NOTO_KOREAN,
         include_bytes!("../../media/fonts/noto-korean/NotoSansKR-Regular.otf"),
     );
     add_font(
         &mut fonts,
-        "noto-thai",
+        NOTO_THAI,
         include_bytes!("../../media/fonts/noto-thai/NotoSansThai-VariableFont_wdth,wght.ttf"),
     );
     add_font(
         &mut fonts,
-        "noto-regular",
+        NOTO_REGULAR,
         include_bytes!("../../media/fonts/noto-regular/NotoSans-Regular.ttf"),
     );
     ctx.set_fonts(fonts);
@@ -81,7 +90,7 @@ pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
     chat_tabs: gui::chat_tabs::ChatTabs,
-    settings: gui::settings::Settings,
+    settings: gui::settings::SettingsWindow,
     about: gui::about::About,
     update_window: gui::update_window::UpdateWindow,
 
@@ -101,7 +110,7 @@ impl ApplicationWindow {
             menu: gui::menu::Menu::new(),
             chat: gui::chat::ChatWindow::new(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
-            settings: gui::settings::Settings::new(),
+            settings: gui::settings::SettingsWindow::new(),
             about: gui::about::About::default(),
             update_window: gui::update_window::UpdateWindow::default(),
             ui_queue,
@@ -109,11 +118,11 @@ impl ApplicationWindow {
         }
     }
 
-    pub fn process_pending_events(&mut self, frame: &mut eframe::Frame) {
+    pub fn process_pending_events(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         while let Ok(event) = self.ui_queue.try_recv() {
             match event {
                 UIMessageIn::SettingsChanged(settings) => {
-                    self.s.set_settings(settings);
+                    self.s.set_settings(ctx, settings);
                 }
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
@@ -192,7 +201,7 @@ const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_milli
 impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
-        self.process_pending_events(frame);
+        self.process_pending_events(ctx, frame);
         self.set_theme(ctx);
 
         self.menu
