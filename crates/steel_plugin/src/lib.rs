@@ -27,9 +27,9 @@ impl Display for PluginError {
 impl Error for PluginError {}
 
 pub trait Plugin: Any + Send + Sync {
-    fn name(&self) -> &'static str;
-    fn version(&self) -> &'static str;
-    fn plugin_system_version(&self) -> &'static str;
+    fn name(&self) -> String;
+    fn version(&self) -> String;
+    fn plugin_system_version(&self) -> String;
 
     fn on_plugin_load(&self) {}
     fn show_user_context_menu(&self, _ui: &mut egui::Ui, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
@@ -145,7 +145,7 @@ impl PluginManager {
         }
     }
 
-    pub fn installed(&self) -> Vec<(&str, &str)> {
+    pub fn installed(&self) -> Vec<(String, String)> {
         let mut ret = Vec::new();
         for p in &self.plugins {
             ret.push((p.name(), p.version()));
