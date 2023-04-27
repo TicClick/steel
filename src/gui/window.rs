@@ -124,6 +124,7 @@ impl ApplicationWindow {
                 UIMessageIn::SettingsChanged(settings) => {
                     self.s.set_settings(ctx, settings);
                 }
+
                 UIMessageIn::ConnectionStatusChanged(conn) => {
                     self.s.connection = conn;
                     match conn {
@@ -136,6 +137,7 @@ impl ApplicationWindow {
                         }
                     }
                 }
+
                 UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
                     if self.s.has_chat(&name) {
                         self.s.set_chat_state(&name, state, None);
@@ -143,6 +145,7 @@ impl ApplicationWindow {
                         self.s.add_new_chat(name, state, switch_to_chat);
                     }
                 }
+
                 UIMessageIn::NewChatStatusReceived {
                     target,
                     state,
@@ -152,6 +155,7 @@ impl ApplicationWindow {
                         self.s.set_chat_state(&target, state, Some(&details));
                     }
                 }
+
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
                     if self.s.has_chat(&name) {
                         self.s.highlights.mark_as_read(&name);
@@ -159,6 +163,7 @@ impl ApplicationWindow {
                         self.chat.scroll_to = Some(message_id);
                     }
                 }
+
                 UIMessageIn::ChannelJoined(name) => {
                     self.s.set_chat_state(
                         &name,
@@ -166,15 +171,32 @@ impl ApplicationWindow {
                         Some("You have joined the channel"),
                     );
                 }
+
                 UIMessageIn::NewMessageReceived { target, message } => {
-                    self.s.push_chat_message(target, message, frame);
+                    self.s
+                        .push_chat_message(target.clone(), message.clone(), frame);
+                    match message.username == self.s.settings.chat.irc.username {
+                        false => self.s.plugin_manager.handle_incoming_message(
+                            &self.s.core,
+                            &target,
+                            &message,
+                        ),
+                        true => self.s.plugin_manager.handle_outgoing_message(
+                            &self.s.core,
+                            &target,
+                            &message,
+                        ),
+                    }
                 }
+
                 UIMessageIn::NewServerMessageReceived(text) => {
                     self.s.push_server_message(&text);
                 }
+
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
                 }
+
                 UIMessageIn::DateChanged => {
                     let now = chrono::Local::now();
                     let text = format!(

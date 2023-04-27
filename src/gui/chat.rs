@@ -1,8 +1,10 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use std::collections::BTreeSet;
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
+use crate::gui::{DecoratedText, TextStyle};
 
 #[derive(Default)]
 pub struct ChatWindow {
@@ -123,6 +125,10 @@ impl ChatWindow {
         message_index: usize,
     ) {
         let msg = &ch.messages[message_index];
+
+        let username_styles = state.plugin_manager.style_username(&ch.name, msg);
+        let message_styles = state.plugin_manager.style_message(&ch.name, msg);
+
         let updated_height = ui
             .horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -130,8 +136,22 @@ impl ChatWindow {
                 show_datetime(ui, msg);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        format_username(ui, state, &ch.name, msg, &mut self.context_menu_target);
-                        format_chat_message_text(ui, state, msg, msg.highlight, false)
+                        format_username(
+                            ui,
+                            state,
+                            &ch.name,
+                            msg,
+                            &mut self.context_menu_target,
+                            &username_styles,
+                        );
+                        format_chat_message_text(
+                            ui,
+                            state,
+                            msg,
+                            msg.highlight,
+                            false,
+                            &message_styles,
+                        )
                     }
                     MessageType::System => format_system_message(ui, msg),
                 }
@@ -152,8 +172,15 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(ui, state, chat_name, msg, &mut self.context_menu_target);
-                format_chat_message_text(ui, state, msg, false, false)
+                format_username(
+                    ui,
+                    state,
+                    chat_name,
+                    msg,
+                    &mut self.context_menu_target,
+                    &None,
+                );
+                format_chat_message_text(ui, state, msg, false, false, &None)
             })
             .inner;
         self.cached_row_heights[message_index] = updated_height;
@@ -170,7 +197,7 @@ impl ChatWindow {
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
-                format_chat_message_text(ui, state, msg, false, true)
+                format_chat_message_text(ui, state, msg, false, true, &None)
             })
             .inner;
         self.cached_row_heights[message_index] = updated_height;
@@ -288,6 +315,7 @@ fn format_username(
     chat_name: &str,
     msg: &Message,
     context_menu_target: &mut Option<Message>,
+    styles: &Option<BTreeSet<TextStyle>>,
 ) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
@@ -298,7 +326,8 @@ fn format_username(
             .colours()
             .username_colour(&msg.username.to_lowercase());
         egui::RichText::new(&msg.username).color(colour.clone())
-    };
+    }
+    .with_styles(styles, &state.settings);
 
     let resp = ui.button(username_text);
     if resp.hovered() {
@@ -320,6 +349,7 @@ fn format_chat_message_text(
     msg: &Message,
     mark_as_highlight: bool,
     monospace: bool,
+    styles: &Option<BTreeSet<TextStyle>>,
 ) -> f32 {
     let is_action = matches!(msg.r#type, MessageType::Action);
 
@@ -349,7 +379,11 @@ fn format_chat_message_text(
                         }
 
                         if let MessageChunk::Link { location: loc, .. } = c {
-                            ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
+                            ui.hyperlink_to(
+                                text_chunk.with_styles(styles, &state.settings),
+                                loc.clone(),
+                            )
+                            .context_menu(|ui| {
                                 if ui.button("Copy URL").clicked() {
                                     ui.ctx().output_mut(|o| {
                                         o.copied_text = loc.to_owned();
@@ -358,7 +392,7 @@ fn format_chat_message_text(
                                 }
                             });
                         } else {
-                            ui.label(text_chunk);
+                            ui.label(text_chunk.with_styles(styles, &state.settings));
                         }
                     }
                 }
