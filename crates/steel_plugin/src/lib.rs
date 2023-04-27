@@ -73,6 +73,9 @@ pub trait Plugin: Any + Send + Sync {
         None
     }
     fn validate_message_input(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
+    fn show_user_tooltip(&self, _chat_name: &str, _message: &Message) -> Option<String> {
+        None
+    }
 }
 
 impl Debug for dyn Plugin {
@@ -186,6 +189,28 @@ impl PluginManager {
         for plugin in &self.plugins {
             log::trace!("Firing show_user_context_menu for {:?}", plugin.name());
             plugin.show_user_context_menu(ui, core, chat_name, message)
+        }
+    }
+
+    pub fn show_user_tooltip(&self, chat_name: &str, message: &Message) -> Option<String> {
+        if !self.has_plugins() {
+            return None;
+        }
+
+        let mut tooltips = Vec::new();
+        for plugin in &self.plugins {
+            log::trace!(
+                "Collecting chat_name tooltip for {} from {:?}",
+                message.username,
+                plugin.name()
+            );
+            if let Some(tt) = plugin.show_user_tooltip(chat_name, message) {
+                tooltips.push(tt);
+            }
+        }
+        match tooltips.is_empty() {
+            true => None,
+            false => Some(tooltips.join("\n")),
         }
     }
 

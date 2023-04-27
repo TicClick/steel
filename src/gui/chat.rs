@@ -339,7 +339,10 @@ fn format_username(
     }
     .with_styles(styles, &state.settings);
 
-    let resp = ui.button(username_text);
+    let mut resp = ui.button(username_text);
+    if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
+        resp = resp.on_hover_text_at_pointer(tt);
+    }
     if resp.hovered() {
         *context_menu_target = Some(msg.clone());
     }
