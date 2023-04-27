@@ -1,15 +1,16 @@
-use std::fmt::{Display, Debug};
-use std::path::PathBuf;
-/// Dynamic library loading tools, as seen at https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html
+// Dynamic library loading tools, as seen at https://michael-f-bryan.github.io/rust-ffi-guide/dynamic_loading.html
 
-use std::{any::Any, error::Error};
+use std::collections::BTreeSet;
 use std::ffi::OsStr;
+use std::fmt::{Debug, Display};
+use std::path::PathBuf;
+use std::{any::Any, error::Error};
 
 use eframe::egui;
 use libloading::{Library, Symbol};
-use steel_core::VersionString;
 use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
+use steel_core::VersionString;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -26,17 +27,51 @@ impl Display for PluginError {
 
 impl Error for PluginError {}
 
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum TextStyle {
+    Bold,
+    Italics,
+    Underline,
+    Strikethrough,
+    Monospace,
+
+    Highlight,
+}
+
 pub trait Plugin: Any + Send + Sync {
     fn name(&self) -> String;
     fn version(&self) -> String;
     fn plugin_system_version(&self) -> String;
 
     fn on_plugin_load(&self) {}
-    fn show_user_context_menu(&self, _ui: &mut egui::Ui, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
-    fn handle_incoming_message(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
-    fn handle_outgoing_message(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
-    fn hide_message(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) -> bool { false }
-    fn mutate_chat_message_chunk(&self, _core: &CoreClient, _chat_name: &str, _message: &Message, _chunk: &mut egui::RichText) {}
+    fn show_user_context_menu(
+        &self,
+        _ui: &mut egui::Ui,
+        _core: &CoreClient,
+        _chat_name: &str,
+        _message: &Message,
+    ) {
+    }
+    fn handle_incoming_message(
+        &mut self,
+        _core: &CoreClient,
+        _chat_name: &str,
+        _message: &Message,
+    ) {
+    }
+    fn handle_outgoing_message(
+        &mut self,
+        _core: &CoreClient,
+        _chat_name: &str,
+        _message: &Message,
+    ) {
+    }
+    fn style_message(&self, _chat_name: &str, _message: &Message) -> Option<TextStyle> {
+        None
+    }
+    fn style_username(&self, _chat_name: &str, _message: &Message) -> Option<TextStyle> {
+        None
+    }
     fn validate_message_input(&self, _core: &CoreClient, _chat_name: &str, _message: &Message) {}
 }
 
@@ -101,8 +136,11 @@ impl PluginManager {
         self.initialized = true;
     }
 
-    pub unsafe fn load_plugin<P: std::fmt::Debug + AsRef<OsStr>>(&mut self, filename: P) -> Result<(), libloading::Error> {
-        type PluginCreate = unsafe extern fn() -> *mut dyn Plugin;
+    pub unsafe fn load_plugin<P: std::fmt::Debug + AsRef<OsStr>>(
+        &mut self,
+        filename: P,
+    ) -> Result<(), libloading::Error> {
+        type PluginCreate = unsafe extern "C" fn() -> *mut dyn Plugin;
 
         let lib = Library::new(filename.as_ref())?;
         self.loaded_libraries.push(lib);
@@ -133,7 +171,13 @@ impl PluginManager {
         !self.plugins.is_empty()
     }
 
-    pub fn show_user_context_menu(&self, ui: &mut egui::Ui, core: &CoreClient, chat_name: &str, message: &Message) {
+    pub fn show_user_context_menu(
+        &self,
+        ui: &mut egui::Ui,
+        core: &CoreClient,
+        chat_name: &str,
+        message: &Message,
+    ) {
         if !self.has_plugins() {
             return;
         }
@@ -142,6 +186,78 @@ impl PluginManager {
         for plugin in &self.plugins {
             log::trace!("Firing show_user_context_menu for {:?}", plugin.name());
             plugin.show_user_context_menu(ui, core, chat_name, message)
+        }
+    }
+
+    pub fn handle_incoming_message(
+        &mut self,
+        core: &CoreClient,
+        chat_name: &str,
+        message: &Message,
+    ) {
+        if !self.has_plugins() {
+            return;
+        }
+        for plugin in &mut self.plugins {
+            log::trace!("Firing handle_incoming_message for {:?}", plugin.name());
+            plugin.handle_incoming_message(core, chat_name, message);
+        }
+    }
+
+    pub fn handle_outgoing_message(
+        &mut self,
+        core: &CoreClient,
+        chat_name: &str,
+        message: &Message,
+    ) {
+        if !self.has_plugins() {
+            return;
+        }
+        for plugin in &mut self.plugins {
+            log::trace!("Firing handle_outgoing_message for {:?}", plugin.name());
+            plugin.handle_outgoing_message(core, chat_name, message);
+        }
+    }
+
+    pub fn style_message(&self, chat_name: &str, message: &Message) -> Option<BTreeSet<TextStyle>> {
+        if !self.has_plugins() {
+            return None;
+        }
+        let mut ret = BTreeSet::new();
+        for plugin in &self.plugins {
+            log::trace!("Firing style_message for {:?}", plugin.name());
+            if let Some(d) = plugin.style_message(chat_name, message) {
+                ret.insert(d);
+            }
+        }
+        Some(ret)
+    }
+
+    pub fn style_username(
+        &self,
+        chat_name: &str,
+        message: &Message,
+    ) -> Option<BTreeSet<TextStyle>> {
+        if !self.has_plugins() {
+            return None;
+        }
+        let mut ret = BTreeSet::new();
+        for plugin in &self.plugins {
+            log::trace!("Firing style_username for {:?}", plugin.name());
+            if let Some(d) = plugin.style_username(chat_name, message) {
+                ret.insert(d);
+            }
+        }
+        Some(ret)
+    }
+
+    pub fn validate_message_input(&self, core: &CoreClient, chat_name: &str, message: &Message) {
+        if !self.has_plugins() {
+            return;
+        }
+        for plugin in &self.plugins {
+            log::trace!("Firing validate_message_input for {:?}", plugin.name());
+            plugin.validate_message_input(core, chat_name, message);
         }
     }
 
