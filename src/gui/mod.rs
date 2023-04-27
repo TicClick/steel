@@ -41,7 +41,9 @@ impl DecoratedText for RichText {
                         TextStyle::Underline => self = self.underline(),
                         TextStyle::Strikethrough => self = self.strikethrough(),
 
-                        TextStyle::Highlight => self = self.color(settings.ui.colours().highlight.clone()),
+                        TextStyle::Highlight => {
+                            self = self.color(settings.ui.colours().highlight.clone())
+                        }
                     }
                 }
                 self
