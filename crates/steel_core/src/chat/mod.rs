@@ -41,10 +41,14 @@ pub enum ChatType {
 
 impl fmt::Display for ChatType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", match self {
-            ChatType::Channel => "channel",
-            ChatType::Person => "person",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                ChatType::Channel => "channel",
+                ChatType::Person => "person",
+            }
+        )
     }
 }
 

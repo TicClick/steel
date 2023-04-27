@@ -1,4 +1,5 @@
 use eframe::egui::{Color32, RichText, Ui};
+use std::collections::BTreeSet;
 
 pub mod about;
 pub mod chat;
@@ -12,6 +13,64 @@ pub mod window;
 
 const HIGHLIGHTS_TAB_NAME: &str = "$highlights";
 const SERVER_TAB_NAME: &str = "$server";
+
+pub use steel_plugin::TextStyle;
+
+pub trait DecoratedText {
+    fn with_styles(
+        self,
+        decorations: &Option<BTreeSet<TextStyle>>,
+        settings: &steel_core::settings::Settings,
+    ) -> RichText;
+}
+
+impl DecoratedText for RichText {
+    fn with_styles(
+        mut self,
+        decorations: &Option<BTreeSet<TextStyle>>,
+        settings: &steel_core::settings::Settings,
+    ) -> RichText {
+        match decorations {
+            None => self,
+            Some(decorations) => {
+                for d in decorations {
+                    match d {
+                        TextStyle::Bold => self = self.strong(),
+                        TextStyle::Italics => self = self.italics(),
+                        TextStyle::Monospace => self = self.monospace(),
+                        TextStyle::Underline => self = self.underline(),
+                        TextStyle::Strikethrough => self = self.strikethrough(),
+
+                        TextStyle::Highlight => {
+                            self = self.color(settings.ui.colours().highlight.clone())
+                        }
+                    }
+                }
+                self
+            }
+        }
+    }
+}
+
+impl DecoratedText for String {
+    fn with_styles(
+        self,
+        decorations: &Option<BTreeSet<TextStyle>>,
+        settings: &steel_core::settings::Settings,
+    ) -> RichText {
+        RichText::new(self).with_styles(decorations, settings)
+    }
+}
+
+impl DecoratedText for &str {
+    fn with_styles(
+        self,
+        decorations: &Option<BTreeSet<TextStyle>>,
+        settings: &steel_core::settings::Settings,
+    ) -> RichText {
+        RichText::new(self).with_styles(decorations, settings)
+    }
+}
 
 pub fn validate_username(input: &str) -> Result<(), &'static str> {
     match input.contains(|ch: char| !ch.is_ascii_alphanumeric() && !"-_ []".contains(ch)) {

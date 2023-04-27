@@ -1,8 +1,10 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use std::collections::BTreeSet;
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
+use crate::gui::{DecoratedText, TextStyle};
 
 #[derive(Default)]
 pub struct ChatWindow {
@@ -90,10 +92,18 @@ impl ChatWindow {
                         } else {
                             match state.active_chat_tab_name.as_str() {
                                 super::SERVER_TAB_NAME => {
+                                    let server_tab_styles = Some({
+                                        let mut st = BTreeSet::new();
+                                        st.insert(TextStyle::Monospace);
+                                        st
+                                    });
                                     body.heterogeneous_rows(heights, |row_index, mut row| {
                                         row.col(|ui| {
                                             self.show_server_tab_single_message(
-                                                ui, state, row_index,
+                                                ui,
+                                                state,
+                                                row_index,
+                                                &server_tab_styles,
                                             )
                                         });
                                     });
@@ -123,6 +133,18 @@ impl ChatWindow {
         message_index: usize,
     ) {
         let msg = &ch.messages[message_index];
+
+        let username_styles = state.plugin_manager.style_username(&ch.name, msg);
+        let mut message_styles = state.plugin_manager.style_message(&ch.name, msg);
+        if let Some(ref mut ms) = message_styles {
+            if msg.highlight {
+                ms.insert(TextStyle::Highlight);
+            }
+            if matches!(msg.r#type, MessageType::Action) {
+                ms.insert(TextStyle::Italics);
+            }
+        }
+
         let updated_height = ui
             .horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
@@ -130,8 +152,15 @@ impl ChatWindow {
                 show_datetime(ui, msg);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        format_username(ui, state, &ch.name, msg, &mut self.context_menu_target);
-                        format_chat_message_text(ui, state, msg, msg.highlight, false)
+                        format_username(
+                            ui,
+                            state,
+                            &ch.name,
+                            msg,
+                            &mut self.context_menu_target,
+                            &username_styles,
+                        );
+                        format_chat_message_text(ui, state, msg, &message_styles)
                     }
                     MessageType::System => format_system_message(ui, msg),
                 }
@@ -152,8 +181,15 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(ui, state, chat_name, msg, &mut self.context_menu_target);
-                format_chat_message_text(ui, state, msg, false, false)
+                format_username(
+                    ui,
+                    state,
+                    chat_name,
+                    msg,
+                    &mut self.context_menu_target,
+                    &None,
+                );
+                format_chat_message_text(ui, state, msg, &None)
             })
             .inner;
         self.cached_row_heights[message_index] = updated_height;
@@ -164,13 +200,14 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         message_index: usize,
+        styles: &Option<BTreeSet<TextStyle>>,
     ) {
         let msg = &state.server_messages[message_index];
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, msg);
-                format_chat_message_text(ui, state, msg, false, true)
+                format_chat_message_text(ui, state, msg, styles)
             })
             .inner;
         self.cached_row_heights[message_index] = updated_height;
@@ -288,6 +325,7 @@ fn format_username(
     chat_name: &str,
     msg: &Message,
     context_menu_target: &mut Option<Message>,
+    styles: &Option<BTreeSet<TextStyle>>,
 ) {
     let username_text = if msg.username == state.settings.chat.irc.username {
         egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
@@ -298,9 +336,13 @@ fn format_username(
             .colours()
             .username_colour(&msg.username.to_lowercase());
         egui::RichText::new(&msg.username).color(colour.clone())
-    };
+    }
+    .with_styles(styles, &state.settings);
 
-    let resp = ui.button(username_text);
+    let mut resp = ui.button(username_text);
+    if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
+        resp = resp.on_hover_text_at_pointer(tt);
+    }
     if resp.hovered() {
         *context_menu_target = Some(msg.clone());
     }
@@ -318,11 +360,8 @@ fn format_chat_message_text(
     ui: &mut egui::Ui,
     state: &UIState,
     msg: &Message,
-    mark_as_highlight: bool,
-    monospace: bool,
+    styles: &Option<BTreeSet<TextStyle>>,
 ) -> f32 {
-    let is_action = matches!(msg.r#type, MessageType::Action);
-
     let layout = egui::Layout::from_main_dir_and_cross_align(
         egui::Direction::LeftToRight,
         egui::Align::Center,
@@ -330,24 +369,14 @@ fn format_chat_message_text(
     .with_main_wrap(true)
     .with_cross_justify(false);
 
-    let highlight_colour = state.settings.ui.colours().highlight.clone();
-
     let resp = ui.with_layout(layout, |ui| {
         ui.spacing_mut().item_spacing.x = 0.0;
         if let Some(chunks) = &msg.chunks {
             for c in chunks {
                 match &c {
                     MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
-                        let mut text_chunk = egui::RichText::new(s);
-                        if mark_as_highlight {
-                            text_chunk = text_chunk.color(highlight_colour.clone());
-                        }
-                        if is_action {
-                            text_chunk = text_chunk.italics();
-                        } else if monospace {
-                            text_chunk = text_chunk.monospace();
-                        }
-
+                        let text_chunk =
+                            egui::RichText::new(s).with_styles(styles, &state.settings);
                         if let MessageChunk::Link { location: loc, .. } = c {
                             ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
                                 if ui.button("Copy URL").clicked() {
