@@ -197,11 +197,10 @@ impl ApplicationWindow {
                     self.s.remove_chat(name);
                 }
 
-                UIMessageIn::DateChanged => {
-                    let now = chrono::Local::now();
+                UIMessageIn::DateChanged(date) => {
                     let text = format!(
                         "A new day is born ({})",
-                        now.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
+                        date.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
                     );
                     self.s.push_to_all_chats(Message::new_system(&text));
                 }

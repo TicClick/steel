@@ -304,14 +304,19 @@ impl Application {
 fn date_announcer(sender: Sender<UIMessageIn>) {
     loop {
         let now = chrono::Local::now();
-        let tomorrow = now.checked_add_days(chrono::Days::new(1)).unwrap();
-        let midnight = tomorrow.duration_trunc(chrono::Duration::days(1)).unwrap();
+        let midnight = now
+            .duration_trunc(chrono::Duration::days(1))
+            .unwrap()
+            .checked_add_days(chrono::Days::new(1))
+            .unwrap();
         let delta = midnight - now;
         if delta.num_seconds() > 0 {
             std::thread::sleep(delta.to_std().unwrap());
         }
 
-        sender.blocking_send(UIMessageIn::DateChanged).unwrap();
-        std::thread::sleep(std::time::Duration::from_secs(12 * 60 * 60));
+        sender
+            .blocking_send(UIMessageIn::DateChanged(midnight))
+            .unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(30 * 60));
     }
 }
