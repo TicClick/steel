@@ -386,7 +386,7 @@ fn format_username(
     if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
         resp = resp.on_hover_text_at_pointer(tt);
     }
-    if resp.secondary_clicked() {
+    if resp.is_pointer_button_down_on() {
         *context_menu_target = Some(msg.clone());
     }
     resp.context_menu(|ui| {
