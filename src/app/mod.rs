@@ -256,11 +256,13 @@ impl Application {
     }
 
     pub fn connect(&mut self) {
-        if !matches!(self.state.connection, ConnectionStatus::Disconnected { .. }) {
-            return;
+        match self.state.connection {
+            ConnectionStatus::Connected | ConnectionStatus::InProgress => {}
+            ConnectionStatus::Disconnected { .. } | ConnectionStatus::Scheduled(_) => {
+                let irc_config = self.state.settings.chat.irc.clone();
+                self.irc.connect(&irc_config.username, &irc_config.password);
+            }
         }
-        let irc_config = self.state.settings.chat.irc.clone();
-        self.irc.connect(&irc_config.username, &irc_config.password);
     }
 
     pub fn disconnect(&mut self) {
