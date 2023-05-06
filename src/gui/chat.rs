@@ -51,6 +51,9 @@ pub struct ChatWindow {
     // FIXME: This is a hack to prevent the context menu from re-sticking to other chat buttons (and therefore messages)
     // when the chat keeps scrolling to bottom. The menu seems to not care about that and stick to whichever is beneath, which is changing.
     context_menu_target: Option<Message>,
+
+    // Draw the hinting shadow at the bottom of the chat in the next frame.
+    shadow_next_frame: bool,
 }
 
 impl ChatWindow {
@@ -160,9 +163,15 @@ impl ChatWindow {
                         }
                     });
 
-                // FIXME: this is triggered as soon as the last row becomes PARTIALLY, NOT FULLY visible.
+                // FIXME: the shadow is removed as soon as the last row becomes PARTIALLY, NOT FULLY visible.
                 if last_visible_row + 1 < self.cached_row_heights.len() {
-                    ui.inner_shadow_bottom(20);
+                    if self.shadow_next_frame {
+                        ui.inner_shadow_bottom(20);
+                    } else {
+                        self.shadow_next_frame = true;
+                    }
+                } else {
+                    self.shadow_next_frame = false;
                 }
             });
         });

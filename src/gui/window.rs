@@ -187,10 +187,12 @@ impl ApplicationWindow {
                             &message,
                         ),
                     }
+                    ctx.request_repaint();
                 }
 
                 UIMessageIn::NewServerMessageReceived(text) => {
                     self.s.push_server_message(&text);
+                    ctx.request_repaint();
                 }
 
                 UIMessageIn::ChatClosed(name) => {
@@ -203,6 +205,7 @@ impl ApplicationWindow {
                         date.date_naive().format(crate::core::DEFAULT_DATE_FORMAT)
                     );
                     self.s.push_to_all_chats(Message::new_system(&text));
+                    ctx.request_repaint();
                 }
             }
         }
