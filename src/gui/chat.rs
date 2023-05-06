@@ -6,6 +6,39 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::{DecoratedText, TextStyle};
 
+trait WithInnerShadow {
+    fn inner_shadow_bottom(&self, pixels: usize);
+}
+
+// (Almost) as seen at https://gist.github.com/juancampa/d8dcf7cdab813062f082eac7415abcfc
+impl WithInnerShadow for egui::Ui {
+    fn inner_shadow_bottom(&self, pixels: usize) {
+        let mut shadow_rect = self.available_rect_before_wrap();
+
+        let central_frame_margin = 8.; // egui::Frame::central_panel().inner_margin
+        shadow_rect.set_left(shadow_rect.left() - central_frame_margin);
+        shadow_rect.set_width(
+            shadow_rect.width() + self.spacing().scroll_bar_inner_margin + central_frame_margin,
+        );
+        shadow_rect.set_bottom(shadow_rect.bottom() + self.spacing().item_spacing.y);
+
+        let colour_ctor = match self.visuals().dark_mode {
+            true => |a: u8| egui::Color32::from_rgba_unmultiplied(120, 120, 120, a),
+            false => egui::Color32::from_black_alpha,
+        };
+
+        let painter = self.painter();
+        let mut avail_rect = shadow_rect.translate((0.0, shadow_rect.height() - 1.0).into());
+        avail_rect.set_height(1.0);
+        for i in 0..pixels {
+            let alpha = 1.0 - (i as f32 / pixels as f32);
+            let shift = -avail_rect.height() * i as f32;
+            let rect = avail_rect.translate((0.0, shift).into());
+            painter.rect_filled(rect, 0.0, colour_ctor((alpha * alpha * 80.0).floor() as u8));
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct ChatWindow {
     chat_input: String,
@@ -78,6 +111,8 @@ impl ChatWindow {
                 }
 
                 let heights = self.cached_row_heights.clone().into_iter();
+                let mut last_visible_row = 0;
+
                 builder
                     .max_scroll_height(view_height)
                     .column(Column::remainder())
@@ -85,8 +120,9 @@ impl ChatWindow {
                     .body(|body| {
                         if let Some(ch) = state.active_chat() {
                             body.heterogeneous_rows(heights, |row_index, mut row| {
+                                last_visible_row = row_index;
                                 row.col(|ui| {
-                                    self.show_regular_chat_single_message(ui, state, ch, row_index)
+                                    self.show_regular_chat_single_message(ui, state, ch, row_index);
                                 });
                             });
                         } else {
@@ -98,6 +134,7 @@ impl ChatWindow {
                                         st
                                     });
                                     body.heterogeneous_rows(heights, |row_index, mut row| {
+                                        last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_server_tab_single_message(
                                                 ui,
@@ -110,6 +147,7 @@ impl ChatWindow {
                                 }
                                 super::HIGHLIGHTS_TAB_NAME => {
                                     body.heterogeneous_rows(heights, |row_index, mut row| {
+                                        last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_highlights_tab_single_message(
                                                 ui, state, row_index,
@@ -121,6 +159,11 @@ impl ChatWindow {
                             }
                         }
                     });
+
+                // FIXME: this is triggered as soon as the last row becomes PARTIALLY, NOT FULLY visible.
+                if last_visible_row + 1 < self.cached_row_heights.len() {
+                    ui.inner_shadow_bottom(20);
+                }
             });
         });
     }
