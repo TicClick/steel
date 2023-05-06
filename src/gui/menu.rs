@@ -91,7 +91,7 @@ impl Menu {
                         "reconnecting ({}s)",
                         (when - chrono::Local::now()).num_seconds()
                     );
-                    (action, false)
+                    (action, true)
                 }
                 ConnectionStatus::Connected => ("disconnect".to_owned(), true),
             };
@@ -100,8 +100,10 @@ impl Menu {
                 .clicked()
             {
                 match state.connection {
-                    ConnectionStatus::Disconnected { .. } => state.core.connect_requested(),
-                    ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+                    ConnectionStatus::Disconnected { .. } | ConnectionStatus::Scheduled(_) => {
+                        state.core.connect_requested()
+                    }
+                    ConnectionStatus::InProgress => (),
                     ConnectionStatus::Connected => {
                         response_widget_id.take();
                         state.core.disconnect_requested();
