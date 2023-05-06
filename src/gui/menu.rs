@@ -109,6 +109,7 @@ impl Menu {
                         state.core.disconnect_requested();
                     }
                 }
+                ui.close_menu();
             }
         });
     }
