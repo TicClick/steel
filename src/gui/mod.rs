@@ -13,6 +13,7 @@ pub mod window;
 
 const HIGHLIGHTS_TAB_NAME: &str = "$highlights";
 const SERVER_TAB_NAME: &str = "$server";
+const HIGHLIGHTS_SEPARATOR: &str = ", ";
 
 pub use steel_plugin::TextStyle;
 

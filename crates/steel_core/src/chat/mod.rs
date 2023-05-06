@@ -110,12 +110,18 @@ impl Message {
     }
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>) {
-        for token in self
+        let separator = "##";
+        let normalized_text = self
             .text
             .to_lowercase()
-            .split(|ch: char| ch.is_whitespace() || ch.is_ascii_punctuation())
-        {
-            if keywords.contains(token) {
+            .split(|ch: char| ch.is_whitespace() || (ch.is_ascii_punctuation() && !matches!(ch, '[' | ']')))
+            .collect::<Vec<&str>>()
+            .join(separator);
+        let normalized_text = format!("{separator}{normalized_text}{separator}");
+
+        for keyword in keywords {
+            let keyword = format!("{separator}{}{separator}", keyword.replace(' ', "##"));
+            if normalized_text.contains(&keyword) {
                 self.highlight = true;
                 break;
             }

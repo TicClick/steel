@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::SettingsWindow;
-use crate::gui::state::UIState;
+use crate::gui::{state::UIState, HIGHLIGHTS_SEPARATOR};
 use steel_core::settings::{BuiltInSound, Sound};
 
 impl SettingsWindow {
@@ -14,14 +14,21 @@ impl SettingsWindow {
             ui.heading("highlights");
             ui.label("keywords");
             if self.highlights_input.is_empty() {
-                self.highlights_input = state.settings.notifications.highlights.words.join(" ");
+                self.highlights_input = state
+                    .settings
+                    .notifications
+                    .highlights
+                    .words
+                    .join(HIGHLIGHTS_SEPARATOR);
             }
-            let hl = egui::TextEdit::multiline(&mut self.highlights_input)
-                .hint_text("space-separated words");
+            let hl = egui::TextEdit::multiline(&mut self.highlights_input).hint_text(
+                "words or phrases, separated by comma and space. example: one, 2 3 4, five",
+            );
             if ui
                 .add(hl)
                 .on_hover_text_at_pointer(
-                    "list of words which will trigger notifications:\n\
+                    "list of words or phrases which will trigger notifications:\n\
+                - must be separated by comma and space (example: one, 2 3 4, five)\n\
                 - exact case does not matter\n\
                 - full match required (\"ha\" will not highlight a message with \"haha\")",
                 )

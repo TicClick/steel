@@ -13,7 +13,7 @@ use crate::core::updater::Updater;
 
 use crate::gui::highlights;
 
-use super::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
 
 #[derive(Debug)]
 pub enum UIMessageIn {
@@ -91,7 +91,7 @@ impl UIState {
 
     pub fn update_highlights(&mut self, words: &str) {
         self.settings.notifications.highlights.words = words
-            .split_whitespace()
+            .split(HIGHLIGHTS_SEPARATOR)
             .map(|el| el.to_lowercase())
             .collect();
         self.settings.notifications.highlights.words.sort();
