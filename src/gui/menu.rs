@@ -10,6 +10,8 @@ pub struct Menu {
     pub show_settings: bool,
     pub show_about: bool,
     pub show_update: bool,
+
+    pin_window: bool,
 }
 
 impl Menu {
@@ -45,6 +47,18 @@ impl Menu {
                 self.show_application_menu(ui, ctx, frame, state);
                 self.show_chat_menu(ui, ctx, state, response_widget_id);
                 self.show_help_menu(ui, ctx, state);
+
+                let resp = ui.checkbox(&mut self.pin_window, "📌").on_hover_text(
+                    "- put the window on top of everything and hide its border\n\
+                        - to move the window, click and drag this button",
+                );
+
+                if resp.clicked() {
+                    frame.set_always_on_top(self.pin_window);
+                    frame.set_decorations(!self.pin_window);
+                } else if resp.is_pointer_button_down_on() {
+                    frame.drag_window();
+                }
             });
         });
     }
@@ -109,6 +123,7 @@ impl Menu {
                         state.core.disconnect_requested();
                     }
                 }
+                ui.close_menu();
             }
         });
     }

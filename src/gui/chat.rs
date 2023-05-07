@@ -65,20 +65,25 @@ impl ChatWindow {
         let interactive = state.is_connected() && state.active_chat().is_some();
         if interactive {
             egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-                let text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                    .id_source("chat-input")
-                    .hint_text("new message");
-                let response = ui.centered_and_justified(|ui| ui.add(text_field)).inner;
-                self.response_widget_id = Some(response.id);
+                ui.vertical_centered_justified(|ui| {
+                    // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+                    let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                        .id_source("chat-input")
+                        .hint_text("new message");
 
-                if let Some(ch) = state.active_chat() {
-                    if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                        state.core.chat_message_sent(&ch.name, &self.chat_input);
-                        self.chat_input.clear();
-                        response.request_focus();
+                    ui.add_space(8.);
+                    let response = ui.add(text_field);
+                    self.response_widget_id = Some(response.id);
+                    ui.add_space(2.);
+
+                    if let Some(ch) = state.active_chat() {
+                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                            state.core.chat_message_sent(&ch.name, &self.chat_input);
+                            self.chat_input.clear();
+                            response.request_focus();
+                        }
                     }
-                }
+                });
             });
         } else {
             self.response_widget_id = None;
