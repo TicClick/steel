@@ -72,7 +72,9 @@ impl IRCActor {
         let (mutex, cv) = &*self.irc_sync;
         *mutex.lock().unwrap() = true;
         cv.notify_one();
-        self.irc_thread.take().unwrap().join().unwrap();
+        if let Some(th) = self.irc_thread.take() {
+            th.join().unwrap();
+        }
         *mutex.lock().unwrap() = false;
         *self.irc_stream_sender.lock().unwrap() = None;
     }

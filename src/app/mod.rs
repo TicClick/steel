@@ -227,6 +227,10 @@ impl Application {
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
         log::error!("IRC chat error: {:?}", e);
+        if matches!(e, IRCError::FatalError(_)) {
+            self.irc.disconnect();
+        }
+
         let error_text = e.to_string();
         if let IRCError::ServerError {
             code: _,
