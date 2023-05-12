@@ -206,7 +206,7 @@ impl ChatWindow {
             .horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 ui.style_mut().wrap = Some(true);
-                show_datetime(ui, msg);
+                show_datetime(ui, state, msg, &None);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
                         format_username(
@@ -236,7 +236,7 @@ impl ChatWindow {
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
-                show_datetime(ui, msg);
+                show_datetime(ui, state, msg, &None);
                 format_chat_name(ui, state, chat_name, msg);
                 format_username(
                     ui,
@@ -263,7 +263,7 @@ impl ChatWindow {
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
-                show_datetime(ui, msg);
+                show_datetime(ui, state, msg, styles);
                 format_chat_message_text(ui, state, msg, styles)
             })
             .inner;
@@ -283,8 +283,14 @@ impl ChatWindow {
     }
 }
 
-fn show_datetime(ui: &mut egui::Ui, msg: &Message) -> egui::Response {
-    ui.label(msg.formatted_time()).on_hover_ui_at_pointer(|ui| {
+fn show_datetime(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    msg: &Message,
+    styles: &Option<BTreeSet<TextStyle>>,
+) -> egui::Response {
+    let timestamp = egui::RichText::new(msg.formatted_time()).with_styles(styles, &state.settings);
+    ui.label(timestamp).on_hover_ui_at_pointer(|ui| {
         ui.vertical(|ui| {
             ui.label(format!("{} (local time zone)", msg.formatted_date_local()));
             ui.label(format!("{} (UTC)", msg.formatted_date_utc()));
