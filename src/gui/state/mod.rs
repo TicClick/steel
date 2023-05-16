@@ -91,7 +91,9 @@ impl UIState {
 
     pub fn update_highlights(&mut self, words: &str) {
         self.settings.notifications.highlights.words = words
+            .trim()
             .split(HIGHLIGHTS_SEPARATOR)
+            .filter(|s| !s.is_empty())
             .map(|el| el.to_lowercase())
             .collect();
         self.settings.notifications.highlights.words.sort();

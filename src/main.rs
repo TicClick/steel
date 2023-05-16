@@ -49,6 +49,9 @@ fn read_icon() -> Option<eframe::IconData> {
 }
 
 fn main() {
+    if let Err(e) = crate::core::os::fix_cwd() {
+        panic!("Failed to set proper current working directory: {:?}", e);
+    }
     setup_logging();
 
     let (ui_queue_handle, ui_queue) = channel(UI_EVENT_QUEUE_SIZE);

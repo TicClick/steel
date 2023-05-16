@@ -26,7 +26,7 @@ impl HighlightTracker {
     }
 
     pub fn set_highlights(&mut self, hl: &[String]) {
-        self.keywords = hl.iter().cloned().collect();
+        self.keywords = hl.iter().filter(|s| !s.is_empty()).cloned().collect();
         self.keywords.insert(self.username.to_owned());
     }
 

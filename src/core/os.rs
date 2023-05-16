@@ -53,3 +53,13 @@ pub fn restart() {
         }
     }
 }
+
+pub fn fix_cwd() -> Result<(), std::io::Error> {
+    let image = std::env::current_exe()?;
+    if let Some(desired_dir) = image.parent() {
+        if std::env::current_dir()? != desired_dir {
+            std::env::set_current_dir(desired_dir)?;
+        }
+    }
+    Ok(())
+}
