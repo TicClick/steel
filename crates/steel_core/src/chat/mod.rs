@@ -114,12 +114,14 @@ impl Message {
         let normalized_text = self
             .text
             .to_lowercase()
-            .split(|ch: char| ch.is_whitespace() || (ch.is_ascii_punctuation() && !matches!(ch, '[' | ']' | '#')))
+            .split(|ch: char| {
+                ch.is_whitespace() || (ch.is_ascii_punctuation() && !matches!(ch, '[' | ']' | '#'))
+            })
             .collect::<Vec<&str>>()
             .join(separator);
         let normalized_text = format!("{separator}{normalized_text}{separator}");
 
-        for keyword in keywords {
+        for keyword in keywords.iter().filter(|k| !k.is_empty()) {
             let keyword = format!("{separator}{}{separator}", keyword.replace(' ', separator));
             if normalized_text.contains(&keyword) {
                 self.highlight = true;

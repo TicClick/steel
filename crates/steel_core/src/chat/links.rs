@@ -173,7 +173,7 @@ impl Message {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::chat::MessageType;
+    use crate::chat::MessageType;
 
     fn m(s: &str) -> Message {
         let mut m = Message {
