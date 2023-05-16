@@ -137,7 +137,7 @@ impl SettingsWindow {
 
                         ui.horizontal(|ui| {
                             let label_width = ui
-                                .hyperlink_to("IRC password", "https://osu.ppy.sh/p/irc")
+                                .hyperlink_to("IRC password", "https://osu.ppy.sh/home/account/edit#legacy-api")
                                 .rect
                                 .width();
                             let input =
