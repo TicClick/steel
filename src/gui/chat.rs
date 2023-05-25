@@ -209,14 +209,7 @@ impl ChatWindow {
                 show_datetime(ui, state, msg, &None);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        format_username(
-                            ui,
-                            state,
-                            &ch.name,
-                            msg,
-                            &mut self.context_menu_target,
-                            &username_styles,
-                        );
+                        self.format_username(ui, state, &ch.name, msg, &username_styles);
                         format_chat_message_text(ui, state, msg, &message_styles)
                     }
                     MessageType::System => format_system_message(ui, msg),
@@ -238,14 +231,7 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 show_datetime(ui, state, msg, &None);
                 format_chat_name(ui, state, chat_name, msg);
-                format_username(
-                    ui,
-                    state,
-                    chat_name,
-                    msg,
-                    &mut self.context_menu_target,
-                    &None,
-                );
+                self.format_username(ui, state, chat_name, msg, &None);
                 format_chat_message_text(ui, state, msg, &None)
             })
             .inner;
@@ -279,6 +265,85 @@ impl ChatWindow {
                     }
                 }
             });
+        }
+    }
+
+    fn format_username(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        chat_name: &str,
+        msg: &Message,
+        styles: &Option<BTreeSet<TextStyle>>,
+    ) {
+        let username_text = if msg.username == state.settings.chat.irc.username {
+            egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
+        } else {
+            let colour = state
+                .settings
+                .ui
+                .colours()
+                .username_colour(&msg.username.to_lowercase());
+            egui::RichText::new(&msg.username).color(colour.clone())
+        }
+        .with_styles(styles, &state.settings);
+
+        let mut resp = ui.button(username_text);
+
+        if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
+            resp = resp.on_hover_text_at_pointer(tt);
+        }
+
+        if resp.is_pointer_button_down_on() {
+            self.context_menu_target = Some(msg.clone());
+        }
+
+        if resp.clicked() {
+            self.handle_username_click(ui, msg);
+        }
+
+        resp.context_menu(|ui| {
+            show_username_menu(
+                ui,
+                state,
+                chat_name,
+                self.context_menu_target.as_ref().unwrap_or(msg),
+            )
+        });
+    }
+
+    fn handle_username_click(&mut self, ui: &mut egui::Ui, msg: &Message) {
+        if let Some(text_edit_id) = self.response_widget_id {
+            if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), text_edit_id) {
+                let pos = match state.ccursor_range() {
+                    None => 0,
+                    Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index),
+                };
+
+                if let Some(cc) = state.ccursor_range() {
+                    let start = std::cmp::min(cc.primary.index, cc.secondary.index);
+                    let end = std::cmp::max(cc.primary.index, cc.secondary.index);
+                    if start != end {
+                        self.chat_input.replace_range(start..end, "");
+                    }
+                }
+
+                let insertion = if self.chat_input.is_empty() {
+                    format!("{}: ", msg.username)
+                } else if pos == self.chat_input.chars().count() {
+                    if self.chat_input.ends_with(' ') {
+                        msg.username.to_owned()
+                    } else {
+                        format!(" {}", msg.username)
+                    }
+                } else {
+                    msg.username.to_owned()
+                };
+                self.chat_input.insert_str(pos, &insertion);
+                let ccursor = egui::text::CCursor::new(pos + insertion.len());
+                state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                state.store(ui.ctx(), text_edit_id);
+            }
         }
     }
 }
@@ -380,43 +445,6 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
                 .chat_switch_requested(chat_name, message.id.unwrap());
         }
     }
-}
-
-fn format_username(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    chat_name: &str,
-    msg: &Message,
-    context_menu_target: &mut Option<Message>,
-    styles: &Option<BTreeSet<TextStyle>>,
-) {
-    let username_text = if msg.username == state.settings.chat.irc.username {
-        egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
-    } else {
-        let colour = state
-            .settings
-            .ui
-            .colours()
-            .username_colour(&msg.username.to_lowercase());
-        egui::RichText::new(&msg.username).color(colour.clone())
-    }
-    .with_styles(styles, &state.settings);
-
-    let mut resp = ui.button(username_text);
-    if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
-        resp = resp.on_hover_text_at_pointer(tt);
-    }
-    if resp.is_pointer_button_down_on() {
-        *context_menu_target = Some(msg.clone());
-    }
-    resp.context_menu(|ui| {
-        show_username_menu(
-            ui,
-            state,
-            chat_name,
-            context_menu_target.as_ref().unwrap_or(msg),
-        )
-    });
 }
 
 fn format_chat_message_text(
