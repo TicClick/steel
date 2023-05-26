@@ -58,6 +58,12 @@ impl SettingsWindow {
                     .on_hover_text_at_pointer("default colour of all chat users");
             });
 
+            ui.horizontal(|ui| {
+                ui.color_edit_button_srgb(state.settings.ui.colours_mut().moderators.as_u8());
+                ui.label("moderators")
+                    .on_hover_text_at_pointer("default colour of all moderators (GMT, NAT, DEV)");
+            });
+
             ui.heading(format!("custom user colours ({suffix})"));
 
             ui.horizontal(|ui| {

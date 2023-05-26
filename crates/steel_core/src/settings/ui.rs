@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::settings::colour::Colour;
 
@@ -20,6 +20,10 @@ pub struct ChatColours {
     #[serde(default)]
     pub unread_tabs: Colour,
     pub default_users: Colour,
+    #[serde(default = "Colour::default_moderator_colour")]
+    pub moderators: Colour,
+    #[serde(skip)]
+    pub mod_users: BTreeSet<String>,
     pub custom_users: BTreeMap<String, Colour>,
 }
 
@@ -32,6 +36,8 @@ impl Default for ChatColours {
             read_tabs: Colour::from_rgb(120, 120, 120),
             unread_tabs: Colour::from_rgb(255, 255, 255),
             default_users: Colour::from_rgb(180, 180, 180),
+            moderators: Colour::from_rgb(255, 78, 78),
+            mod_users: BTreeSet::default(),
             custom_users: BTreeMap::default(),
         }
     }
@@ -50,6 +56,7 @@ impl ChatColours {
             read_tabs: Colour::from_rgb(120, 120, 120),
             unread_tabs: Colour::from_rgb(0, 0, 0),
             default_users: Colour::from_rgb(60, 60, 60),
+            moderators: Colour::from_rgb(255, 78, 78),
             ..Default::default()
         }
     }
@@ -57,7 +64,10 @@ impl ChatColours {
     pub fn username_colour(&self, username: &str) -> &Colour {
         match self.custom_users.get(username) {
             Some(colour) => colour,
-            None => &self.default_users,
+            None => match self.mod_users.contains(username) {
+                true => &self.moderators,
+                false => &self.default_users,
+            },
         }
     }
 }

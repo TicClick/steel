@@ -44,3 +44,9 @@ impl From<Colour> for Color32 {
         Color32::from_rgb(val.rgb[0], val.rgb[1], val.rgb[2])
     }
 }
+
+impl Colour {
+    pub fn default_moderator_colour() -> Self {
+        Self::from_rgb(255, 78, 78)
+    }
+}
