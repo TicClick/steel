@@ -129,24 +129,28 @@ impl Application {
     }
 
     // TODO: remove when osu!api integration is ready
-    // Snapshots taken on 2023-05-26
+    // Snapshots taken on 2023-07-23
     #[rustfmt::skip]
     fn setup_mod_users(&mut self) {
-        let mods = &mut self.state.settings.ui.colours_mut().mod_users;
-        for group in [
-            // GMT -- https://osu.ppy.sh/groups/4
-            ["- Felix", "[ Another ]", "[ryuu]", "0x84f", "abraker", "Albionthegreat", "Azer", "bibitaru", "Burak", "ChillierPear", "chromb", "Civil oath", "Corne2Plum3", "D I O", "Death", "Dntm8kmeeatu", "Edward", "Ephemeral", "FAMoss", "Flutteh", "Galkan", "Ganondorf", "Garden", "Halfslashed", "Imakuri", "JBHyperion", "Jerry", "kanpakyin", "Kobold84", "KSHR", "Kudou Chitose", "Kyubey", "Laurakko", "LeoFLT", "Loctav", "Maot", "MillhioreF", "My Angel Chino", "Nathanael", "Nevo", "Niva", "Nozhomi", "Okoratu", "OnosakiHito", "Osu Tatakae Ouendan", "osu!team", "p3n", "Petal", "Petit", "Protastic101", "QHideaki13", "Redo_", "Repflez", "Roan", "RockRoller", "ruexia", "S o h", "Saten", "Shiro", "Shurelia", "Sies", "spboxer3", "terho", "THAT_otaku", "TicClick", "TKS", "ToGlette", "topecnz", "Trigonoculus", "Trosk-", "Uni", "Venix", "Yason", "Zallius",]
-                .as_slice(),
-            // NAT -- https://osu.ppy.sh/groups/7
-            ["_Stan", "-Mo-", "achyoo", "Agatsu", "AirinCat", "Akasha-", "Antalf", "Capu", "Chaoslitz", "Dada", "Deif", "elicz1", "Enneya", "Firika", "FuJu", "Greaper", "Hivie", "Ideal", "Maxus", "Naxess", "nexusqi", "Nomination Assessment Team", "pishifat", "radar", "StarCastler", "Stixy", "yaspo", "Yogurtt", "Zelq",]
-                .as_slice(),
-            // DEV -- https://osu.ppy.sh/groups/11
-            ["Damnae", "Domco", "Ephemeral", "flyte", "MillhioreF", "nanaya", "nekodex", "notbakaneko", "osu!team", "peppy", "RBRat3", "smoogipoo", "ThePooN", "Tom94",]
-                .as_slice(),
+        for mods in [
+            &mut self.state.settings.ui.dark_colours.mod_users,
+            &mut self.state.settings.ui.light_colours.mod_users,
         ] {
-            mods.extend(group.iter().map(|u| u.to_lowercase().replace(' ', "_")))
+            for group in [
+                // GMT -- https://osu.ppy.sh/groups/4
+                ["- Felix", "[ Another ]", "[ryuu]", "0x84f", "abraker", "Albionthegreat", "Azer", "bibitaru", "Burak", "ChillierPear", "chromb", "Civil oath", "Corne2Plum3", "D I O", "Death", "Dntm8kmeeatu", "Edward", "Ephemeral", "Flutteh", "Galkan", "Ganondorf", "Halfslashed", "Imakuri", "JBHyperion", "Jerry", "kanpakyin", "Kobold84", "KSHR", "Kudou Chitose", "Kyubey", "Laurakko", "LeoFLT", "Loctav", "maot", "MillhioreF", "My Angel Chino", "Nathanael", "Nevo", "Niva", "Nozhomi", "Okoratu", "OnosakiHito", "Osu Tatakae Ouendan", "osu!team", "p3n", "Petal", "Petit", "Protastic101", "QHideaki13", "Redo_", "Repflez", "Roan", "RockRoller", "ruexia", "S o h", "Saten", "Shiro", "Shurelia", "Sies", "spboxer3", "terho", "THAT_otaku", "TicClick", "TKS", "ToGlette", "topecnz", "Trigonoculus", "Trosk-", "Uni", "Venix", "Yason", "Zallius",]
+                    .as_slice(),
+                // NAT -- https://osu.ppy.sh/groups/7
+                ["-Mo-", "AirinCat", "Akasha-", "Capu", "Chaoslitz", "Dada", "Deif", "elicz1", "Enneya", "Firika", "FuJu", "Garden", "Greaper", "gzdongsheng", "Hivie", "Ideal", "Maxus", "Naxess", "Noffy", "Nomination Assessment Team", "Petal", "pishifat", "radar", "Secre", "StarCastler", "Stixy", "Tailsdk", "yaspo", "Yogurtt", "Zelq",]
+                    .as_slice(),
+                // DEV -- https://osu.ppy.sh/groups/11
+                ["Damnae", "Domco", "Ephemeral", "flyte", "MillhioreF", "nanaya", "nekodex", "notbakaneko", "osu!team", "peppy", "RBRat3", "smoogipoo", "ThePooN", "Tom94",]
+                    .as_slice(),
+            ] {
+                mods.extend(group.iter().map(|u| u.to_lowercase().replace(' ', "_")))
+            }
+            mods.insert("banchobot".into());
         }
-        mods.insert("banchobot".into());
     }
 
     pub fn ui_handle_settings_requested(&self) {
