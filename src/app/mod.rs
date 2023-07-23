@@ -1,6 +1,5 @@
 use std::collections::BTreeSet;
 
-use chrono::DurationRound;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use steel_core::chat::irc::IRCError;
@@ -26,8 +25,6 @@ pub struct Application {
     irc: IRCActorHandle,
     ui_queue: Sender<UIMessageIn>,
     pub app_queue: Sender<AppMessageIn>,
-
-    date_announcer: Option<std::thread::JoinHandle<()>>,
 }
 
 impl Application {
@@ -39,7 +36,6 @@ impl Application {
             irc: IRCActorHandle::new(app_queue.clone()),
             ui_queue,
             app_queue,
-            date_announcer: None,
         }
     }
 
@@ -113,9 +109,6 @@ impl Application {
     pub fn initialize(&mut self) {
         self.load_settings(settings::Source::DefaultPath, true);
         log::set_max_level(self.state.settings.journal.app_events.level);
-
-        let ui_queue = self.ui_queue.clone();
-        self.date_announcer = Some(std::thread::spawn(|| date_announcer(ui_queue)));
 
         if self.state.settings.chat.autoconnect {
             self.connect();
@@ -326,25 +319,5 @@ impl Application {
 
     pub fn leave_channel(&self, channel: &str) {
         self.irc.leave_channel(channel);
-    }
-}
-
-fn date_announcer(sender: Sender<UIMessageIn>) {
-    loop {
-        let now = chrono::Local::now();
-        let midnight = now
-            .duration_trunc(chrono::Duration::days(1))
-            .unwrap()
-            .checked_add_days(chrono::Days::new(1))
-            .unwrap();
-        let delta = midnight - now;
-        if delta.num_seconds() > 0 {
-            std::thread::sleep(delta.to_std().unwrap());
-        }
-
-        sender
-            .blocking_send(UIMessageIn::DateChanged(midnight))
-            .unwrap();
-        std::thread::sleep(std::time::Duration::from_secs(30 * 60));
     }
 }

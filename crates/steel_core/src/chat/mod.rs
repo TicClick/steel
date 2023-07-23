@@ -82,6 +82,11 @@ impl Message {
         }
     }
 
+    pub fn with_time(mut self, dt: chrono::DateTime<chrono::Local>) -> Self {
+        self.time = dt;
+        self
+    }
+
     pub fn new_text(username: &str, text: &str) -> Self {
         Self::new(username, text, MessageType::Text)
     }
