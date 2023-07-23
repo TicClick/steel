@@ -20,5 +20,4 @@ pub enum UIMessageIn {
     ChatSwitchRequested(String, usize),
     ChannelJoined(String),
     ChatClosed(String),
-    DateChanged(chrono::DateTime<chrono::Local>),
 }
