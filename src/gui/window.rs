@@ -111,7 +111,7 @@ impl DateAnnouncer {
                     && self.current_event.second() == 0
             }
             Some(dt) => {
-                dt.date_naive().day() < self.current_event.date_naive().day()
+                dt.date_naive() < self.current_event.date_naive()
                     && self.current_event.hour() == 0
                     && self.current_event.minute() == 0
             }
