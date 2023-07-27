@@ -31,7 +31,8 @@ pub enum UIMessageIn {
 pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
-    chats: BTreeMap<String, Chat>,
+    chats: Vec<Chat>,
+    name_to_chat: BTreeMap<String, usize>,
     pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
@@ -48,7 +49,8 @@ impl UIState {
         Self {
             connection: ConnectionStatus::default(),
             settings: Settings::default(),
-            chats: BTreeMap::default(),
+            chats: Vec::default(),
+            name_to_chat: BTreeMap::default(),
             server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
@@ -114,7 +116,11 @@ impl UIState {
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
-        self.chats.get(&self.active_chat_tab_name)
+        if let Some(pos) = self.name_to_chat.get(&self.active_chat_tab_name) {
+            self.chats.get(*pos)
+        } else {
+            None
+        }
     }
 
     pub fn is_connected(&self) -> bool {
@@ -126,9 +132,23 @@ impl UIState {
         chat.state = state;
 
         let normalized = chat.name.to_lowercase();
-        self.chats.insert(normalized.to_owned(), chat);
+        self.name_to_chat
+            .insert(normalized.to_owned(), self.chats.len());
+        self.chats.push(chat);
         if switch_to_chat {
             self.active_chat_tab_name = normalized;
+        }
+    }
+
+    pub fn chat_count(&self) -> usize {
+        self.chats.len()
+    }
+
+    pub fn place_tab_after(&mut self, original_tab_idx: usize, place_after_idx: usize) {
+        let ch = self.chats.remove(original_tab_idx);
+        self.chats.insert(place_after_idx, ch);
+        for (pos, ch) in self.chats.iter().enumerate() {
+            self.name_to_chat.insert(ch.name.to_lowercase(), pos);
         }
     }
 
@@ -138,8 +158,10 @@ impl UIState {
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState, reason: Option<&str>) {
         let normalized = target.to_lowercase();
-        if let Some(ch) = self.chats.get_mut(&normalized) {
-            ch.set_state(state, reason);
+        if let Some(pos) = self.name_to_chat.get(&normalized) {
+            if let Some(ch) = self.chats.get_mut(*pos) {
+                ch.set_state(state, reason);
+            }
         }
     }
 
@@ -151,38 +173,40 @@ impl UIState {
     ) {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
-        if let Some(ch) = self.chats.get_mut(&normalized) {
-            // If the chat was open with an improper case, fix it!
-            if ch.name != target {
-                ch.name = target;
-            }
-
-            message.id = Some(ch.messages.len());
-            message.parse_for_links();
-            message.detect_highlights(self.highlights.keywords());
-
-            let highlight = message.highlight;
-            if highlight {
-                self.highlights.add(&normalized, &message);
-                if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
-                    self.highlights.mark_as_unread(HIGHLIGHTS_TAB_NAME);
+        if let Some(pos) = self.name_to_chat.get(&normalized) {
+            if let Some(ch) = self.chats.get_mut(*pos) {
+                // If the chat was open with an improper case, fix it!
+                if ch.name != target {
+                    ch.name = target;
                 }
-            }
-            ch.push(message);
 
-            let requires_attention = highlight || !normalized.is_channel();
-            if tab_inactive {
-                if requires_attention {
-                    self.highlights.mark_as_highlighted(&normalized);
-                } else {
-                    self.highlights.mark_as_unread(&normalized);
+                message.id = Some(ch.messages.len());
+                message.parse_for_links();
+                message.detect_highlights(self.highlights.keywords());
+
+                let highlight = message.highlight;
+                if highlight {
+                    self.highlights.add(&normalized, &message);
+                    if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
+                        self.highlights.mark_as_unread(HIGHLIGHTS_TAB_NAME);
+                    }
                 }
-            }
+                ch.push(message);
 
-            if !frame.info().window_info.focused && requires_attention {
-                frame.request_user_attention(eframe::egui::UserAttentionType::Critical);
-                if let Some(sound) = &self.settings.notifications.highlights.sound {
-                    self.sound_player.play(sound);
+                let requires_attention = highlight || !normalized.is_channel();
+                if tab_inactive {
+                    if requires_attention {
+                        self.highlights.mark_as_highlighted(&normalized);
+                    } else {
+                        self.highlights.mark_as_unread(&normalized);
+                    }
+                }
+
+                if !frame.info().window_info.focused && requires_attention {
+                    frame.request_user_attention(eframe::egui::UserAttentionType::Critical);
+                    if let Some(sound) = &self.settings.notifications.highlights.sound {
+                        self.sound_player.play(sound);
+                    }
                 }
             }
         }
@@ -191,11 +215,14 @@ impl UIState {
     pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
         match highlight.id {
             None => false,
-            Some(id) => match self.chats.get(chat_name) {
+            Some(id) => match self.name_to_chat.get(chat_name) {
                 None => false,
-                Some(ch) => match ch.messages.get(id) {
+                Some(pos) => match self.chats.get(*pos) {
                     None => false,
-                    Some(msg) => highlight.time == msg.time,
+                    Some(ch) => match ch.messages.get(id) {
+                        None => false,
+                        Some(msg) => highlight.time == msg.time,
+                    },
                 },
             },
         }
@@ -212,13 +239,22 @@ impl UIState {
 
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
-        self.chats.remove(&normalized);
+        if let Some(pos) = self.name_to_chat.remove(&normalized) {
+            self.chats.remove(pos);
+            for ch in &self.chats[pos..] {
+                if let Some(ch) = self.name_to_chat.get_mut(&ch.name.to_lowercase()) {
+                    *ch -= 1;
+                }
+            }
+        }
         self.highlights.drop(&normalized);
     }
 
     pub fn clear_chat(&mut self, target: &str) {
-        if let Some(chat) = self.chats.get_mut(target) {
-            chat.messages.clear();
+        if let Some(pos) = self.name_to_chat.get(target) {
+            if let Some(chat) = self.chats.get_mut(*pos) {
+                chat.messages.clear();
+            }
         }
         self.highlights.drop(target);
     }
@@ -226,25 +262,25 @@ impl UIState {
     pub fn filter_chats<F>(
         &self,
         f: F,
-    ) -> std::iter::Filter<std::collections::btree_map::Values<'_, std::string::String, Chat>, F>
+    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, steel_core::chat::Chat>>, F>
     where
-        F: Fn(&&Chat) -> bool,
+        F: Fn(&(usize, &Chat)) -> bool,
     {
-        self.chats.values().filter(f)
+        self.chats.iter().enumerate().filter(f)
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.chats.contains_key(&target.to_lowercase())
+        self.name_to_chat.contains_key(&target.to_lowercase())
     }
 
     pub fn push_to_all_chats(&mut self, message: Message) {
-        for chat in self.chats.values_mut() {
+        for chat in self.chats.iter_mut() {
             chat.push(message.clone());
         }
     }
 
     pub fn mark_all_as_disconnected(&mut self) {
-        for chat in self.chats.values_mut() {
+        for chat in self.chats.iter_mut() {
             chat.set_state(
                 ChatState::Left,
                 Some("You have left the chat (disconnected)"),
@@ -253,7 +289,7 @@ impl UIState {
     }
 
     pub fn mark_all_as_connected(&mut self) {
-        for chat in self.chats.values_mut() {
+        for chat in self.chats.iter_mut() {
             let (new_state, reason) = match chat.name.is_channel() {
                 // Joins are handled by the app server
                 true => (ChatState::JoinInProgress, None),

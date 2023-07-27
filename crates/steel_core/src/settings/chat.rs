@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chat {
@@ -7,7 +6,7 @@ pub struct Chat {
     pub autoconnect: bool,
     #[serde(default)]
     pub reconnect: bool,
-    pub autojoin: BTreeSet<String>,
+    pub autojoin: Vec<String>,
     pub irc: IRCChatSettings,
     pub api: HTTPChatSettings,
 }
@@ -18,7 +17,7 @@ impl Default for Chat {
             backend: ChatBackend::default(),
             autoconnect: false,
             reconnect: true,
-            autojoin: BTreeSet::default(),
+            autojoin: Vec::default(),
             irc: IRCChatSettings::default(),
             api: HTTPChatSettings::default(),
         }
