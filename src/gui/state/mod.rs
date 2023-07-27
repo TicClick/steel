@@ -140,6 +140,18 @@ impl UIState {
         }
     }
 
+    pub fn chat_count(&self) -> usize {
+        self.chats.len()
+    }
+
+    pub fn place_tab_after(&mut self, original_tab_idx: usize, place_after_idx: usize) {
+        let ch = self.chats.remove(original_tab_idx);
+        self.chats.insert(place_after_idx, ch);
+        for (pos, ch) in self.chats.iter().enumerate() {
+            self.name_to_chat.insert(ch.name.to_lowercase(), pos);
+        }
+    }
+
     pub fn is_active_tab(&self, target: &str) -> bool {
         self.active_chat_tab_name == target
     }
@@ -250,11 +262,11 @@ impl UIState {
     pub fn filter_chats<F>(
         &self,
         f: F,
-    ) -> std::iter::Filter<std::slice::Iter<'_, steel_core::chat::Chat>, F>
+    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, steel_core::chat::Chat>>, F>
     where
-        F: Fn(&&Chat) -> bool,
+        F: Fn(&(usize, &Chat)) -> bool,
     {
-        self.chats.iter().filter(f)
+        self.chats.iter().enumerate().filter(f)
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
