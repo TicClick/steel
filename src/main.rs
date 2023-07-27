@@ -69,7 +69,7 @@ fn main() {
         ..Default::default()
     };
     eframe::run_native(
-        "steel",
+        &format!("steel v{}", VERSION),
         native_options,
         Box::new(|cc| {
             Box::new(gui::window::ApplicationWindow::new(

@@ -277,6 +277,19 @@ impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx, frame);
+
+        if !self.s.active_chat_tab_name.is_empty() {
+            let title = match self.s.active_chat_tab_name.starts_with('$') {
+                true => format!("steel v{}", crate::VERSION),
+                false => format!(
+                    "{} – steel v{}",
+                    self.s.active_chat_tab_name,
+                    crate::VERSION
+                ),
+            };
+            frame.set_window_title(&title);
+        }
+
         self.set_theme(ctx);
 
         self.menu
