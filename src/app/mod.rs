@@ -165,13 +165,14 @@ impl Application {
         log::debug!("IRC connection status changed to {:?}", status);
         match status {
             ConnectionStatus::Connected => {
-                let mut chats = self.state.settings.chat.autojoin.clone();
-                chats.append(&mut self.state.chats.iter().cloned().collect());
-
-                for chat in chats {
-                    self.maybe_remember_chat(&chat, false);
-                    if chat.is_channel() {
-                        self.join_channel(&chat);
+                let chats = self.state.settings.chat.autojoin.clone();
+                let connected_to: Vec<String> = self.state.chats.iter().cloned().collect();
+                for cs in [chats, connected_to] {
+                    for chat in cs {
+                        self.maybe_remember_chat(&chat, false);
+                        if chat.is_channel() {
+                            self.join_channel(&chat);
+                        }
                     }
                 }
             }

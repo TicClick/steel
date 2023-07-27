@@ -35,7 +35,9 @@ impl AutojoinSection {
                     } else {
                         format!("#{}", self.autojoin_channel_input)
                     };
-                    settings.chat.autojoin.insert(channel_name);
+                    if !settings.chat.autojoin.contains(&channel_name) {
+                        settings.chat.autojoin.push(channel_name);
+                    }
                     self.autojoin_channel_input.clear();
                     response.request_focus();
                 }
@@ -63,9 +65,7 @@ impl AutojoinSection {
                         to_remove.insert(name.to_owned());
                     }
                 }
-                for name in to_remove.iter() {
-                    settings.chat.autojoin.remove(name);
-                }
+                settings.chat.autojoin.retain(|s| !to_remove.contains(s));
             });
         });
     }

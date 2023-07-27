@@ -56,9 +56,19 @@ fn tab_context_menu(
     chats_to_clear: &mut BTreeSet<String>,
 ) {
     if matches!(mode, ChatType::Channel) {
-        if state.settings.chat.autojoin.contains(normalized_chat_name) {
+        if state
+            .settings
+            .chat
+            .autojoin
+            .iter()
+            .any(|s| s == normalized_chat_name)
+        {
             if ui.button("Remove from favourites").clicked() {
-                state.settings.chat.autojoin.remove(normalized_chat_name);
+                state
+                    .settings
+                    .chat
+                    .autojoin
+                    .retain(|s| s != normalized_chat_name);
                 // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
                 state.core.settings_updated(&state.settings);
                 ui.close_menu();
@@ -68,7 +78,7 @@ fn tab_context_menu(
                 .settings
                 .chat
                 .autojoin
-                .insert(normalized_chat_name.to_owned());
+                .push(normalized_chat_name.to_owned());
             // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
             state.core.settings_updated(&state.settings);
             ui.close_menu();
