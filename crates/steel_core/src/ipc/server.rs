@@ -21,4 +21,6 @@ pub enum AppMessageIn {
     UIChatMessageSent { target: String, text: String },
     UISettingsRequested,
     UISettingsUpdated(Settings),
+
+    ChatModeratorAdded(String),
 }
