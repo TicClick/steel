@@ -258,15 +258,6 @@ impl ApplicationWindow {
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
                 }
-
-                UIMessageIn::ChatModeratorAdded(name) => {
-                    for mods in [
-                        &mut self.s.settings.ui.dark_colours.mod_users,
-                        &mut self.s.settings.ui.light_colours.mod_users,
-                    ] {
-                        mods.insert(name.to_lowercase().replace(' ', "_"));
-                    }
-                }
             }
         }
     }
