@@ -37,3 +37,14 @@ impl VersionString for String {
         self.as_str().semver()
     }
 }
+
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+pub enum TextStyle {
+    Bold,
+    Italics,
+    Underline,
+    Strikethrough,
+    Monospace,
+
+    Highlight,
+}

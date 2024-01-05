@@ -3,8 +3,6 @@ use std::collections::BTreeMap;
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
-use steel_plugin::PluginManager;
-
 use eframe::egui;
 use tokio::sync::mpsc::Sender;
 
@@ -41,7 +39,9 @@ pub struct UIState {
 
     pub updater: Updater,
     pub sound_player: crate::core::sound::SoundPlayer,
-    pub plugin_manager: PluginManager,
+
+    #[cfg(feature = "glass")]
+    pub glass: glass::Glass,
 }
 
 impl UIState {
@@ -57,24 +57,9 @@ impl UIState {
             highlights: highlights::HighlightTracker::new(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),
-            plugin_manager: steel_plugin::PluginManager::new(),
-        }
-    }
 
-    fn maybe_load_plugins(&mut self) {
-        if self.plugin_manager.initialized {
-            return;
-        }
-        log::info!(
-            "plugin support enabled: {}",
-            self.settings.application.plugins.enabled
-        );
-        if !self.settings.application.plugins.enabled {
-            return;
-        }
-        match std::env::current_dir() {
-            Err(e) => log::error!("failed to get current directory: {:?}", e),
-            Ok(d) => self.plugin_manager.discover_plugins(&d),
+            #[cfg(feature = "glass")]
+            glass: glass::Glass::default(),
         }
     }
 
@@ -82,7 +67,6 @@ impl UIState {
         self.settings = settings;
         ctx.set_pixels_per_point(self.settings.ui.scaling);
 
-        self.maybe_load_plugins();
         self.highlights
             .set_username(&self.settings.chat.irc.username);
         self.highlights

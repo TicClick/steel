@@ -2,9 +2,11 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeSet;
 
+use steel_core::TextStyle;
+
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
-use crate::gui::{DecoratedText, TextStyle};
+use crate::gui::DecoratedText;
 
 trait WithInnerShadow {
     fn inner_shadow_bottom(&self, pixels: usize);
@@ -191,15 +193,24 @@ impl ChatWindow {
     ) {
         let msg = &ch.messages[message_index];
 
-        let username_styles = state.plugin_manager.style_username(&ch.name, msg);
-        let mut message_styles = state.plugin_manager.style_message(&ch.name, msg);
-        if let Some(ref mut ms) = message_styles {
-            if msg.highlight {
-                ms.insert(TextStyle::Highlight);
+        let mut username_styles = BTreeSet::<TextStyle>::new();
+        let mut message_styles = BTreeSet::<TextStyle>::new();
+
+        #[cfg(feature = "glass")]
+        {
+            if let Some(st) = state.glass.style_username(&ch.name, msg) {
+                username_styles.insert(st);
             }
-            if matches!(msg.r#type, MessageType::Action) {
-                ms.insert(TextStyle::Italics);
+            if let Some(st) = state.glass.style_message(&ch.name, msg) {
+                message_styles.insert(st);
             }
+        }
+
+        if msg.highlight {
+            message_styles.insert(TextStyle::Highlight);
+        }
+        if matches!(msg.r#type, MessageType::Action) {
+            message_styles.insert(TextStyle::Italics);
         }
 
         let updated_height = ui
@@ -209,8 +220,8 @@ impl ChatWindow {
                 show_datetime(ui, state, msg, &None);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        self.format_username(ui, state, &ch.name, msg, &username_styles);
-                        format_chat_message_text(ui, state, msg, &message_styles)
+                        self.format_username(ui, state, &ch.name, msg, &Some(username_styles));
+                        format_chat_message_text(ui, state, msg, &Some(message_styles))
                     }
                     MessageType::System => format_system_message(ui, msg),
                 }
@@ -290,7 +301,8 @@ impl ChatWindow {
 
         let mut resp = ui.button(username_text);
 
-        if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
+        #[cfg(feature = "glass")]
+        if let Some(tt) = state.glass.show_user_tooltip(chat_name, msg) {
             resp = resp.on_hover_text_at_pointer(tt);
         }
 
@@ -412,11 +424,10 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, messa
         ui.close_menu();
     }
 
-    if state.plugin_manager.has_plugins() {
-        state
-            .plugin_manager
-            .show_user_context_menu(ui, &state.core, chat_name, message);
-    }
+    #[cfg(feature = "glass")]
+    state
+        .glass
+        .show_user_context_menu(ui, &state.core, chat_name, message);
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {

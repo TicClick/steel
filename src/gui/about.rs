@@ -1,7 +1,6 @@
 use eframe::egui;
 
 use crate::core::settings::{BuiltInSound, Sound};
-
 use crate::gui::state::UIState;
 
 fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
@@ -31,7 +30,10 @@ impl About {
                     self.show_app_icon(ctx, ui, state);
                     ui.vertical(|ui| {
                         self.show_initial_section(ui);
-                        self.show_plugins(ui, state);
+
+                        #[cfg(feature = "glass")]
+                        state.glass.show_about(ui);
+
                         self.show_credits(ui);
                     });
                 });
@@ -65,19 +67,6 @@ impl About {
             ui.label(format!("v{} by TicClick (", crate::VERSION));
             ui.hyperlink_to("source code", "https://github.com/TicClick/steel");
             ui.label("). not affiliated with peppy or ppy Pty Ltd. have fun!");
-        });
-    }
-
-    fn show_plugins(&self, ui: &mut egui::Ui, state: &UIState) {
-        ui.heading("plugins");
-        let mut versions = Vec::new();
-        for (name, version) in state.plugin_manager.installed() {
-            versions.push(format!("- {} v{}", name, version));
-        }
-        ui.label(if versions.is_empty() {
-            "no plugins loaded".to_owned()
-        } else {
-            versions.join("\n")
         });
     }
 

@@ -10,8 +10,8 @@ winresource = "0.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-steel_plugin = { version = "1.1.0", path = "./crates/steel_plugin" }
-steel_core = { version = "0.1.0", path = "./crates/steel_core" }
+steel_core = { version = "0.1.1", path = "./crates/steel_core" }
+glass = { version = "*", path = "./crates/glass", optional = true}
 
 # See also: https://github.com/emilk/egui/issues/2898
 eframe = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
@@ -41,3 +41,7 @@ png = "0.17.8"
 
 libloading = "0.8.0"
 winresource = "0.1.15"
+
+[features]
+default = []
+glass = ["dep:glass"]

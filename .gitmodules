@@ -1,0 +1,3 @@
+[submodule "crates/glass"]
+	path = crates/glass
+	url = git@github.com:TicClick/glass
