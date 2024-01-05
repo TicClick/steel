@@ -1,6 +1,8 @@
 use eframe::egui::{Color32, RichText, Ui};
 use std::collections::BTreeSet;
 
+use steel_core::TextStyle;
+
 pub mod about;
 pub mod chat;
 pub mod chat_tabs;
@@ -14,17 +16,6 @@ pub mod window;
 const HIGHLIGHTS_TAB_NAME: &str = "$highlights";
 const SERVER_TAB_NAME: &str = "$server";
 const HIGHLIGHTS_SEPARATOR: &str = ", ";
-
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
-pub enum TextStyle {
-    Bold,
-    Italics,
-    Underline,
-    Strikethrough,
-    Monospace,
-
-    Highlight,
-}
 
 pub trait DecoratedText {
     fn with_styles(

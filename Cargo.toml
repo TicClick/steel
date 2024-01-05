@@ -10,7 +10,7 @@ winresource = "0.1"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-steel_core = { version = "0.1.0", path = "./crates/steel_core" }
+steel_core = { version = "0.1.1", path = "./crates/steel_core" }
 
 # See also: https://github.com/emilk/egui/issues/2898
 eframe = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
