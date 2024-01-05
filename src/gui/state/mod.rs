@@ -39,6 +39,9 @@ pub struct UIState {
 
     pub updater: Updater,
     pub sound_player: crate::core::sound::SoundPlayer,
+
+    #[cfg(feature = "glass")]
+    pub glass: glass::Glass,
 }
 
 impl UIState {
@@ -54,6 +57,9 @@ impl UIState {
             highlights: highlights::HighlightTracker::new(),
             updater: Updater::new(),
             sound_player: crate::core::sound::SoundPlayer::new(),
+
+            #[cfg(feature = "glass")]
+            glass: glass::Glass::default(),
         }
     }
 

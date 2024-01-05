@@ -2,9 +2,11 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeSet;
 
+use steel_core::TextStyle;
+
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
-use crate::gui::{DecoratedText, TextStyle};
+use crate::gui::DecoratedText;
 
 trait WithInnerShadow {
     fn inner_shadow_bottom(&self, pixels: usize);
@@ -190,9 +192,20 @@ impl ChatWindow {
         message_index: usize,
     ) {
         let msg = &ch.messages[message_index];
-        // TODO(TicClick): apply extra styling from the private counterpart
-        let username_styles = None;
+
+        let mut username_styles = BTreeSet::<TextStyle>::new();
         let mut message_styles = BTreeSet::<TextStyle>::new();
+
+        #[cfg(feature = "glass")]
+        {
+            if let Some(st) = state.glass.style_username(&ch.name, msg) {
+                username_styles.insert(st);
+            }
+            if let Some(st) = state.glass.style_message(&ch.name, msg) {
+                message_styles.insert(st);
+            }
+        }
+
         if msg.highlight {
             message_styles.insert(TextStyle::Highlight);
         }
@@ -207,7 +220,7 @@ impl ChatWindow {
                 show_datetime(ui, state, msg, &None);
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
-                        self.format_username(ui, state, &ch.name, msg, &username_styles);
+                        self.format_username(ui, state, &ch.name, msg, &Some(username_styles));
                         format_chat_message_text(ui, state, msg, &Some(message_styles))
                     }
                     MessageType::System => format_system_message(ui, msg),
@@ -286,12 +299,11 @@ impl ChatWindow {
         }
         .with_styles(styles, &state.settings);
 
-        let resp = ui.button(username_text);
-        // TODO(TicClick): show tooltip from the private client
-        if false {
-            // let tt = tooltip();
+        let mut resp = ui.button(username_text);
 
-            // resp = resp.on_hover_text_at_pointer(tt);
+        #[cfg(feature = "glass")]
+        if let Some(tt) = state.glass.show_user_tooltip(chat_name, msg) {
+            resp = resp.on_hover_text_at_pointer(tt);
         }
 
         if resp.is_pointer_button_down_on() {
@@ -363,7 +375,7 @@ fn show_datetime(
     })
 }
 
-fn show_username_menu(ui: &mut egui::Ui, state: &UIState, _chat_name: &str, message: &Message) {
+fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);
         ui.close_menu();
@@ -412,7 +424,10 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, _chat_name: &str, mess
         ui.close_menu();
     }
 
-    // TODO(TicClick): show user context menu from the private part
+    #[cfg(feature = "glass")]
+    state
+        .glass
+        .show_user_context_menu(ui, &state.core, chat_name, message);
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {

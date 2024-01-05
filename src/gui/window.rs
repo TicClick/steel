@@ -235,10 +235,21 @@ impl ApplicationWindow {
                 UIMessageIn::NewMessageReceived { target, message } => {
                     self.s
                         .push_chat_message(target.clone(), message.clone(), frame);
-                    // TODO(TicClick): handle incoming and outgoing messages
+
+                    #[cfg(feature = "glass")]
                     match message.username == self.s.settings.chat.irc.username {
-                        _ => (),
+                        false => {
+                            self.s
+                                .glass
+                                .handle_incoming_message(&self.s.core, &target, &message)
+                        }
+                        true => {
+                            self.s
+                                .glass
+                                .handle_outgoing_message(&self.s.core, &target, &message)
+                        }
                     }
+
                     ctx.request_repaint();
                 }
 

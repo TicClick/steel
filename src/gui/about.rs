@@ -1,7 +1,6 @@
 use eframe::egui;
 
 use crate::core::settings::{BuiltInSound, Sound};
-
 use crate::gui::state::UIState;
 
 fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
@@ -31,7 +30,10 @@ impl About {
                     self.show_app_icon(ctx, ui, state);
                     ui.vertical(|ui| {
                         self.show_initial_section(ui);
-                        // TODO(TicClick): show private client version
+
+                        #[cfg(feature = "glass")]
+                        state.glass.show_about(ui);
+
                         self.show_credits(ui);
                     });
                 });
