@@ -11,7 +11,7 @@ winresource = "0.1"
 
 [dependencies]
 steel_core = { version = "0.1.1", path = "./crates/steel_core" }
-glass = { version = "0.3.0", path = "./crates/glass", optional = true}
+glass = { version = "*", path = "./crates/glass", optional = true}
 
 # See also: https://github.com/emilk/egui/issues/2898
 eframe = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }

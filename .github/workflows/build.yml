@@ -18,6 +18,7 @@ jobs:
     name: Build and test
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -28,5 +29,11 @@ jobs:
         if: ${{ matrix.os == 'ubuntu-latest' }}
         run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
 
-      - run: cargo build --release --all-features
+      # Fake dependency to build the binary, otherwise it fails even with the feature off
+      # Multiline reference: https://docs.github.com/en/actions/using-workflows/workflow-commands-for-github-actions
+      - name: Add fake empty dependency
+        shell: bash
+        run: crates/fake-glass.sh
+
+      - run: cargo build --release
       - run: cargo test
