@@ -190,16 +190,14 @@ impl ChatWindow {
         message_index: usize,
     ) {
         let msg = &ch.messages[message_index];
-
-        let username_styles = state.plugin_manager.style_username(&ch.name, msg);
-        let mut message_styles = state.plugin_manager.style_message(&ch.name, msg);
-        if let Some(ref mut ms) = message_styles {
-            if msg.highlight {
-                ms.insert(TextStyle::Highlight);
-            }
-            if matches!(msg.r#type, MessageType::Action) {
-                ms.insert(TextStyle::Italics);
-            }
+        // TODO(TicClick): apply extra styling from the private counterpart
+        let username_styles = None;
+        let mut message_styles = BTreeSet::<TextStyle>::new();
+        if msg.highlight {
+            message_styles.insert(TextStyle::Highlight);
+        }
+        if matches!(msg.r#type, MessageType::Action) {
+            message_styles.insert(TextStyle::Italics);
         }
 
         let updated_height = ui
@@ -210,7 +208,7 @@ impl ChatWindow {
                 match msg.r#type {
                     MessageType::Action | MessageType::Text => {
                         self.format_username(ui, state, &ch.name, msg, &username_styles);
-                        format_chat_message_text(ui, state, msg, &message_styles)
+                        format_chat_message_text(ui, state, msg, &Some(message_styles))
                     }
                     MessageType::System => format_system_message(ui, msg),
                 }
@@ -288,10 +286,12 @@ impl ChatWindow {
         }
         .with_styles(styles, &state.settings);
 
-        let mut resp = ui.button(username_text);
+        let resp = ui.button(username_text);
+        // TODO(TicClick): show tooltip from the private client
+        if false {
+            // let tt = tooltip();
 
-        if let Some(tt) = state.plugin_manager.show_user_tooltip(chat_name, msg) {
-            resp = resp.on_hover_text_at_pointer(tt);
+            // resp = resp.on_hover_text_at_pointer(tt);
         }
 
         if resp.is_pointer_button_down_on() {
@@ -363,7 +363,7 @@ fn show_datetime(
     })
 }
 
-fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
+fn show_username_menu(ui: &mut egui::Ui, state: &UIState, _chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);
         ui.close_menu();
@@ -412,11 +412,7 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, messa
         ui.close_menu();
     }
 
-    if state.plugin_manager.has_plugins() {
-        state
-            .plugin_manager
-            .show_user_context_menu(ui, &state.core, chat_name, message);
-    }
+    // TODO(TicClick): show user context menu from the private part
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {
