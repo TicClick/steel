@@ -57,6 +57,9 @@ impl Application {
                 AppMessageIn::ChannelJoined(channel) => {
                     self.handle_channel_join(channel);
                 }
+                AppMessageIn::ChatModeratorAdded(username) => {
+                    self.handle_chat_moderator_added(username);
+                }
 
                 AppMessageIn::UIConnectRequested => {
                     self.connect();
@@ -117,33 +120,8 @@ impl Application {
 
     pub fn load_settings(&mut self, source: settings::Source, fallback: bool) {
         self.state.settings = settings::Settings::from_file(&source, fallback);
-        self.setup_mod_users();
+        self.handle_chat_moderator_added("BanchoBot".into());
         self.ui_handle_settings_requested();
-    }
-
-    // TODO: remove when osu!api integration is ready
-    // Snapshots taken on 2023-07-23
-    #[rustfmt::skip]
-    fn setup_mod_users(&mut self) {
-        for mods in [
-            &mut self.state.settings.ui.dark_colours.mod_users,
-            &mut self.state.settings.ui.light_colours.mod_users,
-        ] {
-            for group in [
-                // GMT -- https://osu.ppy.sh/groups/4
-                ["- Felix", "[ Another ]", "[ryuu]", "0x84f", "abraker", "Albionthegreat", "Azer", "bibitaru", "Burak", "ChillierPear", "chromb", "Civil oath", "Corne2Plum3", "D I O", "Death", "Dntm8kmeeatu", "Edward", "Ephemeral", "Flutteh", "Galkan", "Ganondorf", "Halfslashed", "Imakuri", "JBHyperion", "Jerry", "kanpakyin", "Kobold84", "KSHR", "Kudou Chitose", "Kyubey", "Laurakko", "LeoFLT", "Loctav", "maot", "MillhioreF", "My Angel Chino", "Nathanael", "Nevo", "Niva", "Nozhomi", "Okoratu", "OnosakiHito", "Osu Tatakae Ouendan", "osu!team", "p3n", "Petal", "Petit", "Protastic101", "QHideaki13", "Redo_", "Repflez", "Roan", "RockRoller", "ruexia", "S o h", "Saten", "Shiro", "Shurelia", "Sies", "spboxer3", "terho", "THAT_otaku", "TicClick", "TKS", "ToGlette", "topecnz", "Trigonoculus", "Trosk-", "Uni", "Venix", "Yason", "Zallius",]
-                    .as_slice(),
-                // NAT -- https://osu.ppy.sh/groups/7
-                ["-Mo-", "AirinCat", "Akasha-", "Capu", "Chaoslitz", "Dada", "Deif", "elicz1", "Enneya", "Firika", "FuJu", "Garden", "Greaper", "gzdongsheng", "Hivie", "Ideal", "Maxus", "Naxess", "Noffy", "Nomination Assessment Team", "Petal", "pishifat", "radar", "Secre", "StarCastler", "Stixy", "Tailsdk", "yaspo", "Yogurtt", "Zelq",]
-                    .as_slice(),
-                // DEV -- https://osu.ppy.sh/groups/11
-                ["Damnae", "Domco", "Ephemeral", "flyte", "MillhioreF", "nanaya", "nekodex", "notbakaneko", "osu!team", "peppy", "RBRat3", "smoogipoo", "ThePooN", "Tom94",]
-                    .as_slice(),
-            ] {
-                mods.extend(group.iter().map(|u| u.to_lowercase().replace(' ', "_")))
-            }
-            mods.insert("banchobot".into());
-        }
     }
 
     pub fn ui_handle_settings_requested(&self) {
@@ -276,6 +254,12 @@ impl Application {
     pub fn handle_channel_join(&mut self, channel: String) {
         self.ui_queue
             .blocking_send(UIMessageIn::ChannelJoined(channel))
+            .unwrap();
+    }
+
+    pub fn handle_chat_moderator_added(&mut self, username: String) {
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChatModeratorAdded(username))
             .unwrap();
     }
 
