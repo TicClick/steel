@@ -1,6 +1,6 @@
 [package]
 name = "steel"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2021"
 build = "src/build.rs"
 
@@ -13,9 +13,9 @@ winresource = "0.1"
 steel_core = { version = "0.1.1", path = "./crates/steel_core" }
 glass = { version = "*", path = "./crates/glass", optional = true}
 
-# See also: https://github.com/emilk/egui/issues/2898
-eframe = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
-egui_extras = { git = "https://github.com/TicClick/egui.git", branch = "ffi" }
+eframe = "0.24.1"
+egui_extras = "0.24.1"
+
 chrono = { version = "0.4.24", features = ["serde"] }
 irc = "0.15.0"
 irc-proto = "0.15.0"

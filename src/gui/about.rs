@@ -47,9 +47,12 @@ impl About {
         state: &mut UIState,
     ) {
         let texture = self.texture.get_or_insert_with(|| icon_as_texture(ctx));
-        let img = egui::Image::new(texture.id(), texture.size_vec2() / 2.0)
-            .sense(egui::Sense::click())
-            .rotate(self.rotation, egui::Vec2::splat(0.5));
+        let img = egui::Image::new(egui::ImageSource::Texture(egui::load::SizedTexture {
+            id: texture.id(),
+            size: texture.size_vec2() / 2.0,
+        }))
+        .sense(egui::Sense::click())
+        .rotate(self.rotation, egui::Vec2::splat(0.5));
         let resp = ui.add(img);
         if resp.clicked() || resp.secondary_clicked() {
             state.sound_player.play(&Sound::BuiltIn(BuiltInSound::Tick));

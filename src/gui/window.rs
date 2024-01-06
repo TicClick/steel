@@ -158,7 +158,7 @@ impl ApplicationWindow {
         }
     }
 
-    pub fn process_pending_events(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    pub fn process_pending_events(&mut self, ctx: &egui::Context) {
         if self.date_announcer.should_announce() {
             let text = format!(
                 "A new day is born ({})",
@@ -234,7 +234,7 @@ impl ApplicationWindow {
 
                 UIMessageIn::NewMessageReceived { target, message } => {
                     self.s
-                        .push_chat_message(target.clone(), message.clone(), frame);
+                        .push_chat_message(target.clone(), message.clone(), ctx);
 
                     #[cfg(feature = "glass")]
                     match message.username == self.s.settings.chat.irc.username {
@@ -279,7 +279,7 @@ const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_milli
 impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
-        self.process_pending_events(ctx, frame);
+        self.process_pending_events(ctx);
 
         if !self.s.active_chat_tab_name.is_empty() {
             let title = match self.s.active_chat_tab_name.starts_with('$') {
@@ -290,7 +290,7 @@ impl eframe::App for ApplicationWindow {
                     crate::VERSION
                 ),
             };
-            frame.set_window_title(&title);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
         }
 
         self.set_theme(ctx);
@@ -313,8 +313,7 @@ impl eframe::App for ApplicationWindow {
         }
     }
 
-    fn on_close_event(&mut self) -> bool {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         self.s.core.exit_requested();
-        true
     }
 }

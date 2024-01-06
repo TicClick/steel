@@ -149,12 +149,7 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(
-        &mut self,
-        target: String,
-        mut message: Message,
-        frame: &mut eframe::Frame,
-    ) {
+    pub fn push_chat_message(&mut self, target: String, mut message: Message, ctx: &egui::Context) {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
         if let Some(pos) = self.name_to_chat.get(&normalized) {
@@ -186,8 +181,10 @@ impl UIState {
                     }
                 }
 
-                if !frame.info().window_info.focused && requires_attention {
-                    frame.request_user_attention(eframe::egui::UserAttentionType::Critical);
+                if !ctx.input(|i| i.viewport().focused.unwrap_or(false)) && requires_attention {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                        eframe::egui::UserAttentionType::Critical,
+                    ));
                     if let Some(sound) = &self.settings.notifications.highlights.sound {
                         self.sound_player.play(sound);
                     }

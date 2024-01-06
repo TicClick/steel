@@ -20,7 +20,7 @@ impl WithInnerShadow for egui::Ui {
         let central_frame_margin = 8.; // egui::Frame::central_panel().inner_margin
         shadow_rect.set_left(shadow_rect.left() - central_frame_margin);
         shadow_rect.set_width(
-            shadow_rect.width() + self.spacing().scroll_bar_inner_margin + central_frame_margin,
+            shadow_rect.width() + self.spacing().scroll.bar_inner_margin + central_frame_margin,
         );
         shadow_rect.set_bottom(shadow_rect.bottom() + self.spacing().item_spacing.y);
 
