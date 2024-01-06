@@ -34,20 +34,6 @@ fn setup_logging() {
     log_panics::init();
 }
 
-fn read_icon() -> Option<eframe::IconData> {
-    match crate::gui::png_to_rgba(include_bytes!("../media/icons/taskbar.png")) {
-        Ok((data, (width, height))) => Some(eframe::IconData {
-            rgba: data,
-            width,
-            height,
-        }),
-        Err(e) => {
-            log::error!("failed to read the app taskbar icon: {:?}", e);
-            None
-        }
-    }
-}
-
 fn main() {
     if let Err(e) = crate::core::os::fix_cwd() {
         panic!("Failed to set proper current working directory: {:?}", e);
@@ -65,7 +51,10 @@ fn main() {
     });
 
     let native_options = eframe::NativeOptions {
-        icon_data: read_icon(),
+        viewport: eframe::egui::ViewportBuilder::default().with_icon(std::sync::Arc::new(
+            eframe::icon_data::from_png_bytes(&include_bytes!("../media/icons/taskbar.png")[..])
+                .unwrap(),
+        )),
         ..Default::default()
     };
     eframe::run_native(

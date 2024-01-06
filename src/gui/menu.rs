@@ -54,10 +54,12 @@ impl Menu {
                 );
 
                 if resp.clicked() {
-                    frame.set_always_on_top(self.pin_window);
-                    frame.set_decorations(!self.pin_window);
+                    ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                        egui::WindowLevel::AlwaysOnTop,
+                    ));
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(!self.pin_window));
                 } else if resp.is_pointer_button_down_on() {
-                    frame.drag_window();
+                    ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
             });
         });
@@ -66,8 +68,8 @@ impl Menu {
     fn show_application_menu(
         &mut self,
         ui: &mut egui::Ui,
-        _ctx: &egui::Context,
-        frame: &mut eframe::Frame,
+        ctx: &egui::Context,
+        _frame: &mut eframe::Frame,
         _state: &mut UIState,
     ) {
         ui.menu_button("application", |ui| {
@@ -83,7 +85,7 @@ impl Menu {
                 ui.close_menu();
             }
             if ui.button("exit").clicked() {
-                frame.close();
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 ui.close_menu();
             }
         });
