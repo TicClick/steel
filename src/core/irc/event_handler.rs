@@ -1,6 +1,7 @@
 use tokio::sync::mpsc::Sender;
 
 use irc::client::prelude::*;
+use irc_proto::mode::{ChannelMode, Mode};
 
 use steel_core::chat::irc::IRCError;
 use steel_core::chat::{Message, MessageType};
@@ -111,14 +112,30 @@ pub fn dispatch_message(
         Command::Response(
             Response::RPL_TOPIC |  // channel topic
             Response::RPL_TOPICWHOTIME |  // channel topic author/mtime
-            Response::RPL_NAMREPLY |  // channel users
             Response::RPL_ENDOFNAMES,  // channel users
             ..
         ) |
         // PING and PONG are handled by the library
         Command::PING(..) |
-        Command::PONG(..) |
-        Command::ChannelMODE(..) => self::empty_handler(sender, msg),
+        Command::PONG(..) => self::empty_handler(sender, msg),
+        Command::ChannelMODE(_, modes) => {
+            for m in modes {
+                if let Mode::Plus(ChannelMode::Oper, Some(user)) = m {
+                    sender.blocking_send(AppMessageIn::ChatModeratorAdded(user)).unwrap();
+                }
+            }
+        }
+
+        Command::Response(
+            Response::RPL_NAMREPLY,
+            cmd
+        ) => {
+            if let Some(users) = cmd.get(3) {
+                for user in users.split_ascii_whitespace().filter(|u| u.starts_with('@')) {
+                    sender.blocking_send(AppMessageIn::ChatModeratorAdded(user[1..].to_owned())).unwrap();
+                }
+            }
+        },
 
         Command::Response(
             Response::RPL_WELCOME |
