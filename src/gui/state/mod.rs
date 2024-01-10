@@ -7,7 +7,7 @@ use eframe::egui;
 use tokio::sync::mpsc::Sender;
 
 use crate::core::settings::Settings;
-use crate::core::updater::Updater;
+use crate::core::updater::{UpdateSource, Updater};
 
 use crate::gui::highlights;
 
@@ -55,7 +55,13 @@ impl UIState {
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
-            updater: Updater::new(),
+
+            #[cfg(feature = "glass")]
+            updater: Updater::new(UpdateSource::Gist(glass::ROOT_RELEASES_URL.to_owned())),
+
+            #[cfg(not(feature = "glass"))]
+            updater: Updater::default(),
+
             sound_player: crate::core::sound::SoundPlayer::new(),
 
             #[cfg(feature = "glass")]
