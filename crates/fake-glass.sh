@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# Fake dependency to build the binary, otherwise it fails even with the feature off
+
 set -eu -o pipefail
 
 base=$( dirname $0 )
