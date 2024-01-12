@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::sync::{Arc, Mutex};
 
@@ -17,9 +18,9 @@ pub enum State {
     #[default]
     Idle,
     FetchingMetadata,
-    MetadataReady(ReleaseMetadata),
+    MetadataReady(ReleaseMetadataGitHub),
     FetchingRelease,
-    ReleaseReady(ReleaseMetadata),
+    ReleaseReady(ReleaseMetadataGitHub),
     UpdateError(String),
 }
 
@@ -42,6 +43,12 @@ impl From<String> for State {
 }
 
 #[derive(Debug)]
+pub enum UpdateSource {
+    GitHub(String),
+    Gist(String),
+}
+
+#[derive(Debug)]
 pub enum BackendRequest {
     InitiateAutoupdate,
     SetAutoupdateStatus(bool),
@@ -51,15 +58,29 @@ pub enum BackendRequest {
 }
 
 const RECENT_RELEASES_METADATA_URL: &str = "https://api.github.com/repos/TicClick/steel/releases";
+const GIST_METADATA_FILENAME: &str = "releases.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ReleaseMetadata {
+pub struct ReleaseMetadataGitHub {
     pub tag_name: String,
     pub published_at: chrono::DateTime<chrono::Utc>,
     pub assets: Vec<ReleaseAsset>,
 }
 
-impl ReleaseMetadata {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ReleaseMetadataGist {
+    pub files: BTreeMap<String, FileMetadataGist>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct FileMetadataGist {
+    pub filename: String,
+    pub r#type: String,
+    pub raw_url: String,
+    pub size: u64,
+}
+
+impl ReleaseMetadataGitHub {
     pub fn platform_specific_asset(&self) -> Option<&ReleaseAsset> {
         let marker = if cfg!(windows) {
             "-windows"
@@ -128,19 +149,21 @@ pub struct Updater {
 
 impl Default for Updater {
     fn default() -> Self {
-        Self::new()
+        Self::new(UpdateSource::GitHub(
+            RECENT_RELEASES_METADATA_URL.to_owned(),
+        ))
     }
 }
 
 impl Updater {
-    pub fn new() -> Self {
+    pub fn new(src: UpdateSource) -> Self {
         let state = Arc::new(Mutex::new(UpdateState::default()));
         let (tx, rx) = channel(5);
 
         let state_ = state.clone();
         let backend_transmitter = tx.clone();
         let th = std::thread::spawn(move || {
-            UpdaterBackend::new(state_, backend_transmitter, rx).run();
+            UpdaterBackend::new(src, state_, backend_transmitter, rx).run();
         });
         Self {
             state,
@@ -181,7 +204,7 @@ impl Updater {
         self.th.join().unwrap();
     }
 
-    pub fn available_update(&self) -> Option<ReleaseMetadata> {
+    pub fn available_update(&self) -> Option<ReleaseMetadataGitHub> {
         match self.state().state {
             State::MetadataReady(r) => Some(r),
             _ => None,
@@ -196,6 +219,7 @@ impl Updater {
 pub const AUTOUPDATE_INTERVAL_MINUTES: i64 = 10;
 
 struct UpdaterBackend {
+    src: UpdateSource,
     state: Arc<Mutex<UpdateState>>,
     self_channel: Sender<BackendRequest>,
     channel: Receiver<BackendRequest>,
@@ -206,11 +230,13 @@ struct UpdaterBackend {
 
 impl UpdaterBackend {
     fn new(
+        src: UpdateSource,
         state: Arc<Mutex<UpdateState>>,
         self_channel: Sender<BackendRequest>,
         channel: Receiver<BackendRequest>,
     ) -> Self {
         Self {
+            src,
             state,
             self_channel,
             channel,
@@ -291,10 +317,36 @@ impl UpdaterBackend {
     }
 
     fn fetch_metadata(&self) {
-        log::debug!("updater: checking {}", RECENT_RELEASES_METADATA_URL);
+        log::debug!("updater: checking releases metadata");
         self.set_state(State::FetchingMetadata);
-        match ureq::request("GET", RECENT_RELEASES_METADATA_URL).call() {
-            Ok(payload) => match payload.into_json::<Vec<ReleaseMetadata>>() {
+        match &self.src {
+            UpdateSource::Gist(s) => self.fetch_metadata_gist(s),
+            UpdateSource::GitHub(s) => self.fetch_metadata_github(s),
+        }
+    }
+
+    // The metadata file should mirror GitHub API response from /repos/{user}/{repo}/releases
+    fn fetch_metadata_gist(&self, url: &str) {
+        match ureq::request("GET", url).call() {
+            Ok(payload) => match payload.into_json::<ReleaseMetadataGist>() {
+                Ok(files) => {
+                    if let Some(metadata_file) = files.files.get(GIST_METADATA_FILENAME) {
+                        self.fetch_metadata_github(&metadata_file.raw_url);
+                    } else {
+                        self.set_state(State::UpdateError(
+                            "updater: failed to fetch preliminary metadata file from gist.github.com".into(),
+                        ));
+                    }
+                }
+                Err(e) => self.set_state(e.into()),
+            },
+            Err(e) => self.set_state(e.into()),
+        }
+    }
+
+    fn fetch_metadata_github(&self, url: &str) {
+        match ureq::request("GET", url).call() {
+            Ok(payload) => match payload.into_json::<Vec<ReleaseMetadataGitHub>>() {
                 Ok(releases) => {
                     log::debug!("updater: latest release info -> {:?}", releases.first());
                     for release in releases {
