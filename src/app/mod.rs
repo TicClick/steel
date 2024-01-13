@@ -6,7 +6,7 @@ use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
-use crate::core::settings;
+use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 const EVENT_QUEUE_SIZE: usize = 1000;
@@ -120,6 +120,11 @@ impl Application {
 
     pub fn load_settings(&mut self, source: settings::Source, fallback: bool) {
         self.state.settings = settings::Settings::from_file(&source, fallback);
+
+        if self.state.settings.application.autoupdate.url.is_empty() {
+            self.state.settings.application.autoupdate.url = updater::default_update_url();
+        }
+
         self.handle_chat_moderator_added("BanchoBot".into());
         self.ui_handle_settings_requested();
     }

@@ -1,7 +1,7 @@
 use eframe::egui;
 
 use super::SettingsWindow;
-use crate::gui::state::UIState;
+use crate::{core::updater, gui::state::UIState};
 
 impl SettingsWindow {
     pub(super) fn show_application_tab(
@@ -23,6 +23,35 @@ impl SettingsWindow {
                 "enable automatic updates",
             )
             .on_hover_text_at_pointer(hint);
+
+            ui.label("update URL");
+            let url = egui::TextEdit::multiline(&mut state.settings.application.autoupdate.url)
+                .hint_text("should point to release metadata");
+            ui.add(url);
+            ui.horizontal(|ui| {
+                if ui.button("test").clicked() {
+                    state
+                        .updater
+                        .change_url(&state.settings.application.autoupdate.url);
+                }
+                if ui.button("revert").clicked() {
+                    state.settings.application.autoupdate.url = updater::default_update_url();
+                    state
+                        .updater
+                        .change_url(&state.settings.application.autoupdate.url);
+                }
+            });
+
+            if let Some(test_result) = state.updater.state().url_test_result {
+                match test_result {
+                    Ok(_) => {
+                        ui.label("test result: OK");
+                    }
+                    Err(why) => {
+                        ui.label(format!("test result: FAIL ({})", why));
+                    }
+                }
+            }
         });
 
         if autoupdate != state.settings.application.autoupdate.enabled {

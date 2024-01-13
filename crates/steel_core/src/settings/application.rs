@@ -9,4 +9,6 @@ pub struct Application {
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct AutoUpdate {
     pub enabled: bool,
+    #[serde(default)]
+    pub url: String,
 }
