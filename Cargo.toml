@@ -41,6 +41,7 @@ png = "0.17.10"
 
 libloading = "0.8.1"
 winresource = "0.1.17"
+serde_json = "1.0.111"
 
 [features]
 default = []

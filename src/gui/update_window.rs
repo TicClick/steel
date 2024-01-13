@@ -16,6 +16,7 @@ impl UpdateWindow {
                 let UpdateState {
                     state: last_action,
                     when,
+                    ..
                 } = state.updater.state();
                 match last_action {
                     State::Idle => {

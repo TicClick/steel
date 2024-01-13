@@ -7,10 +7,26 @@ use serde::{Deserialize, Serialize};
 use steel_core::VersionString;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
+pub const RECENT_RELEASES_METADATA_URL: &str =
+    "https://api.github.com/repos/TicClick/steel/releases";
+const GIST_METADATA_FILENAME: &str = "releases.json";
+
+pub fn default_update_url() -> String {
+    #[cfg(feature = "glass")]
+    {
+        glass::ROOT_RELEASES_URL.to_owned()
+    }
+    #[cfg(not(feature = "glass"))]
+    {
+        RECENT_RELEASES_METADATA_URL.to_owned()
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct UpdateState {
     pub when: Option<chrono::DateTime<chrono::Local>>,
     pub state: State,
+    pub url_test_result: Option<Result<(), String>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -52,13 +68,11 @@ pub enum UpdateSource {
 pub enum BackendRequest {
     InitiateAutoupdate,
     SetAutoupdateStatus(bool),
+    ChangeURL(String),
     FetchMetadata,
     FetchRelease,
     Quit,
 }
-
-const RECENT_RELEASES_METADATA_URL: &str = "https://api.github.com/repos/TicClick/steel/releases";
-const GIST_METADATA_FILENAME: &str = "releases.json";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ReleaseMetadataGitHub {
@@ -140,6 +154,22 @@ impl ReleaseAsset {
     }
 }
 
+pub fn test_update_url(url: &str) -> Result<UpdateSource, String> {
+    match ureq::request("GET", url).call() {
+        Err(e) => Err(e.to_string()),
+        Ok(payload) => {
+            let v = payload.into_string().unwrap();
+            match serde_json::from_str::<Vec<ReleaseMetadataGitHub>>(&v) {
+                Ok(_) => Ok(UpdateSource::GitHub(url.to_owned())),
+                Err(_) => match serde_json::from_str::<ReleaseMetadataGist>(&v) {
+                    Ok(_) => Ok(UpdateSource::Gist(url.to_owned())),
+                    Err(e) => Err(e.to_string()),
+                },
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct Updater {
     state: Arc<Mutex<UpdateState>>,
@@ -185,6 +215,12 @@ impl Updater {
                 .blocking_send(BackendRequest::InitiateAutoupdate)
                 .unwrap();
         }
+    }
+
+    pub fn change_url(&self, url: &str) {
+        self.channel
+            .blocking_send(BackendRequest::ChangeURL(url.to_owned()))
+            .unwrap();
     }
 
     pub fn check_version(&self) {
@@ -259,6 +295,20 @@ impl UpdaterBackend {
                 BackendRequest::SetAutoupdateStatus(enabled) => {
                     self.autoupdate = enabled;
                 }
+                BackendRequest::ChangeURL(url) => self.change_url(url),
+            }
+        }
+    }
+
+    fn change_url(&mut self, url: String) {
+        match test_update_url(&url) {
+            Ok(src) => {
+                log::debug!("updater: change url {:?} -> {:?}", self.src, src);
+                self.src = src;
+                self.state.lock().unwrap().url_test_result = Some(Ok(()));
+            }
+            Err(e) => {
+                self.state.lock().unwrap().url_test_result = Some(Err(e));
             }
         }
     }
@@ -310,9 +360,11 @@ impl UpdaterBackend {
         if let State::UpdateError(ref text) = state {
             log::error!("failed to perform the update: {}", text);
         }
-        *self.state.lock().unwrap() = UpdateState {
+        let mut guard = self.state.lock().unwrap();
+        *guard = UpdateState {
             state,
             when: Some(chrono::Local::now()),
+            url_test_result: guard.url_test_result.clone(),
         };
     }
 
