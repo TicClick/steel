@@ -172,7 +172,7 @@ impl IRCActor {
         }));
     }
 
-    fn send_message(&self, r#type: chat::MessageType, destination: String, content: String) {
+    fn send_message(&self, r#type: chat::MessageType, destination: String, mut content: String) {
         let guard = self.irc_stream_sender.lock().unwrap();
         if let Some(sender) = &*guard {
             match r#type {
@@ -180,6 +180,12 @@ impl IRCActor {
                     sender.send_action(destination, content).unwrap();
                 }
                 chat::MessageType::Text => {
+                    // This fixes #49 -- either Bancho loses an extra prefix colon due to its similarity with the IRC
+                    // command separator, or https://github.com/aatxe/irc around the transport level, and I can't be
+                    // bothered to figure out who is at fault.
+                    if content.starts_with(":") {
+                        content.insert_str(0, " ");
+                    }
                     sender.send_privmsg(destination, content).unwrap();
                 }
 
