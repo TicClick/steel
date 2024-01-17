@@ -82,7 +82,17 @@ jobs:
 
       - name: Upload (private)
         shell: bash
-        run: GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" gh gist edit "${{ secrets.ASSET_GIST_HASH }}" --filename $( ls steel-* )
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET_GIST_HASH: ${{ secrets.ASSET_GIST_HASH }}
+        run: |
+          existing_files=$( gh gist view "${ASSET_GIST_HASH}" --files )
+          platform_binary=$( ls steel-* )
+          if [[ ${existing_files} != *${platform_binary}* ]]; then
+              gh gist edit "${ASSET_GIST_HASH}" --add "${platform_binary}" "${platform_binary}"
+          else
+              gh gist edit "${ASSET_GIST_HASH}" --filename "${platform_binary}" "${platform_binary}"
+          fi
 
   update-private-metadata:
     runs-on: ubuntu-latest
@@ -90,9 +100,12 @@ jobs:
     steps:
       - name: Tag all assets
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ASSET_GIST_HASH: ${{ secrets.ASSET_GIST_HASH }}
         run: |
-          GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" gh gist clone "${{ secrets.ASSET_GIST_HASH }}"
-          cd ${{ secrets.ASSET_GIST_HASH }}
+          gh gist clone "${ASSET_GIST_HASH}"
+          cd "${ASSET_GIST_HASH}"
           git tag ${{ github.ref_name }}
           git push --tags
 
