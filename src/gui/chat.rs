@@ -129,7 +129,8 @@ impl ChatWindow {
                     .auto_shrink([false; 2])
                     .body(|body| {
                         if let Some(ch) = state.active_chat() {
-                            body.heterogeneous_rows(heights, |row_index, mut row| {
+                            body.heterogeneous_rows(heights, |mut row| {
+                                let row_index = row.index();
                                 last_visible_row = row_index;
                                 row.col(|ui| {
                                     self.show_regular_chat_single_message(ui, state, ch, row_index);
@@ -143,7 +144,8 @@ impl ChatWindow {
                                         st.insert(TextStyle::Monospace);
                                         st
                                     });
-                                    body.heterogeneous_rows(heights, |row_index, mut row| {
+                                    body.heterogeneous_rows(heights, |mut row| {
+                                        let row_index = row.index();
                                         last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_server_tab_single_message(
@@ -156,7 +158,8 @@ impl ChatWindow {
                                     });
                                 }
                                 super::HIGHLIGHTS_TAB_NAME => {
-                                    body.heterogeneous_rows(heights, |row_index, mut row| {
+                                    body.heterogeneous_rows(heights, |mut row| {
+                                        let row_index = row.index();
                                         last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_highlights_tab_single_message(

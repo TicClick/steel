@@ -6,8 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-# See also: https://github.com/emilk/egui/issues/2898
-ecolor = "0.24.1"
+ecolor = "0.25.0"
 chrono = { version = "0.4.31", features = ["serde"] }
 irc-proto = "0.15.0"
 serde = { version = "1.0.194", features = ["serde_derive"] }
