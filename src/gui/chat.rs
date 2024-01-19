@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use steel_core::TextStyle;
 
@@ -48,7 +48,7 @@ pub struct ChatWindow {
     pub scroll_to: Option<usize>,
 
     chat_row_height: Option<f32>,
-    cached_row_heights: Vec<f32>,
+    cached_row_heights: BTreeMap<String, Vec<f32>>,
 
     // FIXME: This is a hack to prevent the context menu from re-sticking to other chat buttons (and therefore messages)
     // when the chat keeps scrolling to bottom. The menu seems to not care about that and stick to whichever is beneath, which is changing.
@@ -56,6 +56,9 @@ pub struct ChatWindow {
 
     // Draw the hinting shadow at the bottom of the chat in the next frame.
     shadow_next_frame: bool,
+
+    // Chat space width -- longer lines will wrap around the window.
+    widget_width: f32,
 }
 
 impl ChatWindow {
@@ -103,11 +106,15 @@ impl ChatWindow {
         egui::CentralPanel::default().show(ctx, |ui| {
             // Default spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 4.;
+            self.widget_width = ui.available_width();
 
             let chat_row_height = *self
                 .chat_row_height
                 .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
+
             self.cached_row_heights
+                .entry(state.active_chat_tab_name.clone())
+                .or_default()
                 .resize(state.chat_message_count(), chat_row_height);
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
@@ -120,7 +127,9 @@ impl ChatWindow {
                     builder = builder.stick_to_bottom(true);
                 }
 
-                let heights = self.cached_row_heights.clone().into_iter();
+                let heights = self.cached_row_heights[&state.active_chat_tab_name]
+                    .clone()
+                    .into_iter();
                 let mut last_visible_row = 0;
 
                 builder
@@ -174,7 +183,13 @@ impl ChatWindow {
                     });
 
                 // FIXME: the shadow is removed as soon as the last row becomes PARTIALLY, NOT FULLY visible.
-                if last_visible_row + 1 < self.cached_row_heights.len() {
+                if last_visible_row + 1
+                    < self
+                        .cached_row_heights
+                        .get_mut(&state.active_chat_tab_name)
+                        .unwrap()
+                        .len()
+                {
                     if self.shadow_next_frame {
                         ui.inner_shadow_bottom(20);
                     } else {
@@ -217,20 +232,25 @@ impl ChatWindow {
         }
 
         let updated_height = ui
-            .horizontal_wrapped(|ui| {
-                ui.spacing_mut().item_spacing.x /= 2.;
-                ui.style_mut().wrap = Some(true);
-                show_datetime(ui, state, msg, &None);
-                match msg.r#type {
-                    MessageType::Action | MessageType::Text => {
-                        self.format_username(ui, state, &ch.name, msg, &Some(username_styles));
-                        format_chat_message_text(ui, state, msg, &Some(message_styles))
+            .push_id(format!("{}_row_{}", ch.name, message_index), |ui| {
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing.x /= 2.;
+                    ui.set_max_width(self.widget_width);
+                    show_datetime(ui, state, msg, &None);
+                    match msg.r#type {
+                        MessageType::Action | MessageType::Text => {
+                            self.format_username(ui, state, &ch.name, msg, &Some(username_styles));
+                            format_chat_message_text(ui, state, msg, &Some(message_styles))
+                        }
+                        MessageType::System => format_system_message(ui, msg),
                     }
-                    MessageType::System => format_system_message(ui, msg),
-                }
+                })
             })
+            .inner
             .inner;
-        self.cached_row_heights[message_index] = updated_height;
+        self.cached_row_heights
+            .get_mut(&state.active_chat_tab_name)
+            .unwrap()[message_index] = updated_height;
     }
 
     fn show_highlights_tab_single_message(
@@ -249,7 +269,9 @@ impl ChatWindow {
                 format_chat_message_text(ui, state, msg, &None)
             })
             .inner;
-        self.cached_row_heights[message_index] = updated_height;
+        self.cached_row_heights
+            .get_mut(&state.active_chat_tab_name)
+            .unwrap()[message_index] = updated_height;
     }
 
     fn show_server_tab_single_message(
@@ -267,7 +289,9 @@ impl ChatWindow {
                 format_chat_message_text(ui, state, msg, styles)
             })
             .inner;
-        self.cached_row_heights[message_index] = updated_height;
+        self.cached_row_heights
+            .get_mut(&state.active_chat_tab_name)
+            .unwrap()[message_index] = updated_height;
     }
 
     pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
