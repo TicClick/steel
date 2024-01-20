@@ -8,6 +8,8 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::DecoratedText;
 
+const MAX_MESSAGE_LENGTH: usize = 450;
+
 trait WithInnerShadow {
     fn inner_shadow_bottom(&self, pixels: usize);
 }
@@ -71,13 +73,25 @@ impl ChatWindow {
         if interactive {
             egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
                 ui.vertical_centered_justified(|ui| {
+                    let message_length_exceeded = self.chat_input.len() >= 450;
+
                     // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-                    let text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                    let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                        .char_limit(MAX_MESSAGE_LENGTH)
                         .id_source("chat-input")
                         .hint_text("new message");
+                    if message_length_exceeded {
+                        text_field = text_field.text_color(egui::Color32::RED);
+                    }
 
                     ui.add_space(8.);
-                    let response = ui.add(text_field);
+                    let mut response = ui.add(text_field);
+                    if message_length_exceeded {
+                        response = response.on_hover_text_at_pointer(format!(
+                            "messages longer than {} characters are truncated",
+                            MAX_MESSAGE_LENGTH
+                        ));
+                    }
                     self.response_widget_id = Some(response.id);
                     ui.add_space(2.);
 
