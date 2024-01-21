@@ -8,7 +8,7 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::DecoratedText;
 
-use crate::gui::command;
+use crate::gui::command::{self, COMMAND_PREFIX};
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
@@ -76,13 +76,6 @@ impl ChatWindow {
         let interactive = state.is_connected() && state.active_chat().is_some();
         if interactive {
             egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                self.command_helper.maybe_show(
-                    ui,
-                    state,
-                    &mut self.chat_input,
-                    &self.response_widget_id,
-                );
-
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= 450;
 
@@ -134,6 +127,22 @@ impl ChatWindow {
         // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            if self.chat_input.starts_with(COMMAND_PREFIX) {
+                egui::Window::new("chat-command-hint-layer")
+                    .title_bar(false)
+                    .resizable(false)
+                    .pivot(egui::Align2::LEFT_BOTTOM)
+                    .fixed_pos(ui.available_rect_before_wrap().left_bottom())
+                    .show(ctx, |ui| {
+                        self.command_helper.maybe_show(
+                            ui,
+                            state,
+                            &mut self.chat_input,
+                            &self.response_widget_id,
+                        );
+                    });
+            }
+
             // Default spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 4.;
             self.widget_width = ui.available_width();
