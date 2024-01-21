@@ -18,19 +18,23 @@ trait Command {
     fn argcount(&self) -> usize;
 
     fn ui_hint(&self, ui: &mut egui::Ui) {
+        ui.spacing_mut().item_spacing = [0.0, 0.0].into();
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("- description:").strong());
+                ui.label(egui::RichText::new("- description: ").strong());
                 ui.label(self.description());
             });
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("- example:").strong());
+                ui.label(egui::RichText::new("- example: ").strong());
                 ui.label(self.example());
             });
             ui.horizontal(|ui| {
-                ui.label(egui::RichText::new("- aliases:").strong());
+                ui.label(egui::RichText::new("- aliases: ").strong());
                 ui.label(self.aliases().join(", "));
             });
+            if self.argcount() == 0 {
+                ui.label("(immediate)");
+            }
         });
     }
     fn ui_title(&self) -> egui::RichText;
@@ -180,14 +184,17 @@ pub struct CommandHelper {
 
 impl Default for CommandHelper {
     fn default() -> Self {
-        Self {
+        let mut s = Self {
             commands: vec![
                 Box::new(Me::new()),
                 Box::new(OpenChat::new()),
                 Box::new(CloseChat::new()),
                 Box::new(ClearChat::new()),
             ],
-        }
+        };
+        s.commands
+            .sort_by(|c1, c2| c1.preferred_alias().cmp(c2.preferred_alias()));
+        s
     }
 }
 
