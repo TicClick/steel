@@ -5,6 +5,8 @@ use super::state::UIState;
 pub const COMMAND_PREFIX: char = '/';
 
 pub const COMMAND_ALIAS_ME: [&str; 1] = ["/me"];
+pub const COMMAND_ALIAS_OPEN_CHAT: [&str; 4] = ["/chat", "/query", "/q", "/join"];
+pub const COMMAND_ALIAS_CLOSE_CHAT: [&str; 2] = ["/close", "/part"];
 
 trait Command<'command> {
     fn aliases(&self) -> Vec<&'command str>;
@@ -17,15 +19,15 @@ trait Command<'command> {
     fn rich_text_example(&self) -> egui::RichText;
     fn action(&self, state: &UIState, args: Vec<String>);
 
-    fn should_be_hinted(&self, input_parts: &[String], argcount: usize) -> bool {
+    fn should_be_hinted(&self, input_prefix: &str, argcount: usize) -> bool {
         self.aliases()
             .iter()
-            .any(|alias| alias.starts_with(&input_parts[0]) || input_parts[0].starts_with(alias))
+            .any(|alias| alias.starts_with(input_prefix) || input_prefix.starts_with(alias))
             && (argcount < self.argcount() || argcount == 0 && self.argcount() == 0)
     }
 
-    fn is_applicable(&self, input_parts: &[String]) -> bool {
-        self.aliases().contains(&input_parts[0].as_str())
+    fn is_applicable(&self, input_prefix: &str) -> bool {
+        self.aliases().contains(&input_prefix)
     }
 }
 
@@ -46,10 +48,48 @@ impl<'command> Command<'command> for Me {
             ui.label("example: /me gets to live one more day");
         });
     }
-    fn action(&self, state: &UIState, args: Vec<String>) {
+    fn action(&self, state: &UIState, input_parts: Vec<String>) {
         state
             .core
-            .chat_action_sent(&state.active_chat_tab_name, args.join(" ").as_str());
+            .chat_action_sent(&state.active_chat_tab_name, input_parts.join(" ").as_str());
+    }
+}
+
+struct OpenChat {}
+impl<'command> Command<'command> for OpenChat {
+    fn aliases(&self) -> Vec<&'command str> {
+        COMMAND_ALIAS_OPEN_CHAT.to_vec()
+    }
+    fn argcount(&self) -> usize {
+        1
+    }
+    fn rich_text_example(&self) -> egui::RichText {
+        egui::RichText::new("/chat <user>, /chat #<channel>")
+    }
+    fn hint(&self, ui: &mut egui::Ui) {
+        ui.label("open a chat tab with <user>, or join #<channel>");
+    }
+    fn action(&self, state: &UIState, args: Vec<String>) {
+        state.core.private_chat_opened(&args[0]);
+    }
+}
+
+struct CloseChat {}
+impl<'command> Command<'command> for CloseChat {
+    fn aliases(&self) -> Vec<&'command str> {
+        COMMAND_ALIAS_CLOSE_CHAT.to_vec()
+    }
+    fn argcount(&self) -> usize {
+        0
+    }
+    fn rich_text_example(&self) -> egui::RichText {
+        egui::RichText::new("/close, /part")
+    }
+    fn hint(&self, ui: &mut egui::Ui) {
+        ui.label("close the active tab, or leave the channel");
+    }
+    fn action(&self, state: &UIState, _args: Vec<String>) {
+        state.core.chat_tab_closed(&state.active_chat_tab_name.to_lowercase());
     }
 }
 
@@ -60,7 +100,11 @@ pub struct CommandHelper<'command> {
 impl Default for CommandHelper<'_> {
     fn default() -> Self {
         Self {
-            commands: vec![Box::new(Me {})],
+            commands: vec![
+                Box::new(Me {}),
+                Box::new(OpenChat {}),
+                Box::new(CloseChat {}),
+            ],
         }
     }
 }
@@ -79,7 +123,7 @@ impl CommandHelper<'_> {
         let argcount = args.len() - 1;
 
         for cmd in &self.commands {
-            if cmd.should_be_hinted(&args, argcount)
+            if cmd.should_be_hinted(&args[0], argcount)
                 && ui
                     .button(cmd.rich_text_example())
                     .on_hover_ui_at_pointer(|ui| cmd.hint(ui))
@@ -96,7 +140,7 @@ impl CommandHelper<'_> {
                 }
 
                 if cmd.argcount() == 0 {
-                    cmd.action(state, args);
+                    cmd.action(state, args[1..].to_vec());
                     input.clear();
                 }
                 ui.close_menu();
@@ -111,8 +155,8 @@ impl CommandHelper<'_> {
         }
         let args: Vec<String> = input.split_whitespace().map(|i| i.to_owned()).collect();
         for cmd in &self.commands {
-            if cmd.is_applicable(&args) {
-                cmd.action(state, args);
+            if cmd.is_applicable(&args[0]) {
+                cmd.action(state, args[1..].to_vec());
                 input.clear();
                 return true;
             }
