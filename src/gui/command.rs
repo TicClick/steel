@@ -90,7 +90,9 @@ impl<'command> Command<'command> for CloseChat {
         ui.label("close the active tab, or leave the channel");
     }
     fn action(&self, state: &UIState, _args: Vec<String>) {
-        state.core.chat_tab_closed(&state.active_chat_tab_name.to_lowercase());
+        state
+            .core
+            .chat_tab_closed(&state.active_chat_tab_name.to_lowercase());
     }
 }
 
@@ -109,7 +111,9 @@ impl<'command> Command<'command> for ClearChat {
         ui.label("clear the active tab, removing all messages");
     }
     fn action(&self, state: &UIState, _args: Vec<String>) {
-        state.core.chat_tab_cleared(&state.active_chat_tab_name.to_lowercase())
+        state
+            .core
+            .chat_tab_cleared(&state.active_chat_tab_name.to_lowercase())
     }
 }
 
