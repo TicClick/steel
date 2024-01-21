@@ -8,6 +8,8 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::DecoratedText;
 
+use crate::gui::command;
+
 const MAX_MESSAGE_LENGTH: usize = 450;
 
 trait WithInnerShadow {
@@ -44,7 +46,7 @@ impl WithInnerShadow for egui::Ui {
 }
 
 #[derive(Default)]
-pub struct ChatWindow {
+pub struct ChatWindow<'chat_window> {
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
@@ -61,9 +63,11 @@ pub struct ChatWindow {
 
     // Chat space width -- longer lines will wrap around the window.
     widget_width: f32,
+
+    command_helper: command::CommandHelper<'chat_window>,
 }
 
-impl ChatWindow {
+impl<'chat_window> ChatWindow<'chat_window> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -72,6 +76,9 @@ impl ChatWindow {
         let interactive = state.is_connected() && state.active_chat().is_some();
         if interactive {
             egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
+                self.command_helper
+                    .maybe_show(ui, state, &mut self.chat_input);
+
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= 450;
 
@@ -97,9 +104,14 @@ impl ChatWindow {
 
                     if let Some(ch) = state.active_chat() {
                         if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            state.core.chat_message_sent(&ch.name, &self.chat_input);
-                            self.chat_input.clear();
-                            response.request_focus();
+                            if !self
+                                .command_helper
+                                .try_run_command(state, &mut self.chat_input)
+                            {
+                                state.core.chat_message_sent(&ch.name, &self.chat_input);
+                                self.chat_input.clear();
+                                response.request_focus();
+                            }
                         }
                     }
                 });

@@ -60,6 +60,15 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn chat_action_sent(&self, target: &str, text: &str) {
+        self.server
+            .blocking_send(AppMessageIn::UIChatActionSent {
+                target: target.to_owned(),
+                text: text.to_owned(),
+            })
+            .unwrap();
+    }
+
     pub fn connect_requested(&self) {
         self.server
             .blocking_send(AppMessageIn::UIConnectRequested)

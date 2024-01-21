@@ -19,6 +19,7 @@ pub enum AppMessageIn {
     UIChatClosed(String),
     UIChatSwitchRequested(String, usize),
     UIChatMessageSent { target: String, text: String },
+    UIChatActionSent { target: String, text: String },
     UISettingsRequested,
     UISettingsUpdated(Settings),
 

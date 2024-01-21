@@ -124,9 +124,9 @@ impl DateAnnouncer {
     }
 }
 
-pub struct ApplicationWindow {
+pub struct ApplicationWindow<'application> {
     menu: gui::menu::Menu,
-    chat: gui::chat::ChatWindow,
+    chat: gui::chat::ChatWindow<'application>,
     chat_tabs: gui::chat_tabs::ChatTabs,
     settings: gui::settings::SettingsWindow,
     about: gui::about::About,
@@ -137,7 +137,7 @@ pub struct ApplicationWindow {
     date_announcer: DateAnnouncer,
 }
 
-impl ApplicationWindow {
+impl<'application> ApplicationWindow<'application> {
     pub fn new(
         cc: &eframe::CreationContext,
         ui_queue: Receiver<UIMessageIn>,
@@ -285,7 +285,7 @@ impl ApplicationWindow {
 
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
 
-impl eframe::App for ApplicationWindow {
+impl eframe::App for ApplicationWindow<'_> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
