@@ -79,34 +79,33 @@ impl CommandHelper<'_> {
         let argcount = args.len() - 1;
 
         for cmd in &self.commands {
-            if cmd.should_be_hinted(&args, argcount) {
-                if ui
+            if cmd.should_be_hinted(&args, argcount)
+                && ui
                     .button(cmd.rich_text_example())
                     .on_hover_ui_at_pointer(|ui| cmd.hint(ui))
                     .clicked()
-                {
-                    // TODO(TicClick): Move the cursor to the end of the message
+            {
+                // TODO(TicClick): Move the cursor to the end of the message
 
-                    if argcount == 0 {
-                        // Nothing entered: complete the command
-                        *input = format!("{} ", cmd.preferred_alias());
-                    } else if argcount < cmd.argcount() && !input.ends_with(' ') {
-                        // add extra hint
-                        input.push(' ');
-                    }
-
-                    if cmd.argcount() == 0 {
-                        cmd.action(state, args);
-                        input.clear();
-                    }
-                    ui.close_menu();
-                    break;
+                if argcount == 0 {
+                    // Nothing entered: complete the command
+                    *input = format!("{} ", cmd.preferred_alias());
+                } else if argcount < cmd.argcount() && !input.ends_with(' ') {
+                    // add extra hint
+                    input.push(' ');
                 }
+
+                if cmd.argcount() == 0 {
+                    cmd.action(state, args);
+                    input.clear();
+                }
+                ui.close_menu();
+                break;
             }
         }
     }
 
-    pub fn try_run_command(&self, state: &UIState, input: &mut String) -> bool {
+    pub fn detect_and_run(&self, state: &UIState, input: &mut String) -> bool {
         if !self.contains_command(input) {
             return false;
         }

@@ -103,15 +103,15 @@ impl<'chat_window> ChatWindow<'chat_window> {
                     ui.add_space(2.);
 
                     if let Some(ch) = state.active_chat() {
-                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                            if !self
+                        if response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && !self
                                 .command_helper
-                                .try_run_command(state, &mut self.chat_input)
-                            {
-                                state.core.chat_message_sent(&ch.name, &self.chat_input);
-                                self.chat_input.clear();
-                                response.request_focus();
-                            }
+                                .detect_and_run(state, &mut self.chat_input)
+                        {
+                            state.core.chat_message_sent(&ch.name, &self.chat_input);
+                            self.chat_input.clear();
+                            response.request_focus();
                         }
                     }
                 });
@@ -237,6 +237,7 @@ impl<'chat_window> ChatWindow<'chat_window> {
     ) {
         let msg = &ch.messages[message_index];
 
+        #[allow(unused_mut)] // glass
         let mut username_styles = BTreeSet::<TextStyle>::new();
         let mut message_styles = BTreeSet::<TextStyle>::new();
 
@@ -352,6 +353,7 @@ impl<'chat_window> ChatWindow<'chat_window> {
         }
         .with_styles(styles, &state.settings);
 
+        #[allow(unused_mut)] // glass
         let mut resp = ui.button(username_text);
 
         #[cfg(feature = "glass")]
@@ -428,6 +430,7 @@ fn show_datetime(
     })
 }
 
+#[allow(unused_variables)] // glass
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);
