@@ -76,8 +76,12 @@ impl ChatWindow {
         let interactive = state.is_connected() && state.active_chat().is_some();
         if interactive {
             egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                self.command_helper
-                    .maybe_show(ui, state, &mut self.chat_input);
+                self.command_helper.maybe_show(
+                    ui,
+                    state,
+                    &mut self.chat_input,
+                    &self.response_widget_id,
+                );
 
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= 450;

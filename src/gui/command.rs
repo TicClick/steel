@@ -203,7 +203,13 @@ impl CommandHelper {
         input.starts_with(COMMAND_PREFIX)
     }
 
-    pub fn maybe_show(&self, ui: &mut egui::Ui, state: &UIState, input: &mut String) {
+    pub fn maybe_show(
+        &self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        input: &mut String,
+        chat_input_id: &Option<egui::Id>,
+    ) {
         if !self.contains_command(input) {
             return;
         }
@@ -218,11 +224,16 @@ impl CommandHelper {
                     .on_hover_ui_at_pointer(|ui| cmd.ui_hint(ui))
                     .clicked()
             {
-                // TODO(TicClick): Move the cursor to the end of the message
-
                 if argcount == 0 {
                     // Nothing entered: complete the command
                     *input = format!("{} ", cmd.preferred_alias());
+                    if let Some(ciid) = chat_input_id {
+                        if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), *ciid) {
+                            let ccursor = egui::text::CCursor::new(input.chars().count());
+                            state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                            state.store(ui.ctx(), *ciid);
+                        }
+                    }
                 } else if argcount < cmd.argcount() && !input.ends_with(' ') {
                     // add extra hint
                     input.push(' ');
