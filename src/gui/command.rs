@@ -9,14 +9,31 @@ trait Command {
     where
         Self: Sized;
 
+    fn description(&self) -> &str;
     fn aliases(&self) -> &Vec<String>;
     fn preferred_alias(&self) -> &String {
         self.aliases().first().unwrap()
     }
+    fn example(&self) -> &str;
     fn argcount(&self) -> usize;
 
-    fn hint(&self, ui: &mut egui::Ui);
-    fn rich_text_example(&self) -> egui::RichText;
+    fn ui_hint(&self, ui: &mut egui::Ui) {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("- description:").strong());
+                ui.label(self.description());
+            });
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("- example:").strong());
+                ui.label(self.example());
+            });
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("- aliases:").strong());
+                ui.label(self.aliases().join(", "));
+            });
+        });
+    }
+    fn ui_title(&self) -> egui::RichText;
     fn action(&self, state: &UIState, args: Vec<String>);
 
     fn should_be_hinted(&self, input_prefix: &str, argcount: usize) -> bool {
@@ -41,21 +58,20 @@ impl Command for Me {
             aliases: ["/me".into()].to_vec(),
         }
     }
-
+    fn description(&self) -> &str {
+        "send a third-person action to the chat"
+    }
+    fn example(&self) -> &str {
+        "/me gets to live one more day"
+    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
     fn argcount(&self) -> usize {
         1
     }
-    fn rich_text_example(&self) -> egui::RichText {
+    fn ui_title(&self) -> egui::RichText {
         egui::RichText::new("/me <action>")
-    }
-    fn hint(&self, ui: &mut egui::Ui) {
-        ui.vertical(|ui| {
-            ui.label("send a third-person action to the chat.");
-            ui.label("example: /me gets to live one more day");
-        });
     }
     fn action(&self, state: &UIState, input_parts: Vec<String>) {
         state
@@ -74,17 +90,20 @@ impl Command for OpenChat {
             aliases: ["/chat".into(), "/query".into(), "/q".into(), "/join".into()].to_vec(),
         }
     }
+    fn description(&self) -> &str {
+        "open a chat tab with user, or join a new #channel"
+    }
+    fn example(&self) -> &str {
+        "/chat #russian"
+    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
     fn argcount(&self) -> usize {
         1
     }
-    fn rich_text_example(&self) -> egui::RichText {
-        egui::RichText::new("/chat <user>, /chat #<channel>")
-    }
-    fn hint(&self, ui: &mut egui::Ui) {
-        ui.label("open a chat tab with <user>, or join #<channel>");
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new("/chat <user or #channel>")
     }
     fn action(&self, state: &UIState, args: Vec<String>) {
         state.core.private_chat_opened(&args[0]);
@@ -101,17 +120,20 @@ impl Command for CloseChat {
             aliases: ["/close".into(), "/part".into()].to_vec(),
         }
     }
+    fn description(&self) -> &str {
+        "close the active tab, or leave the channel"
+    }
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
     fn argcount(&self) -> usize {
         0
     }
-    fn rich_text_example(&self) -> egui::RichText {
-        egui::RichText::new("/close, /part")
-    }
-    fn hint(&self, ui: &mut egui::Ui) {
-        ui.label("close the active tab, or leave the channel");
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, state: &UIState, _args: Vec<String>) {
         state
@@ -130,17 +152,20 @@ impl Command for ClearChat {
             aliases: ["/clear".into(), "/c".into()].to_vec(),
         }
     }
+    fn description(&self) -> &str {
+        "clear the active tab, removing all messages"
+    }
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
     fn argcount(&self) -> usize {
         0
     }
-    fn rich_text_example(&self) -> egui::RichText {
-        egui::RichText::new("/clear, /c")
-    }
-    fn hint(&self, ui: &mut egui::Ui) {
-        ui.label("clear the active tab, removing all messages");
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, state: &UIState, _args: Vec<String>) {
         state
@@ -158,9 +183,9 @@ impl Default for CommandHelper {
         Self {
             commands: vec![
                 Box::new(Me::new()),
-                // Box::new(OpenChat::new()),
-                // Box::new(CloseChat::new()),
-                // Box::new(ClearChat::new()),
+                Box::new(OpenChat::new()),
+                Box::new(CloseChat::new()),
+                Box::new(ClearChat::new()),
             ],
         }
     }
@@ -182,8 +207,8 @@ impl CommandHelper {
         for cmd in &self.commands {
             if cmd.should_be_hinted(&args[0], argcount)
                 && ui
-                    .button(cmd.rich_text_example())
-                    .on_hover_ui_at_pointer(|ui| cmd.hint(ui))
+                    .button(cmd.ui_title())
+                    .on_hover_ui_at_pointer(|ui| cmd.ui_hint(ui))
                     .clicked()
             {
                 // TODO(TicClick): Move the cursor to the end of the message
