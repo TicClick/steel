@@ -32,9 +32,6 @@ trait Command {
                 ui.label(egui::RichText::new("- aliases: ").strong());
                 ui.label(self.aliases().join(", "));
             });
-            if self.argcount() == 0 {
-                ui.label("(immediate)");
-            }
         });
     }
     fn ui_title(&self) -> egui::RichText;
