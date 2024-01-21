@@ -20,5 +20,6 @@ pub enum UIMessageIn {
     ChatSwitchRequested(String, usize),
     ChannelJoined(String),
     ChatClosed(String),
+    ChatCleared(String),
     ChatModeratorAdded(String),
 }

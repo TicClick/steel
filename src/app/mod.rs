@@ -83,6 +83,9 @@ impl Application {
                 AppMessageIn::UIChatClosed(target) => {
                     self.ui_handle_close_chat(&target);
                 }
+                AppMessageIn::UIChatCleared(target) => {
+                    self.ui_handle_clear_chat(&target);
+                }
                 AppMessageIn::UIChatMessageSent { target, text } => {
                     self.send_text_message(&target, &text);
                 }
@@ -297,6 +300,11 @@ impl Application {
         self.ui_queue
             .blocking_send(UIMessageIn::ChatClosed(name.to_owned()))
             .unwrap();
+    }
+
+    pub fn ui_handle_clear_chat(&mut self, name: &str) {
+        let normalized = name.to_lowercase();
+        self.ui_queue.blocking_send(UIMessageIn::ChatCleared(normalized));
     }
 
     pub fn send_text_message(&mut self, target: &str, text: &str) {

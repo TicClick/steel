@@ -7,6 +7,7 @@ pub const COMMAND_PREFIX: char = '/';
 pub const COMMAND_ALIAS_ME: [&str; 1] = ["/me"];
 pub const COMMAND_ALIAS_OPEN_CHAT: [&str; 4] = ["/chat", "/query", "/q", "/join"];
 pub const COMMAND_ALIAS_CLOSE_CHAT: [&str; 2] = ["/close", "/part"];
+pub const COMMAND_ALIAS_CLEAR_CHAT: [&str; 2] = ["/clear", "/c"];
 
 trait Command<'command> {
     fn aliases(&self) -> Vec<&'command str>;
@@ -93,6 +94,25 @@ impl<'command> Command<'command> for CloseChat {
     }
 }
 
+struct ClearChat {}
+impl<'command> Command<'command> for ClearChat {
+    fn aliases(&self) -> Vec<&'command str> {
+        COMMAND_ALIAS_CLEAR_CHAT.to_vec()
+    }
+    fn argcount(&self) -> usize {
+        0
+    }
+    fn rich_text_example(&self) -> egui::RichText {
+        egui::RichText::new("/clear, /c")
+    }
+    fn hint(&self, ui: &mut egui::Ui) {
+        ui.label("clear the active tab, removing all messages");
+    }
+    fn action(&self, state: &UIState, _args: Vec<String>) {
+        state.core.chat_tab_cleared(&state.active_chat_tab_name.to_lowercase())
+    }
+}
+
 pub struct CommandHelper<'command> {
     commands: Vec<Box<dyn Command<'command>>>,
 }
@@ -104,6 +124,7 @@ impl Default for CommandHelper<'_> {
                 Box::new(Me {}),
                 Box::new(OpenChat {}),
                 Box::new(CloseChat {}),
+                Box::new(ClearChat {}),
             ],
         }
     }
