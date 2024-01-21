@@ -43,7 +43,7 @@ trait Command {
     fn should_be_hinted(&self, input_prefix: &str, argcount: usize) -> bool {
         self.aliases()
             .iter()
-            .any(|alias| alias.starts_with(input_prefix) || input_prefix.starts_with(alias))
+            .any(|alias| alias.starts_with(input_prefix))
             && (argcount < self.argcount() || argcount == 0 && self.argcount() == 0)
     }
 
