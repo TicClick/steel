@@ -46,7 +46,7 @@ impl WithInnerShadow for egui::Ui {
 }
 
 #[derive(Default)]
-pub struct ChatWindow<'chat_window> {
+pub struct ChatWindow {
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
@@ -64,10 +64,10 @@ pub struct ChatWindow<'chat_window> {
     // Chat space width -- longer lines will wrap around the window.
     widget_width: f32,
 
-    command_helper: command::CommandHelper<'chat_window>,
+    command_helper: command::CommandHelper,
 }
 
-impl<'chat_window> ChatWindow<'chat_window> {
+impl ChatWindow {
     pub fn new() -> Self {
         Self::default()
     }

@@ -4,14 +4,13 @@ use super::state::UIState;
 
 pub const COMMAND_PREFIX: char = '/';
 
-pub const COMMAND_ALIAS_ME: [&str; 1] = ["/me"];
-pub const COMMAND_ALIAS_OPEN_CHAT: [&str; 4] = ["/chat", "/query", "/q", "/join"];
-pub const COMMAND_ALIAS_CLOSE_CHAT: [&str; 2] = ["/close", "/part"];
-pub const COMMAND_ALIAS_CLEAR_CHAT: [&str; 2] = ["/clear", "/c"];
+trait Command {
+    fn new() -> Self
+    where
+        Self: Sized;
 
-trait Command<'command> {
-    fn aliases(&self) -> Vec<&'command str>;
-    fn preferred_alias(&self) -> &'command str {
+    fn aliases(&self) -> &Vec<String>;
+    fn preferred_alias(&self) -> &String {
         self.aliases().first().unwrap()
     }
     fn argcount(&self) -> usize;
@@ -28,14 +27,23 @@ trait Command<'command> {
     }
 
     fn is_applicable(&self, input_prefix: &str) -> bool {
-        self.aliases().contains(&input_prefix)
+        self.aliases().iter().any(|a| a == input_prefix)
     }
 }
 
-struct Me {}
-impl<'command> Command<'command> for Me {
-    fn aliases(&self) -> Vec<&'command str> {
-        COMMAND_ALIAS_ME.to_vec()
+struct Me {
+    pub aliases: Vec<String>,
+}
+
+impl Command for Me {
+    fn new() -> Self {
+        Self {
+            aliases: ["/me".into()].to_vec(),
+        }
+    }
+
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
     }
     fn argcount(&self) -> usize {
         1
@@ -56,10 +64,18 @@ impl<'command> Command<'command> for Me {
     }
 }
 
-struct OpenChat {}
-impl<'command> Command<'command> for OpenChat {
-    fn aliases(&self) -> Vec<&'command str> {
-        COMMAND_ALIAS_OPEN_CHAT.to_vec()
+struct OpenChat {
+    pub aliases: Vec<String>,
+}
+
+impl Command for OpenChat {
+    fn new() -> Self {
+        Self {
+            aliases: ["/chat".into(), "/query".into(), "/q".into(), "/join".into()].to_vec(),
+        }
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
     }
     fn argcount(&self) -> usize {
         1
@@ -75,10 +91,18 @@ impl<'command> Command<'command> for OpenChat {
     }
 }
 
-struct CloseChat {}
-impl<'command> Command<'command> for CloseChat {
-    fn aliases(&self) -> Vec<&'command str> {
-        COMMAND_ALIAS_CLOSE_CHAT.to_vec()
+struct CloseChat {
+    pub aliases: Vec<String>,
+}
+
+impl Command for CloseChat {
+    fn new() -> Self {
+        Self {
+            aliases: ["/close".into(), "/part".into()].to_vec(),
+        }
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
     }
     fn argcount(&self) -> usize {
         0
@@ -96,10 +120,18 @@ impl<'command> Command<'command> for CloseChat {
     }
 }
 
-struct ClearChat {}
-impl<'command> Command<'command> for ClearChat {
-    fn aliases(&self) -> Vec<&'command str> {
-        COMMAND_ALIAS_CLEAR_CHAT.to_vec()
+struct ClearChat {
+    pub aliases: Vec<String>,
+}
+
+impl Command for ClearChat {
+    fn new() -> Self {
+        Self {
+            aliases: ["/clear".into(), "/c".into()].to_vec(),
+        }
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
     }
     fn argcount(&self) -> usize {
         0
@@ -117,24 +149,24 @@ impl<'command> Command<'command> for ClearChat {
     }
 }
 
-pub struct CommandHelper<'command> {
-    commands: Vec<Box<dyn Command<'command>>>,
+pub struct CommandHelper {
+    commands: Vec<Box<dyn Command>>,
 }
 
-impl Default for CommandHelper<'_> {
+impl Default for CommandHelper {
     fn default() -> Self {
         Self {
             commands: vec![
-                Box::new(Me {}),
-                Box::new(OpenChat {}),
-                Box::new(CloseChat {}),
-                Box::new(ClearChat {}),
+                Box::new(Me::new()),
+                // Box::new(OpenChat::new()),
+                // Box::new(CloseChat::new()),
+                // Box::new(ClearChat::new()),
             ],
         }
     }
 }
 
-impl CommandHelper<'_> {
+impl CommandHelper {
     pub fn contains_command(&self, input: &str) -> bool {
         input.starts_with(COMMAND_PREFIX)
     }
