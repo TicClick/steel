@@ -8,7 +8,7 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::DecoratedText;
 
-use crate::gui::command::{self, COMMAND_PREFIX};
+use crate::gui::command;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
@@ -127,14 +127,17 @@ impl ChatWindow {
         // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            if self.chat_input.starts_with(COMMAND_PREFIX) {
+            if self
+                .command_helper
+                .has_applicable_commands(&self.chat_input)
+            {
                 egui::Window::new("chat-command-hint-layer")
                     .title_bar(false)
                     .resizable(false)
                     .pivot(egui::Align2::LEFT_BOTTOM)
                     .fixed_pos(ui.available_rect_before_wrap().left_bottom())
                     .show(ctx, |ui| {
-                        self.command_helper.maybe_show(
+                        self.command_helper.show(
                             ui,
                             state,
                             &mut self.chat_input,

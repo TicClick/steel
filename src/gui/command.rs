@@ -200,7 +200,17 @@ impl CommandHelper {
         input.starts_with(COMMAND_PREFIX)
     }
 
-    pub fn maybe_show(
+    pub fn has_applicable_commands(&self, input: &str) -> bool {
+        self.contains_command(input) && {
+            let args: Vec<String> = input.split_whitespace().map(|i| i.to_owned()).collect();
+            let argcount = args.len() - 1;
+            self.commands
+                .iter()
+                .any(|c| c.should_be_hinted(&args[0], argcount))
+        }
+    }
+
+    pub fn show(
         &self,
         ui: &mut egui::Ui,
         state: &UIState,
