@@ -262,6 +262,10 @@ impl ApplicationWindow {
                     self.s.remove_chat(name);
                 }
 
+                UIMessageIn::ChatCleared(name) => {
+                    self.s.clear_chat(&name);
+                }
+
                 UIMessageIn::ChatModeratorAdded(name) => {
                     for mods in [
                         &mut self.s.settings.ui.dark_colours.mod_users,

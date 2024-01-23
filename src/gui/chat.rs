@@ -8,6 +8,8 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::DecoratedText;
 
+use crate::gui::command;
+
 const MAX_MESSAGE_LENGTH: usize = 450;
 
 trait WithInnerShadow {
@@ -61,6 +63,8 @@ pub struct ChatWindow {
 
     // Chat space width -- longer lines will wrap around the window.
     widget_width: f32,
+
+    command_helper: command::CommandHelper,
 }
 
 impl ChatWindow {
@@ -96,7 +100,12 @@ impl ChatWindow {
                     ui.add_space(2.);
 
                     if let Some(ch) = state.active_chat() {
-                        if response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                        if response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && !self
+                                .command_helper
+                                .detect_and_run(state, &mut self.chat_input)
+                        {
                             state.core.chat_message_sent(&ch.name, &self.chat_input);
                             self.chat_input.clear();
                             response.request_focus();
@@ -118,6 +127,25 @@ impl ChatWindow {
         // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
         egui::CentralPanel::default().show(ctx, |ui| {
+            if self
+                .command_helper
+                .has_applicable_commands(&self.chat_input)
+            {
+                egui::Window::new("chat-command-hint-layer")
+                    .title_bar(false)
+                    .resizable(false)
+                    .pivot(egui::Align2::LEFT_BOTTOM)
+                    .fixed_pos(ui.available_rect_before_wrap().left_bottom())
+                    .show(ctx, |ui| {
+                        self.command_helper.show(
+                            ui,
+                            state,
+                            &mut self.chat_input,
+                            &self.response_widget_id,
+                        );
+                    });
+            }
+
             // Default spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 4.;
             self.widget_width = ui.available_width();
@@ -225,6 +253,7 @@ impl ChatWindow {
     ) {
         let msg = &ch.messages[message_index];
 
+        #[allow(unused_mut)] // glass
         let mut username_styles = BTreeSet::<TextStyle>::new();
         let mut message_styles = BTreeSet::<TextStyle>::new();
 
@@ -340,6 +369,7 @@ impl ChatWindow {
         }
         .with_styles(styles, &state.settings);
 
+        #[allow(unused_mut)] // glass
         let mut resp = ui.button(username_text);
 
         #[cfg(feature = "glass")]
@@ -416,6 +446,7 @@ fn show_datetime(
     })
 }
 
+#[allow(unused_variables)] // glass
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
         state.core.private_chat_opened(&message.username);

@@ -51,9 +51,24 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn chat_tab_cleared(&self, normalized_name: &str) {
+        self.server
+            .blocking_send(AppMessageIn::UIChatCleared(normalized_name.to_owned()))
+            .unwrap();
+    }
+
     pub fn chat_message_sent(&self, target: &str, text: &str) {
         self.server
             .blocking_send(AppMessageIn::UIChatMessageSent {
+                target: target.to_owned(),
+                text: text.to_owned(),
+            })
+            .unwrap();
+    }
+
+    pub fn chat_action_sent(&self, target: &str, text: &str) {
+        self.server
+            .blocking_send(AppMessageIn::UIChatActionSent {
                 target: target.to_owned(),
                 text: text.to_owned(),
             })

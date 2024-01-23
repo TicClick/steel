@@ -6,6 +6,7 @@ use steel_core::TextStyle;
 pub mod about;
 pub mod chat;
 pub mod chat_tabs;
+pub mod command;
 pub mod highlights;
 pub mod menu;
 pub mod settings;

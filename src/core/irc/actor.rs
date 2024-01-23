@@ -183,8 +183,8 @@ impl IRCActor {
                     // This fixes #49 -- either Bancho loses an extra prefix colon due to its similarity with the IRC
                     // command separator, or https://github.com/aatxe/irc around the transport level, and I can't be
                     // bothered to figure out who is at fault.
-                    if content.starts_with(":") {
-                        content.insert_str(0, " ");
+                    if content.starts_with(':') {
+                        content.insert(0, ' ');
                     }
                     sender.send_privmsg(destination, content).unwrap();
                 }

@@ -83,8 +83,14 @@ impl Application {
                 AppMessageIn::UIChatClosed(target) => {
                     self.ui_handle_close_chat(&target);
                 }
+                AppMessageIn::UIChatCleared(target) => {
+                    self.ui_handle_clear_chat(&target);
+                }
                 AppMessageIn::UIChatMessageSent { target, text } => {
                     self.send_text_message(&target, &text);
+                }
+                AppMessageIn::UIChatActionSent { target, text } => {
+                    self.send_action(&target, &text);
                 }
                 AppMessageIn::UISettingsRequested => {
                     self.ui_handle_settings_requested();
@@ -296,9 +302,27 @@ impl Application {
             .unwrap();
     }
 
+    pub fn ui_handle_clear_chat(&mut self, name: &str) {
+        let normalized = name.to_lowercase();
+        self.ui_queue
+            .blocking_send(UIMessageIn::ChatCleared(normalized))
+            .unwrap();
+    }
+
     pub fn send_text_message(&mut self, target: &str, text: &str) {
         self.irc.send_message(target, text);
         let message = Message::new_text(&self.state.settings.chat.irc.username, text);
+        self.ui_queue
+            .blocking_send(UIMessageIn::NewMessageReceived {
+                target: target.to_owned(),
+                message,
+            })
+            .unwrap();
+    }
+
+    pub fn send_action(&mut self, target: &str, text: &str) {
+        self.irc.send_action(target, text);
+        let message = Message::new_action(&self.state.settings.chat.irc.username, text);
         self.ui_queue
             .blocking_send(UIMessageIn::NewMessageReceived {
                 target: target.to_owned(),
