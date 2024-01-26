@@ -131,6 +131,7 @@ pub struct ApplicationWindow {
     settings: gui::settings::SettingsWindow,
     about: gui::about::About,
     update_window: gui::update_window::UpdateWindow,
+    usage_window: gui::usage::UsageWindow,
 
     ui_queue: Receiver<UIMessageIn>,
     s: UIState,
@@ -152,6 +153,7 @@ impl ApplicationWindow {
             settings: gui::settings::SettingsWindow::new(),
             about: gui::about::About::default(),
             update_window: gui::update_window::UpdateWindow::default(),
+            usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
             date_announcer: DateAnnouncer::default(),
@@ -313,6 +315,8 @@ impl eframe::App for ApplicationWindow {
         self.chat_tabs.show(ctx, &mut self.s);
         self.chat.show(ctx, &self.s);
 
+        self.usage_window
+            .show(ctx, &mut self.s, &mut self.menu.show_usage);
         self.settings
             .show(ctx, &mut self.s, &mut self.menu.show_settings);
 

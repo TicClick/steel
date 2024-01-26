@@ -12,6 +12,7 @@ pub mod menu;
 pub mod settings;
 pub mod state;
 pub mod update_window;
+pub mod usage;
 pub mod window;
 
 const HIGHLIGHTS_TAB_NAME: &str = "$highlights";

@@ -10,6 +10,7 @@ pub struct Menu {
     pub show_settings: bool,
     pub show_about: bool,
     pub show_update: bool,
+    pub show_usage: bool,
 
     pin_window: bool,
 }
@@ -20,7 +21,7 @@ impl Menu {
     }
 
     pub fn dialogs_visible(&self) -> bool {
-        self.show_settings || self.show_about || self.show_update
+        self.show_settings || self.show_about || self.show_update || self.show_usage
     }
 
     pub fn show(
@@ -138,6 +139,13 @@ impl Menu {
             }
             if ui.button("check for updates").clicked() {
                 self.show_update = !self.show_update;
+                ui.close_menu();
+            }
+
+            ui.separator();
+
+            if ui.button("usage guide").clicked() {
+                self.show_usage = !self.show_usage;
                 ui.close_menu();
             }
             if ui.button("about").clicked() {
