@@ -55,10 +55,16 @@ impl Menu {
                 );
 
                 if resp.clicked() {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
-                        egui::WindowLevel::AlwaysOnTop,
-                    ));
-                    ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(!self.pin_window));
+                    match self.pin_window {
+                        true => {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::AlwaysOnTop));
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(false));
+                        }
+                        false => {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::Normal));
+                            ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
+                        }
+                    }
                 } else if resp.is_pointer_button_down_on() {
                     ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
