@@ -256,6 +256,7 @@ pub const AUTOUPDATE_INTERVAL_MINUTES: i64 = 10;
 
 struct UpdaterBackend {
     src: UpdateSource,
+    force_update: bool,
     state: Arc<Mutex<UpdateState>>,
     self_channel: Sender<BackendRequest>,
     channel: Receiver<BackendRequest>,
@@ -273,6 +274,7 @@ impl UpdaterBackend {
     ) -> Self {
         Self {
             src,
+            force_update: false,
             state,
             self_channel,
             channel,
@@ -305,9 +307,11 @@ impl UpdaterBackend {
             Ok(src) => {
                 log::debug!("updater: change url {:?} -> {:?}", self.src, src);
                 self.src = src;
+                self.force_update = true;
                 self.state.lock().unwrap().url_test_result = Some(Ok(()));
             }
             Err(e) => {
+                self.force_update = false;
                 self.state.lock().unwrap().url_test_result = Some(Err(e));
             }
         }
@@ -348,11 +352,12 @@ impl UpdaterBackend {
         self.fetch_metadata();
         let state = self.state.lock().unwrap().state.clone();
         if let State::MetadataReady(m) = state {
-            if crate::VERSION.semver() < m.tag_name.semver()
+            if (self.force_update || crate::VERSION.semver() < m.tag_name.semver())
                 && m.platform_specific_asset().is_some()
             {
                 self.fetch_release();
             }
+            self.force_update = false;
         }
     }
 

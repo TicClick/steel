@@ -29,8 +29,8 @@ impl SettingsWindow {
                 .hint_text("should point to release metadata");
             ui.add(url);
             ui.horizontal(|ui| {
-                if ui.button("test").on_hover_text_at_pointer(
-                    "validate the URL -- it will be used for the next update cycle if it contains correctly structured data"
+                if ui.button("apply").on_hover_text_at_pointer(
+                    "test and set the URL -- it will be used for the next update cycle if it contains correctly structured data"
                 ).clicked() {
                     state
                         .updater
@@ -49,10 +49,10 @@ impl SettingsWindow {
             if let Some(test_result) = state.updater.state().url_test_result {
                 match test_result {
                     Ok(_) => {
-                        ui.label("test result: OK");
+                        ui.label("apply result: OK");
                     }
                     Err(why) => {
-                        ui.label(format!("test result: FAIL ({})", why));
+                        ui.label(format!("apply result: FAIL ({})", why));
                     }
                 }
             }
