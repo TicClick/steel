@@ -22,4 +22,5 @@ pub enum UIMessageIn {
     ChatClosed(String),
     ChatCleared(String),
     ChatModeratorAdded(String),
+    UsageWindowRequested,
 }

@@ -98,6 +98,9 @@ impl Application {
                 AppMessageIn::UISettingsUpdated(settings) => {
                     self.ui_handle_settings_updated(settings);
                 }
+                AppMessageIn::UIUsageWindowRequested => {
+                    self.ui_request_usage_window();
+                }
             }
         }
     }
@@ -144,6 +147,12 @@ impl Application {
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
         self.state.settings = settings;
         self.state.settings.save();
+    }
+
+    pub fn ui_request_usage_window(&mut self) {
+        self.ui_queue
+            .blocking_send(UIMessageIn::UsageWindowRequested)
+            .unwrap();
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {

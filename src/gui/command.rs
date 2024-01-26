@@ -175,6 +175,36 @@ impl Command for ClearChat {
     }
 }
 
+struct ShowUsage {
+    pub aliases: Vec<String>,
+}
+
+impl Command for ShowUsage {
+    fn new() -> Self {
+        Self {
+            aliases: ["/help".into(), "/usage".into()].to_vec(),
+        }
+    }
+    fn description(&self) -> &str {
+        "show a guide around the application"
+    }
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
+    }
+    fn argcount(&self) -> usize {
+        0
+    }
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new(self.preferred_alias())
+    }
+    fn action(&self, state: &UIState, _args: Vec<String>) {
+        state.core.usage_window_requested();
+    }
+}
+
 pub struct CommandHelper {
     commands: Vec<Box<dyn Command>>,
 }
@@ -187,6 +217,7 @@ impl Default for CommandHelper {
                 Box::new(OpenChat::new()),
                 Box::new(CloseChat::new()),
                 Box::new(ClearChat::new()),
+                Box::new(ShowUsage::new()),
             ],
         };
         s.commands

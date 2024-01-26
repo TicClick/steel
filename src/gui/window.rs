@@ -276,6 +276,10 @@ impl ApplicationWindow {
                         mods.insert(name.to_lowercase().replace(' ', "_"));
                     }
                 }
+
+                UIMessageIn::UsageWindowRequested => {
+                    self.menu.show_usage = true;
+                }
             }
         }
     }
