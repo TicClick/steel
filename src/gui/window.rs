@@ -310,11 +310,6 @@ impl eframe::App for ApplicationWindow {
 
         self.set_theme(ctx);
 
-        self.menu
-            .show(ctx, frame, &mut self.s, &mut self.chat.response_widget_id);
-        self.chat_tabs.show(ctx, &mut self.s);
-        self.chat.show(ctx, &self.s);
-
         self.usage_window
             .show(ctx, &mut self.s, &mut self.menu.show_usage);
         self.settings
@@ -324,6 +319,11 @@ impl eframe::App for ApplicationWindow {
 
         self.update_window
             .show(ctx, &mut self.s, &mut self.menu.show_update);
+
+        self.menu
+            .show(ctx, frame, &mut self.s, &mut self.chat.response_widget_id);
+        self.chat_tabs.show(ctx, &mut self.s);
+        self.chat.show(ctx, &self.s);
 
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);
