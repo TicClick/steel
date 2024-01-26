@@ -29,12 +29,16 @@ impl SettingsWindow {
                 .hint_text("should point to release metadata");
             ui.add(url);
             ui.horizontal(|ui| {
-                if ui.button("test").clicked() {
+                if ui.button("test").on_hover_text_at_pointer(
+                    "validate the URL -- it will be used for the next update cycle if it contains correctly structured data"
+                ).clicked() {
                     state
                         .updater
                         .change_url(&state.settings.application.autoupdate.url);
                 }
-                if ui.button("revert").clicked() {
+                if ui.button("revert").on_hover_text_at_pointer(
+                    "roll back the URL to its default value"
+                ).clicked() {
                     state.settings.application.autoupdate.url = updater::default_update_url();
                     state
                         .updater

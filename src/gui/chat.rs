@@ -102,9 +102,15 @@ impl ChatWindow {
                     if let Some(ch) = state.active_chat() {
                         if response.lost_focus()
                             && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                            && !self
-                                .command_helper
-                                .detect_and_run(state, &mut self.chat_input)
+                            && !{
+                                let result = self
+                                    .command_helper
+                                    .detect_and_run(state, &mut self.chat_input);
+                                if result {
+                                    self.return_focus(ctx, state);
+                                }
+                                result
+                            }
                         {
                             state.core.chat_message_sent(&ch.name, &self.chat_input);
                             self.chat_input.clear();

@@ -101,4 +101,10 @@ impl CoreClient {
             ))
             .unwrap();
     }
+
+    pub fn usage_window_requested(&self) {
+        self.server
+            .blocking_send(AppMessageIn::UIUsageWindowRequested)
+            .unwrap();
+    }
 }
