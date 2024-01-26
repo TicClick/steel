@@ -131,24 +131,36 @@ impl Menu {
         });
     }
 
-    fn show_help_menu(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, _state: &mut UIState) {
+    fn show_help_menu(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, state: &mut UIState) {
         ui.menu_button("help", |ui| {
-            if ui.button("open diagnostic log").clicked() {
+            if ui.button("open diagnostic log").on_hover_text_at_pointer(
+                "open the text journal with debug messages and errors -- may or may not help with debugging"
+            ).clicked() {
                 crate::core::os::open_runtime_log();
                 ui.close_menu();
             }
-            if ui.button("check for updates").clicked() {
+
+            let autoupdate_status = format!("automated updates: {}", match state.settings.application.autoupdate.enabled {
+                true => "enabled",
+                false => "disabled",
+            });
+
+            if ui.button("check for updates").on_hover_text_at_pointer(autoupdate_status).clicked() {
                 self.show_update = !self.show_update;
                 ui.close_menu();
             }
 
             ui.separator();
 
-            if ui.button("usage guide").clicked() {
+            if ui.button("usage guide").on_hover_text_at_pointer(
+                "show the help window with bits about interface, features, and all things related"
+            ).clicked() {
                 self.show_usage = !self.show_usage;
                 ui.close_menu();
             }
-            if ui.button("about").clicked() {
+            if ui.button("about").on_hover_text_at_pointer(
+                "show application info"
+            ).clicked() {
                 self.show_about = !self.show_about;
                 ui.close_menu();
             }

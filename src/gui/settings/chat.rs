@@ -16,7 +16,9 @@ impl AutojoinSection {
         let validation_result = crate::gui::validate_channel_name(&self.autojoin_channel_input);
 
         ui.vertical(|ui| {
-            ui.heading("auto-join channels");
+            ui.heading("auto-join channels").on_hover_text_at_pointer(
+                "these channels will be open automatically when you connect to the server -- think of them as favourites"
+            );
             ui.horizontal(|ui| {
                 let add_autojoin_channel = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
                 let response = ui.add(

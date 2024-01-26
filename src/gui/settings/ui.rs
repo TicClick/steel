@@ -64,7 +64,9 @@ impl SettingsWindow {
                     .on_hover_text_at_pointer("default colour of all moderators (GMT, NAT, DEV)");
             });
 
-            ui.heading(format!("custom user colours ({suffix})"));
+            ui.heading(format!("custom user colours ({suffix})")).on_hover_text_at_pointer(
+                "works for all the folks out there: exquisite, boring, dangerous, ~ s p e c i a l ~"
+            );
 
             ui.horizontal(|ui| {
                 let response = ui.add(
