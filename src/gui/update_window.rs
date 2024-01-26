@@ -45,7 +45,7 @@ impl UpdateWindow {
                             }
                         } else {
                             let label = format!(
-                                "new release: {} from {}",
+                                "next release: {} from {}",
                                 m.tag_name,
                                 m.published_at.format(DEFAULT_DATE_FORMAT),
                             );
