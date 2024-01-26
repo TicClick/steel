@@ -57,11 +57,15 @@ impl Menu {
                 if resp.clicked() {
                     match self.pin_window {
                         true => {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::AlwaysOnTop));
+                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                                egui::WindowLevel::AlwaysOnTop,
+                            ));
                             ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(false));
                         }
                         false => {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(egui::WindowLevel::Normal));
+                            ctx.send_viewport_cmd(egui::ViewportCommand::WindowLevel(
+                                egui::WindowLevel::Normal,
+                            ));
                             ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
                         }
                     }
