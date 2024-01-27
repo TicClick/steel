@@ -71,7 +71,7 @@ jobs:
 
       - name: Clone glass dependency
         shell: bash
-        run: gh repo clone TicClick/glass crates/glass
+        run: git clone https://${GH_TOKEN}@github.com/TicClick/glass.git crates/glass
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
