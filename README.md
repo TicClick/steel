@@ -19,13 +19,17 @@
 
 [see for yourself](media/github-assets/main-window.png).
 
-### I found an issue!
-
-https://github.com/TicClick/steel/issues is the place.
-
 ### is it cross-platform?
 
 yes, with Windows/Linux/MacOS support. only Windows is thoroughly tested, so watch out!
+
+### is it malware? my antivirus says so
+
+one of the heuristics is [probably overly cautious](https://www.elevenforum.com/t/wacatac-h-ml-found-by-microsoft-defender-but-not-anything-else.13702/), since it can't verify who built the executable. whitelist the application, and both of you should be fine ([see example for Windows Defender](media/github-assets/whitelist-guide.png) -- also note the `!ml` suffix, which means "machine learning").
+
+### I found an issue!
+
+https://github.com/TicClick/steel/issues is the place.
 
 ### what's the chat transport?
 
