@@ -70,10 +70,11 @@ jobs:
         run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
 
       - name: Clone glass dependency
-        shell: bash
-        run: git clone https://${GH_TOKEN}@github.com/TicClick/glass.git crates/glass
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: action/checkout@v3
+        with:
+          repository: TicClick/glass
+          path: crates/glass
+          token: ${{ secrets.GH_TOKEN }}
 
       - name: Build (private)
         uses: taiki-e/upload-rust-binary-action@v1
