@@ -72,6 +72,8 @@ jobs:
       - name: Clone glass dependency
         shell: bash
         run: gh repo clone TicClick/glass crates/glass
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build (private)
         uses: taiki-e/upload-rust-binary-action@v1
@@ -83,7 +85,7 @@ jobs:
       - name: Upload (private)
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ASSET_GIST_HASH: ${{ secrets.ASSET_GIST_HASH }}
         run: |
           existing_files=$( gh gist view "${ASSET_GIST_HASH}" --files )
@@ -101,7 +103,7 @@ jobs:
       - name: Tag all assets
         shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ASSET_GIST_HASH: ${{ secrets.ASSET_GIST_HASH }}
         run: |
           gh gist clone "${ASSET_GIST_HASH}"
@@ -115,6 +117,6 @@ jobs:
         env:
           ASSET_GIST_OWNER: TicClick
           TAG_NAME: ${{ github.ref_name }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ASSET_GIST_HASH: ${{ secrets.ASSET_GIST_HASH }}
           METADATA_GIST_HASH: ${{ secrets.METADATA_GIST_HASH }}
