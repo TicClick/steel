@@ -27,6 +27,7 @@ pub struct UpdateState {
     pub when: Option<chrono::DateTime<chrono::Local>>,
     pub state: State,
     pub url_test_result: Option<Result<(), String>>,
+    pub force_update: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -256,7 +257,6 @@ pub const AUTOUPDATE_INTERVAL_MINUTES: i64 = 10;
 
 struct UpdaterBackend {
     src: UpdateSource,
-    force_update: bool,
     state: Arc<Mutex<UpdateState>>,
     self_channel: Sender<BackendRequest>,
     channel: Receiver<BackendRequest>,
@@ -274,7 +274,6 @@ impl UpdaterBackend {
     ) -> Self {
         Self {
             src,
-            force_update: false,
             state,
             self_channel,
             channel,
@@ -307,11 +306,12 @@ impl UpdaterBackend {
             Ok(src) => {
                 log::debug!("updater: change url {:?} -> {:?}", self.src, src);
                 self.src = src;
-                self.force_update = true;
-                self.state.lock().unwrap().url_test_result = Some(Ok(()));
+                let mut guard = self.state.lock().unwrap();
+                guard.url_test_result = Some(Ok(()));
+                guard.force_update = true;
             }
             Err(e) => {
-                self.force_update = false;
+                self.state.lock().unwrap().force_update = false;
                 self.state.lock().unwrap().url_test_result = Some(Err(e));
             }
         }
@@ -350,14 +350,17 @@ impl UpdaterBackend {
         }
 
         self.fetch_metadata();
-        let state = self.state.lock().unwrap().state.clone();
+        let (state, force_update) = {
+            let guard = self.state.lock().unwrap();
+            (guard.state.clone(), guard.force_update)
+        };
         if let State::MetadataReady(m) = state {
-            if (self.force_update || crate::VERSION.semver() < m.tag_name.semver())
+            if (force_update || crate::VERSION.semver() < m.tag_name.semver())
                 && m.platform_specific_asset().is_some()
             {
                 self.fetch_release();
             }
-            self.force_update = false;
+            self.state.lock().unwrap().force_update = false;
         }
     }
 
@@ -370,6 +373,7 @@ impl UpdaterBackend {
             state,
             when: Some(chrono::Local::now()),
             url_test_result: guard.url_test_result.clone(),
+            force_update: guard.force_update,
         };
     }
 

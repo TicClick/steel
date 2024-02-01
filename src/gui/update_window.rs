@@ -16,6 +16,7 @@ impl UpdateWindow {
                 let UpdateState {
                     state: last_action,
                     when,
+                    force_update,
                     ..
                 } = state.updater.state();
                 match last_action {
@@ -37,7 +38,7 @@ impl UpdateWindow {
                         });
                     }
                     State::MetadataReady(m) => {
-                        if crate::VERSION.semver() >= m.tag_name.semver() {
+                        if crate::VERSION.semver() >= m.tag_name.semver() && !force_update {
                             let label = format!("no updates, {} is the latest version", m.tag_name);
                             ui.label(label);
                             if ui.button("check again").clicked() {
@@ -56,7 +57,8 @@ impl UpdateWindow {
                                 }
                                 if ui
                                     .button(format!(
-                                        "update {} → {} ({} MB)",
+                                        "{}update {} → {} ({} MB)",
+                                        if force_update { "force " } else { "" },
                                         crate::VERSION,
                                         m.tag_name,
                                         m.size() >> 20
