@@ -113,7 +113,10 @@ def main(platform_archive, uploads_metadata, releases_metadata, release_tag, cat
                 for _ in last_release["assets"]
             ):
                 logging.warning("release %r has already been added -- overwriting %s", last_release_tag, platform_archive)
-            last_release["assets"].append(new_asset_info)
+            last_release["assets"] = [
+                _ for _ in last_release["assets"]
+                if _["name"] != platform_archive
+            ] + [new_asset_info]
 
         else:
             existing_releases.append(new_release_info)
