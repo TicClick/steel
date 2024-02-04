@@ -205,6 +205,38 @@ impl Command for ShowUsage {
     }
 }
 
+struct Shrug {
+    pub aliases: Vec<String>,
+}
+
+impl Command for Shrug {
+    fn new() -> Self {
+        Self {
+            aliases: ["/shrug".into()].to_vec(),
+        }
+    }
+    fn description(&self) -> &str {
+        "¯\\_(ツ)_/¯"
+    }
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
+    }
+    fn argcount(&self) -> usize {
+        0
+    }
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new(self.preferred_alias())
+    }
+    fn action(&self, state: &UIState, _args: Vec<String>) {
+        state
+            .core
+            .chat_message_sent(&state.active_chat_tab_name, "¯\\_(ツ)_/¯");
+    }
+}
+
 pub struct CommandHelper {
     commands: Vec<Box<dyn Command>>,
 }
@@ -218,6 +250,7 @@ impl Default for CommandHelper {
                 Box::new(CloseChat::new()),
                 Box::new(ClearChat::new()),
                 Box::new(ShowUsage::new()),
+                Box::new(Shrug::new()),
             ],
         };
         s.commands
