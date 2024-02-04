@@ -315,6 +315,7 @@ impl UpdaterBackend {
                 self.state.lock().unwrap().url_test_result = Some(Err(e));
             }
         }
+        self.set_state(State::Idle);
     }
 
     fn run_update_cycle(&mut self) {
