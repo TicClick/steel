@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, Widget};
 use steel_core::{VersionString, DEFAULT_DATETIME_FORMAT, DEFAULT_DATE_FORMAT};
 
 use super::state::UIState;
@@ -70,11 +70,20 @@ impl UpdateWindow {
                             });
                         }
                     }
-                    State::FetchingRelease => {
-                        ui.horizontal(|ui| {
-                            ui.spinner();
-                            ui.label("downloading...");
+                    State::FetchingRelease(ready_bytes, total_bytes) => {
+                        ui.vertical(|ui| {
+                            let pct = ready_bytes as f32 / total_bytes as f32;
+                            egui::ProgressBar::new(ready_bytes as f32 / total_bytes as f32)
+                                .text(format!(
+                                    "{} MB -- {}%",
+                                    total_bytes >> 20,
+                                    (pct * 100.0) as usize
+                                ))
+                                .ui(ui);
                         });
+                        if ui.button("abort").clicked() {
+                            state.updater.abort_update();
+                        }
                     }
                     State::ReleaseReady(m) => {
                         ui.label(format!(

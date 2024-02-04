@@ -28,6 +28,7 @@ pub struct UpdateState {
     pub state: State,
     pub url_test_result: Option<Result<(), String>>,
     pub force_update: bool,
+    pub stop_evt: bool,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -36,7 +37,7 @@ pub enum State {
     Idle,
     FetchingMetadata,
     MetadataReady(ReleaseMetadataGitHub),
-    FetchingRelease,
+    FetchingRelease(usize, usize),
     ReleaseReady(ReleaseMetadataGitHub),
     UpdateError(String),
 }
@@ -56,6 +57,12 @@ impl From<ureq::Error> for State {
 impl From<String> for State {
     fn from(value: String) -> Self {
         Self::UpdateError(value)
+    }
+}
+
+impl From<Box<dyn std::any::Any + std::marker::Send>> for State {
+    fn from(value: Box<dyn std::any::Any + std::marker::Send>) -> Self {
+        Self::UpdateError(format!("{:?}", value))
     }
 }
 
@@ -241,6 +248,10 @@ impl Updater {
         self.th.join().unwrap();
     }
 
+    pub fn abort_update(&self) {
+        self.state.lock().unwrap().stop_evt = true;
+    }
+
     pub fn available_update(&self) -> Option<ReleaseMetadataGitHub> {
         match self.state().state {
             State::MetadataReady(r) => Some(r),
@@ -372,6 +383,7 @@ impl UpdaterBackend {
         let mut guard = self.state.lock().unwrap();
         *guard = UpdateState {
             state,
+            stop_evt: guard.stop_evt,
             when: Some(chrono::Local::now()),
             url_test_result: guard.url_test_result.clone(),
             force_update: guard.force_update,
@@ -436,12 +448,19 @@ impl UpdaterBackend {
                     "updater: fetching the new release from {}",
                     a.browser_download_url
                 );
-                self.set_state(State::FetchingRelease);
+                self.set_state(State::FetchingRelease(0, 0));
                 match ureq::request("GET", &a.browser_download_url).call() {
-                    Ok(p) => match self.prepare_release(p.into_reader(), a.archive_type()) {
-                        Ok(()) => self.set_state(State::ReleaseReady(m)),
-                        Err(e) => self.set_state(e.into()),
-                    },
+                    Ok(r) => {
+                        let state = self.state.clone();
+                        match std::thread::scope(|s| s.spawn(|| download(r, state)).join()) {
+                            Ok(Ok(data)) => match self.prepare_release(data, a.archive_type()) {
+                                Ok(()) => self.set_state(State::ReleaseReady(m)),
+                                Err(e) => self.set_state(e.into()),
+                            },
+                            Ok(Err(e)) => self.set_state(e.into()),
+                            Err(e) => self.set_state(e.into()),
+                        }
+                    }
                     Err(e) => self.set_state(e.into()),
                 }
             }
@@ -450,7 +469,7 @@ impl UpdaterBackend {
 
     fn prepare_release(
         &self,
-        reader: Box<dyn std::io::Read + Send + Sync + 'static>,
+        data: Vec<u8>,
         archive_type: ArchiveType,
     ) -> Result<(), std::io::Error> {
         log::info!("updater: archive type determined as {:?}", archive_type);
@@ -476,6 +495,7 @@ impl UpdaterBackend {
         );
         std::fs::rename(&target, &backup)?;
 
+        let reader = Box::new(std::io::Cursor::new(data));
         let extraction_result = match archive_type {
             ArchiveType::TarGZip => self.extract_gzip(reader, &target),
             ArchiveType::Zip => self.extract_zip(reader, &target),
@@ -525,6 +545,44 @@ impl UpdaterBackend {
                 io::ErrorKind::InvalidInput,
                 format!("failed to decode zip stream: {:?}", e),
             )),
+        }
+    }
+}
+
+fn download(r: ureq::Response, state: Arc<Mutex<UpdateState>>) -> Result<Vec<u8>, std::io::Error> {
+    let chunk_sz = 1 << 18; // 256K
+    let total_bytes: usize = r.header("Content-Length").unwrap().parse().unwrap();
+    state.lock().unwrap().state = State::FetchingRelease(0, total_bytes);
+    let mut chunk = Vec::with_capacity(std::cmp::min(total_bytes, chunk_sz));
+    let mut data = Vec::new();
+    let mut stream = r.into_reader();
+    loop {
+        match stream.read_exact(&mut chunk) {
+            Ok(_) => {
+                let bytes_left = total_bytes - data.len() - chunk.len();
+                data.append(&mut chunk);
+
+                let mut state = state.lock().unwrap();
+                if state.stop_evt {
+                    log::info!("Update aborted by user");
+                    state.stop_evt = false;
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::Interrupted,
+                        "Update aborted by user",
+                    ));
+                }
+                state.state = State::FetchingRelease(data.len(), total_bytes);
+                let next_chunk_sz = std::cmp::min(bytes_left, chunk_sz);
+                if next_chunk_sz > 0 {
+                    chunk.resize(next_chunk_sz, 0);
+                } else {
+                    return Ok(data);
+                }
+            }
+            Err(e) => {
+                log::error!("Failed to download the file in full: {}", e);
+                return Err(e);
+            }
         }
     }
 }
