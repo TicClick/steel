@@ -14,7 +14,9 @@ trait Command {
     fn preferred_alias(&self) -> &String {
         self.aliases().first().unwrap()
     }
-    fn example(&self) -> &str;
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
     fn argcount(&self) -> usize;
 
     fn ui_hint(&self, ui: &mut egui::Ui) {
@@ -124,9 +126,6 @@ impl Command for CloseChat {
     fn description(&self) -> &str {
         "close the active tab, or leave the channel"
     }
-    fn example(&self) -> &str {
-        self.preferred_alias()
-    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
@@ -155,9 +154,6 @@ impl Command for ClearChat {
     }
     fn description(&self) -> &str {
         "clear the active tab, removing all messages"
-    }
-    fn example(&self) -> &str {
-        self.preferred_alias()
     }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
@@ -188,9 +184,6 @@ impl Command for ShowUsage {
     fn description(&self) -> &str {
         "show a guide around the application"
     }
-    fn example(&self) -> &str {
-        self.preferred_alias()
-    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
@@ -217,9 +210,6 @@ impl Command for Shrug {
     }
     fn description(&self) -> &str {
         "¯\\_(ツ)_/¯"
-    }
-    fn example(&self) -> &str {
-        self.preferred_alias()
     }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
