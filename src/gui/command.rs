@@ -14,7 +14,9 @@ trait Command {
     fn preferred_alias(&self) -> &String {
         self.aliases().first().unwrap()
     }
-    fn example(&self) -> &str;
+    fn example(&self) -> &str {
+        self.preferred_alias()
+    }
     fn argcount(&self) -> usize;
 
     fn ui_hint(&self, ui: &mut egui::Ui) {
@@ -124,9 +126,6 @@ impl Command for CloseChat {
     fn description(&self) -> &str {
         "close the active tab, or leave the channel"
     }
-    fn example(&self) -> &str {
-        self.preferred_alias()
-    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
@@ -155,9 +154,6 @@ impl Command for ClearChat {
     }
     fn description(&self) -> &str {
         "clear the active tab, removing all messages"
-    }
-    fn example(&self) -> &str {
-        self.preferred_alias()
     }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
@@ -188,9 +184,6 @@ impl Command for ShowUsage {
     fn description(&self) -> &str {
         "show a guide around the application"
     }
-    fn example(&self) -> &str {
-        self.preferred_alias()
-    }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
     }
@@ -202,6 +195,35 @@ impl Command for ShowUsage {
     }
     fn action(&self, state: &UIState, _args: Vec<String>) {
         state.core.usage_window_requested();
+    }
+}
+
+struct Shrug {
+    pub aliases: Vec<String>,
+}
+
+impl Command for Shrug {
+    fn new() -> Self {
+        Self {
+            aliases: ["/shrug".into()].to_vec(),
+        }
+    }
+    fn description(&self) -> &str {
+        "¯\\_(ツ)_/¯"
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
+    }
+    fn argcount(&self) -> usize {
+        0
+    }
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new(self.preferred_alias())
+    }
+    fn action(&self, state: &UIState, _args: Vec<String>) {
+        state
+            .core
+            .chat_message_sent(&state.active_chat_tab_name, "¯\\_(ツ)_/¯");
     }
 }
 
@@ -218,6 +240,7 @@ impl Default for CommandHelper {
                 Box::new(CloseChat::new()),
                 Box::new(ClearChat::new()),
                 Box::new(ShowUsage::new()),
+                Box::new(Shrug::new()),
             ],
         };
         s.commands
