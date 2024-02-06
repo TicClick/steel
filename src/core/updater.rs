@@ -421,7 +421,10 @@ impl UpdaterBackend {
     fn fetch_metadata_github(&self, url: &str) {
         match ureq::request("GET", url).call() {
             Ok(payload) => match payload.into_json::<Vec<ReleaseMetadataGitHub>>() {
-                Ok(releases) => {
+                Ok(mut releases) => {
+                    // Descending order
+                    releases
+                        .sort_by(|a, b| a.tag_name.semver().cmp(&b.tag_name.semver()).reverse());
                     log::debug!("updater: latest release info -> {:?}", releases.first());
                     for release in releases {
                         if release.platform_specific_asset().is_some() {
