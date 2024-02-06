@@ -26,7 +26,8 @@ fn setup_logging() {
         simplelog::ConfigBuilder::new()
             .set_time_format_custom(time_format)
             .set_time_offset_to_local()
-            .unwrap()
+            // https://github.com/jhpratt/num_threads/issues/18 -- time = "0.3.34" compiled to x86_64-apple-darwin can't determine UTC offset on Apple silicon (aarch64-apple-darwin)
+            .unwrap_or_else(|e| e)
             .build(),
         file,
     )
