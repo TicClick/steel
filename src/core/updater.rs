@@ -68,6 +68,7 @@ impl From<Box<dyn std::any::Any + std::marker::Send>> for State {
 
 #[derive(Debug)]
 pub enum UpdateSource {
+    Unknown,
     GitHub(String),
     Gist(String),
 }
@@ -187,9 +188,7 @@ pub struct Updater {
 
 impl Default for Updater {
     fn default() -> Self {
-        Self::new(UpdateSource::GitHub(
-            RECENT_RELEASES_METADATA_URL.to_owned(),
-        ))
+        Self::new(UpdateSource::Unknown)
     }
 }
 
@@ -313,6 +312,15 @@ impl UpdaterBackend {
     }
 
     fn change_url(&mut self, url: String) {
+        match &self.src {
+            UpdateSource::Gist(s) | UpdateSource::GitHub(s) => {
+                if s == &url {
+                    return;
+                }
+            }
+            UpdateSource::Unknown => (),
+        }
+
         match test_update_url(&url) {
             Ok(src) => {
                 log::debug!("updater: change url {:?} -> {:?}", self.src, src);
@@ -394,6 +402,10 @@ impl UpdaterBackend {
         log::debug!("updater: checking releases metadata");
         self.set_state(State::FetchingMetadata);
         match &self.src {
+            UpdateSource::Unknown => {
+                log::debug!("no update source set, idling");
+                self.set_state(State::Idle);
+            }
             UpdateSource::Gist(s) => self.fetch_metadata_gist(s),
             UpdateSource::GitHub(s) => self.fetch_metadata_github(s),
         }
@@ -421,7 +433,10 @@ impl UpdaterBackend {
     fn fetch_metadata_github(&self, url: &str) {
         match ureq::request("GET", url).call() {
             Ok(payload) => match payload.into_json::<Vec<ReleaseMetadataGitHub>>() {
-                Ok(releases) => {
+                Ok(mut releases) => {
+                    // Descending order
+                    releases
+                        .sort_by(|a, b| a.tag_name.semver().cmp(&b.tag_name.semver()).reverse());
                     log::debug!("updater: latest release info -> {:?}", releases.first());
                     for release in releases {
                         if release.platform_specific_asset().is_some() {

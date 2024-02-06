@@ -73,6 +73,8 @@ impl UIState {
             .set_highlights(&self.settings.notifications.highlights.words);
 
         self.updater
+            .change_url(&self.settings.application.autoupdate.url);
+        self.updater
             .enable_autoupdate(self.settings.application.autoupdate.enabled);
     }
 
