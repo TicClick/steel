@@ -1,13 +1,13 @@
 use std::collections::BTreeMap;
 
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
+use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
 use eframe::egui;
 use tokio::sync::mpsc::Sender;
 
 use crate::core::settings::Settings;
-use crate::core::updater::Updater;
 
 use crate::gui::highlights;
 
@@ -37,7 +37,7 @@ pub struct UIState {
     pub core: CoreClient,
     pub highlights: highlights::HighlightTracker,
 
-    pub updater: Updater,
+    pub update_state: UpdateState,
     pub sound_player: crate::core::sound::SoundPlayer,
 
     #[cfg(feature = "glass")]
@@ -55,7 +55,7 @@ impl UIState {
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
             highlights: highlights::HighlightTracker::new(),
-            updater: Updater::default(),
+            update_state: UpdateState::default(),
             sound_player: crate::core::sound::SoundPlayer::new(),
 
             #[cfg(feature = "glass")]
@@ -71,11 +71,6 @@ impl UIState {
             .set_username(&self.settings.chat.irc.username);
         self.highlights
             .set_highlights(&self.settings.notifications.highlights.words);
-
-        self.updater
-            .change_url(&self.settings.application.autoupdate.url);
-        self.updater
-            .enable_autoupdate(self.settings.application.autoupdate.enabled);
     }
 
     pub fn update_highlights(&mut self, words: &str) {

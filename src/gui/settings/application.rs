@@ -32,21 +32,17 @@ impl SettingsWindow {
                 if ui.button("apply").on_hover_text_at_pointer(
                     "test and set the URL -- it will be used for the next update cycle if it contains correctly structured data"
                 ).clicked() {
-                    state
-                        .updater
-                        .change_url(&state.settings.application.autoupdate.url);
+                    state.core.update_settings_changed(&state.settings.application.autoupdate);
                 }
                 if ui.button("revert").on_hover_text_at_pointer(
                     "roll back the URL to its default value"
                 ).clicked() {
                     state.settings.application.autoupdate.url = updater::default_update_url();
-                    state
-                        .updater
-                        .change_url(&state.settings.application.autoupdate.url);
+                    state.core.update_settings_changed(&state.settings.application.autoupdate);
                 }
             });
 
-            if let Some(test_result) = state.updater.state().url_test_result {
+            if let Some(test_result) = &state.update_state.url_test_result {
                 match test_result {
                     Ok(_) => {
                         ui.label("apply result: OK");
@@ -60,8 +56,8 @@ impl SettingsWindow {
 
         if autoupdate != state.settings.application.autoupdate.enabled {
             state
-                .updater
-                .enable_autoupdate(state.settings.application.autoupdate.enabled);
+                .core
+                .update_settings_changed(&state.settings.application.autoupdate);
         }
     }
 }

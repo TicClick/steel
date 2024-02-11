@@ -1,9 +1,10 @@
-use std::collections::BTreeMap;
 use std::io::{self, Read};
 use std::sync::{Arc, Mutex};
 
 use flate2::read::GzDecoder;
-use serde::{Deserialize, Serialize};
+use steel_core::ipc::server::AppMessageIn;
+use steel_core::ipc::updater::*;
+use steel_core::settings::application::AutoUpdate;
 use steel_core::VersionString;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
@@ -22,55 +23,20 @@ pub fn default_update_url() -> String {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct UpdateState {
-    pub when: Option<chrono::DateTime<chrono::Local>>,
-    pub state: State,
-    pub url_test_result: Option<Result<(), String>>,
-    pub force_update: bool,
-    pub stop_evt: bool,
-}
-
-#[derive(Debug, Default, Clone)]
-pub enum State {
-    #[default]
-    Idle,
-    FetchingMetadata,
-    MetadataReady(ReleaseMetadataGitHub),
-    FetchingRelease(usize, usize),
-    ReleaseReady(ReleaseMetadataGitHub),
-    UpdateError(String),
-}
-
-impl From<io::Error> for State {
-    fn from(value: io::Error) -> Self {
-        Self::UpdateError(value.to_string())
-    }
-}
-
-impl From<ureq::Error> for State {
-    fn from(value: ureq::Error) -> Self {
-        Self::UpdateError(value.to_string())
-    }
-}
-
-impl From<String> for State {
-    fn from(value: String) -> Self {
-        Self::UpdateError(value)
-    }
-}
-
-impl From<Box<dyn std::any::Any + std::marker::Send>> for State {
-    fn from(value: Box<dyn std::any::Any + std::marker::Send>) -> Self {
-        Self::UpdateError(format!("{:?}", value))
-    }
-}
-
 #[derive(Debug)]
 pub enum UpdateSource {
-    Unknown,
     GitHub(String),
     Gist(String),
+}
+
+impl From<String> for UpdateSource {
+    fn from(value: String) -> Self {
+        if value.starts_with("https://api.github.com/repos/") {
+            Self::GitHub(value)
+        } else {
+            Self::Gist(value)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -81,86 +47,6 @@ pub enum BackendRequest {
     FetchMetadata,
     FetchRelease,
     Quit,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ReleaseMetadataGitHub {
-    pub tag_name: String,
-    pub published_at: chrono::DateTime<chrono::Utc>,
-    pub assets: Vec<ReleaseAsset>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ReleaseMetadataGist {
-    pub files: BTreeMap<String, FileMetadataGist>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct FileMetadataGist {
-    pub filename: String,
-    pub r#type: String,
-    pub raw_url: String,
-    pub size: u64,
-}
-
-impl ReleaseMetadataGitHub {
-    pub fn platform_specific_asset(&self) -> Option<&ReleaseAsset> {
-        let marker = if cfg!(windows) {
-            "-windows"
-        } else if cfg!(macos) {
-            "-darwin"
-        } else if cfg!(unix) {
-            "-linux"
-        } else {
-            ""
-        };
-
-        if marker.is_empty() {
-            return None;
-        }
-        return self.assets.iter().find(|a| a.name.contains(marker));
-    }
-
-    pub fn size(&self) -> usize {
-        match self.platform_specific_asset() {
-            Some(a) => a.size,
-            None => 0,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum ArchiveType {
-    Zip,
-    TarGZip,
-    Unknown(String),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ReleaseAsset {
-    pub name: String,
-    pub browser_download_url: String,
-    pub size: usize,
-}
-
-impl ReleaseAsset {
-    pub fn archive_type(&self) -> ArchiveType {
-        let path = std::path::Path::new(&self.browser_download_url);
-        match path.extension() {
-            None => ArchiveType::Unknown("".into()),
-            Some(ext) => {
-                if let Some(s) = ext.to_str() {
-                    match s {
-                        "gz" => ArchiveType::TarGZip,
-                        "zip" => ArchiveType::Zip,
-                        e => ArchiveType::Unknown(e.into()),
-                    }
-                } else {
-                    ArchiveType::Unknown("".into())
-                }
-            }
-        }
-    }
 }
 
 pub fn test_update_url(url: &str) -> Result<UpdateSource, String> {
@@ -182,30 +68,28 @@ pub fn test_update_url(url: &str) -> Result<UpdateSource, String> {
 #[derive(Debug)]
 pub struct Updater {
     state: Arc<Mutex<UpdateState>>,
+    settings: AutoUpdate,
     th: std::thread::JoinHandle<()>,
-    channel: Sender<BackendRequest>,
-}
-
-impl Default for Updater {
-    fn default() -> Self {
-        Self::new(UpdateSource::Unknown)
-    }
+    backend_channel: Sender<BackendRequest>,
 }
 
 impl Updater {
-    pub fn new(src: UpdateSource) -> Self {
+    pub fn new(core: Sender<AppMessageIn>, settings: AutoUpdate) -> Self {
         let state = Arc::new(Mutex::new(UpdateState::default()));
         let (tx, rx) = channel(5);
 
         let state_ = state.clone();
         let backend_transmitter = tx.clone();
+
+        let s = settings.clone();
         let th = std::thread::spawn(move || {
-            UpdaterBackend::new(src, state_, backend_transmitter, rx).run();
+            UpdaterBackend::new(s, state_, backend_transmitter, rx, core).run();
         });
         Self {
             state,
+            settings,
             th,
-            channel: tx,
+            backend_channel: tx,
         }
     }
 
@@ -213,37 +97,49 @@ impl Updater {
         (*self.state.lock().unwrap()).clone()
     }
 
-    pub fn enable_autoupdate(&self, enable: bool) {
-        self.channel
-            .blocking_send(BackendRequest::SetAutoupdateStatus(enable))
+    pub fn change_settings(&mut self, new_settings: AutoUpdate) {
+        if new_settings.url != self.settings.url {
+            self.change_url(&new_settings.url);
+        }
+        if new_settings.enabled != self.settings.enabled {
+            self.toggle_autoupdate(new_settings.enabled);
+        }
+        self.settings = new_settings;
+    }
+
+    pub fn toggle_autoupdate(&self, enabled: bool) {
+        self.backend_channel
+            .blocking_send(BackendRequest::SetAutoupdateStatus(enabled))
             .unwrap();
-        if enable {
-            self.channel
+        if enabled {
+            self.backend_channel
                 .blocking_send(BackendRequest::InitiateAutoupdate)
                 .unwrap();
         }
     }
 
     pub fn change_url(&self, url: &str) {
-        self.channel
+        self.backend_channel
             .blocking_send(BackendRequest::ChangeURL(url.to_owned()))
             .unwrap();
     }
 
     pub fn check_version(&self) {
-        self.channel
+        self.backend_channel
             .blocking_send(BackendRequest::FetchMetadata)
             .unwrap();
     }
 
     pub fn download_new_version(&self) {
-        self.channel
+        self.backend_channel
             .blocking_send(BackendRequest::FetchRelease)
             .unwrap();
     }
 
     pub fn stop(self) {
-        self.channel.blocking_send(BackendRequest::Quit).unwrap();
+        self.backend_channel
+            .blocking_send(BackendRequest::Quit)
+            .unwrap();
         self.th.join().unwrap();
     }
 
@@ -270,6 +166,7 @@ struct UpdaterBackend {
     state: Arc<Mutex<UpdateState>>,
     self_channel: Sender<BackendRequest>,
     channel: Receiver<BackendRequest>,
+    core: Sender<AppMessageIn>,
     autoupdate: bool,
     last_autoupdate_run: Option<chrono::DateTime<chrono::Local>>,
     autoupdate_timer: Option<std::thread::JoinHandle<()>>,
@@ -277,17 +174,19 @@ struct UpdaterBackend {
 
 impl UpdaterBackend {
     fn new(
-        src: UpdateSource,
+        settings: AutoUpdate,
         state: Arc<Mutex<UpdateState>>,
         self_channel: Sender<BackendRequest>,
         channel: Receiver<BackendRequest>,
+        core: Sender<AppMessageIn>,
     ) -> Self {
         Self {
-            src,
+            src: settings.url.into(),
             state,
             self_channel,
             channel,
-            autoupdate: false,
+            core,
+            autoupdate: settings.enabled,
             last_autoupdate_run: None,
             autoupdate_timer: None,
         }
@@ -295,6 +194,11 @@ impl UpdaterBackend {
 
     fn run(&mut self) {
         crate::core::os::cleanup_after_update();
+        if self.autoupdate {
+            self.self_channel
+                .blocking_send(BackendRequest::InitiateAutoupdate)
+                .unwrap();
+        }
         while let Some(msg) = self.channel.blocking_recv() {
             match msg {
                 BackendRequest::Quit => break,
@@ -318,7 +222,6 @@ impl UpdaterBackend {
                     return;
                 }
             }
-            UpdateSource::Unknown => (),
         }
 
         match test_update_url(&url) {
@@ -330,8 +233,9 @@ impl UpdaterBackend {
                 guard.force_update = true;
             }
             Err(e) => {
-                self.state.lock().unwrap().force_update = false;
-                self.state.lock().unwrap().url_test_result = Some(Err(e));
+                let mut guard = self.state.lock().unwrap();
+                guard.force_update = false;
+                guard.url_test_result = Some(Err(e));
             }
         }
         self.set_state(State::Idle);
@@ -389,23 +293,24 @@ impl UpdaterBackend {
             log::error!("failed to perform the update: {}", text);
         }
         let mut guard = self.state.lock().unwrap();
-        *guard = UpdateState {
+        let new_state = UpdateState {
             state,
             stop_evt: guard.stop_evt,
             when: Some(chrono::Local::now()),
             url_test_result: guard.url_test_result.clone(),
             force_update: guard.force_update,
         };
+        *guard = new_state.clone();
+        drop(guard);
+        self.core
+            .blocking_send(AppMessageIn::UpdateStateChanged(new_state))
+            .unwrap();
     }
 
     fn fetch_metadata(&self) {
         log::debug!("updater: checking releases metadata");
         self.set_state(State::FetchingMetadata);
         match &self.src {
-            UpdateSource::Unknown => {
-                log::debug!("no update source set, idling");
-                self.set_state(State::Idle);
-            }
             UpdateSource::Gist(s) => self.fetch_metadata_gist(s),
             UpdateSource::GitHub(s) => self.fetch_metadata_github(s),
         }

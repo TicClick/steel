@@ -2,7 +2,7 @@ use eframe::egui::{self, Widget};
 use steel_core::{VersionString, DEFAULT_DATETIME_FORMAT, DEFAULT_DATE_FORMAT};
 
 use super::state::UIState;
-use crate::core::updater::{State, UpdateState};
+use steel_core::ipc::updater::{State, UpdateState};
 
 #[derive(Default)]
 pub struct UpdateWindow {}
@@ -18,17 +18,17 @@ impl UpdateWindow {
                     when,
                     force_update,
                     ..
-                } = state.updater.state();
+                } = &state.update_state;
                 match last_action {
                     State::Idle => {
                         if ui.button("check for updates").clicked() {
-                            state.updater.check_version();
+                            state.core.check_application_updates();
                         }
                     }
                     State::UpdateError(text) => {
                         ui.label(format!("failed to fetch updates: {text}"));
                         if ui.button("check for updates").clicked() {
-                            state.updater.check_version();
+                            state.core.check_application_updates();
                         }
                     }
                     State::FetchingMetadata => {
@@ -42,7 +42,7 @@ impl UpdateWindow {
                             let label = format!("no updates, {} is the latest version", m.tag_name);
                             ui.label(label);
                             if ui.button("check again").clicked() {
-                                state.updater.check_version();
+                                state.core.check_application_updates();
                             }
                         } else {
                             let label = format!(
@@ -53,27 +53,27 @@ impl UpdateWindow {
                             ui.label(label);
                             ui.horizontal(|ui| {
                                 if ui.button("check again").clicked() {
-                                    state.updater.check_version();
+                                    state.core.check_application_updates();
                                 }
                                 if ui
                                     .button(format!(
                                         "{}update {} → {} ({} MB)",
-                                        if force_update { "force " } else { "" },
+                                        if *force_update { "force " } else { "" },
                                         crate::VERSION,
                                         m.tag_name,
                                         m.size() >> 20
                                     ))
                                     .clicked()
                                 {
-                                    state.updater.download_new_version();
+                                    state.core.download_application_update();
                                 }
                             });
                         }
                     }
                     State::FetchingRelease(ready_bytes, total_bytes) => {
                         ui.vertical(|ui| {
-                            let pct = ready_bytes as f32 / total_bytes as f32;
-                            egui::ProgressBar::new(ready_bytes as f32 / total_bytes as f32)
+                            let pct = *ready_bytes as f32 / *total_bytes as f32;
+                            egui::ProgressBar::new(*ready_bytes as f32 / *total_bytes as f32)
                                 .text(format!(
                                     "{} MB -- {}%",
                                     total_bytes >> 20,
@@ -82,7 +82,7 @@ impl UpdateWindow {
                                 .ui(ui);
                         });
                         if ui.button("abort").clicked() {
-                            state.updater.abort_update();
+                            state.core.abort_application_update();
                         }
                     }
                     State::ReleaseReady(m) => {
