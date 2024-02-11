@@ -73,7 +73,7 @@ def main(platform_archive, uploads_metadata, releases_metadata, release_tag, cat
     )
     existing_uploads.setdefault(release_tag, {}).setdefault(platform_archive, uploaded_file_link)
     with open(UPLOADS_JSON_FILE, "w") as fd:
-        fd.write(json.dumps(existing_uploads))
+        fd.write(json.dumps(existing_uploads, sort_keys=True, indent=2))
 
     logger.debug("Pushing %s >> gist.github.com", UPLOADS_JSON_FILE)
     run_with_retries(
@@ -123,7 +123,7 @@ def main(platform_archive, uploads_metadata, releases_metadata, release_tag, cat
 
     
     with open(RELEASES_JSON_FILE, "w") as fd:
-        fd.write(json.dumps(existing_releases))
+        fd.write(json.dumps(existing_releases, sort_keys=True, indent=2))
 
     logger.debug("Pushing %s >> gist.github.com", RELEASES_JSON_FILE)
     run_with_retries(
