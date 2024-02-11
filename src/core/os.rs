@@ -3,10 +3,10 @@ pub fn open_runtime_log() {
         path.set_file_name("runtime.log");
         if let Some(log_path) = path.to_str() {
             let log_path = log_path.to_owned();
-            let (executable, args) = if cfg!(windows) {
+            let (executable, args) = if cfg!(target_os = "windows") {
                 // let file_arg = format!("/select,{}", log_path);
                 ("explorer.exe", vec![log_path])
-            } else if cfg!(macos) {
+            } else if cfg!(target_os = "macos") {
                 ("Finder.app", vec![log_path])
             } else {
                 ("open", vec![log_path])

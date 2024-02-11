@@ -58,20 +58,20 @@ pub struct FileMetadataGist {
 
 impl ReleaseMetadataGitHub {
     pub fn platform_specific_asset(&self) -> Option<&ReleaseAsset> {
-        let marker = if cfg!(windows) {
+        let os_marker = if cfg!(target_os = "windows") {
             "-windows"
-        } else if cfg!(macos) {
+        } else if cfg!(target_os = "macos") {
             "-darwin"
-        } else if cfg!(unix) {
+        } else if cfg!(target_os = "linux") {
             "-linux"
         } else {
             ""
         };
 
-        if marker.is_empty() {
+        if os_marker.is_empty() {
             return None;
         }
-        return self.assets.iter().find(|a| a.name.contains(marker));
+        return self.assets.iter().find(|a| a.name.contains(os_marker));
     }
 
     pub fn size(&self) -> usize {
