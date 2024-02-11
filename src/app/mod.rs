@@ -1,11 +1,14 @@
 use std::collections::BTreeSet;
 
+use steel_core::ipc::updater::UpdateState;
+use steel_core::settings::application::AutoUpdate;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
+use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
@@ -23,6 +26,7 @@ pub struct Application {
     events: Receiver<AppMessageIn>,
 
     irc: IRCActorHandle,
+    updater: Option<Updater>,
     ui_queue: Sender<UIMessageIn>,
     pub app_queue: Sender<AppMessageIn>,
 }
@@ -33,6 +37,7 @@ impl Application {
         Self {
             state: ApplicationState::default(),
             events,
+            updater: None,
             irc: IRCActorHandle::new(app_queue.clone()),
             ui_queue,
             app_queue,
@@ -101,6 +106,22 @@ impl Application {
                 AppMessageIn::UIUsageWindowRequested => {
                     self.ui_request_usage_window();
                 }
+
+                AppMessageIn::UpdateStateChanged(state) => {
+                    self.ui_push_update_state(state);
+                }
+                AppMessageIn::UpdateSettingsChanged(s) => {
+                    self.change_updater_settings(s);
+                }
+                AppMessageIn::CheckApplicationUpdates => {
+                    self.check_application_updates();
+                }
+                AppMessageIn::DownloadApplicationUpdate => {
+                    self.download_application_update();
+                }
+                AppMessageIn::AbortApplicationUpdate => {
+                    self.abort_application_update();
+                }
             }
         }
     }
@@ -118,10 +139,44 @@ impl Application {
             .unwrap();
     }
 
+    pub fn start_updater(&mut self) {
+        if self.updater.is_none() {
+            self.updater = Some(Updater::new(
+                self.app_queue.clone(),
+                self.state.settings.application.autoupdate.clone(),
+            ));
+        }
+    }
+
+    pub fn change_updater_settings(&mut self, s: AutoUpdate) {
+        if let Some(u) = &mut self.updater {
+            u.change_settings(s);
+        }
+    }
+
+    pub fn check_application_updates(&self) {
+        if let Some(u) = &self.updater {
+            u.check_version();
+        }
+    }
+
+    pub fn download_application_update(&self) {
+        if let Some(u) = &self.updater {
+            u.download_new_version();
+        }
+    }
+
+    pub fn abort_application_update(&self) {
+        if let Some(u) = &self.updater {
+            u.abort_update();
+        }
+    }
+
     pub fn initialize(&mut self) {
         self.load_settings(settings::Source::DefaultPath, true);
         log::set_max_level(self.state.settings.journal.app_events.level);
 
+        self.start_updater();
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
@@ -152,6 +207,12 @@ impl Application {
     pub fn ui_request_usage_window(&mut self) {
         self.ui_queue
             .blocking_send(UIMessageIn::UsageWindowRequested)
+            .unwrap();
+    }
+
+    pub fn ui_push_update_state(&mut self, state: UpdateState) {
+        self.ui_queue
+            .blocking_send(UIMessageIn::UpdateStateChanged(state))
             .unwrap();
     }
 

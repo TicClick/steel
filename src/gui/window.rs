@@ -280,6 +280,10 @@ impl ApplicationWindow {
                 UIMessageIn::UsageWindowRequested => {
                     self.menu.show_usage = true;
                 }
+
+                UIMessageIn::UpdateStateChanged(state) => {
+                    self.s.update_state = state;
+                }
             }
         }
     }

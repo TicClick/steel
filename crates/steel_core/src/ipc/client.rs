@@ -1,6 +1,7 @@
 use tokio::sync::mpsc::Sender;
 
 use crate::ipc::server::AppMessageIn;
+use crate::settings::application::AutoUpdate;
 use crate::settings::Settings;
 
 #[derive(Debug)]
@@ -105,6 +106,30 @@ impl CoreClient {
     pub fn usage_window_requested(&self) {
         self.server
             .blocking_send(AppMessageIn::UIUsageWindowRequested)
+            .unwrap();
+    }
+
+    pub fn update_settings_changed(&self, s: &AutoUpdate) {
+        self.server
+            .blocking_send(AppMessageIn::UpdateSettingsChanged(s.clone()))
+            .unwrap();
+    }
+
+    pub fn check_application_updates(&self) {
+        self.server
+            .blocking_send(AppMessageIn::CheckApplicationUpdates)
+            .unwrap();
+    }
+
+    pub fn download_application_update(&self) {
+        self.server
+            .blocking_send(AppMessageIn::DownloadApplicationUpdate)
+            .unwrap();
+    }
+
+    pub fn abort_application_update(&self) {
+        self.server
+            .blocking_send(AppMessageIn::AbortApplicationUpdate)
             .unwrap();
     }
 }

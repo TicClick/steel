@@ -1,5 +1,6 @@
 use crate::chat::ConnectionStatus;
 use crate::chat::{ChatState, Message};
+use crate::ipc::updater::UpdateState;
 use crate::settings::Settings;
 
 #[derive(Debug)]
@@ -23,4 +24,5 @@ pub enum UIMessageIn {
     ChatCleared(String),
     ChatModeratorAdded(String),
     UsageWindowRequested,
+    UpdateStateChanged(UpdateState),
 }

@@ -1,5 +1,7 @@
 use crate::chat::irc::IRCError;
 use crate::chat::{ConnectionStatus, Message};
+use crate::ipc::updater::UpdateState;
+use crate::settings::application::AutoUpdate;
 use crate::settings::Settings;
 
 #[derive(Debug)]
@@ -26,4 +28,10 @@ pub enum AppMessageIn {
     UIUsageWindowRequested,
 
     ChatModeratorAdded(String),
+
+    UpdateStateChanged(UpdateState),
+    UpdateSettingsChanged(AutoUpdate),
+    CheckApplicationUpdates,
+    DownloadApplicationUpdate,
+    AbortApplicationUpdate,
 }
