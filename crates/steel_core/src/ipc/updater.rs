@@ -71,7 +71,38 @@ impl ReleaseMetadataGitHub {
         if os_marker.is_empty() {
             return None;
         }
-        return self.assets.iter().find(|a| a.name.contains(os_marker));
+
+        let mut preferred_architectures = Vec::new();
+        if cfg!(target_os = "macos") {
+            if cfg!(target_arch = "aarch64") {
+                preferred_architectures.push("aarch64-");
+            }
+        }
+        if cfg!(target_arch = "x86_64") {
+            preferred_architectures.push("x86_64-");
+        }
+
+        log::debug!(
+            "platform-specific asset: looking for os={:?}, arch={:?}",
+            os_marker,
+            preferred_architectures
+        );
+
+        let compatible: Vec<&ReleaseAsset> = self
+            .assets
+            .iter()
+            .filter(|a| a.name.contains(os_marker))
+            .collect();
+        if !compatible.is_empty() {
+            for arch in preferred_architectures {
+                for asset in &compatible {
+                    if asset.name.contains(arch) {
+                        return Some(asset);
+                    }
+                }
+            }
+        }
+        return None;
     }
 
     pub fn size(&self) -> usize {
