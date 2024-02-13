@@ -81,23 +81,8 @@ impl SettingsWindow {
         state: &mut UIState,
     ) {
         ui.vertical(|ui| {
-            ui.heading("general");
+            ui.heading("connection");
 
-            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup")
-                .on_hover_text_at_pointer(
-                    "when launched, connect to the chat automatically using your credentials",
-                );
-
-            ui.checkbox(
-                &mut state.settings.chat.reconnect,
-                "automatically reconnect",
-            )
-            .on_hover_text_at_pointer(
-                "If gone offline, try connecting to the chat every 15 seconds",
-            );
-            self.autojoin.show(&mut state.settings, ui);
-
-            ui.heading("access");
             ui.horizontal(|ui| {
                 ui.label("chat transport");
                 ui.radio_value(&mut state.settings.chat.backend, ChatBackend::IRC, "IRC")
@@ -121,7 +106,6 @@ impl SettingsWindow {
                     );
                 }
             });
-
             match state.settings.chat.backend {
                 ChatBackend::IRC => {
                     ui.vertical(|ui| {
@@ -166,6 +150,23 @@ impl SettingsWindow {
                     // TODO
                 }
             }
+
+            ui.separator();
+
+            ui.checkbox(&mut state.settings.chat.autoconnect, "connect on startup")
+                .on_hover_text_at_pointer(
+                    "when launched, connect to the chat automatically using your credentials",
+                );
+
+            ui.checkbox(
+                &mut state.settings.chat.reconnect,
+                "automatically reconnect",
+            )
+            .on_hover_text_at_pointer(
+                "If gone offline, try connecting to the chat every 15 seconds",
+            );
+
+            self.autojoin.show(&mut state.settings, ui);
         });
     }
 }
