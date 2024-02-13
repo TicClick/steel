@@ -1,5 +1,13 @@
 use crate::chat::Message;
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ProtocolType {
+    HTTP,
+    HTTPS,
+    OSU,
+    OSUMP,
+}
+
 pub const PROTOCOL_HTTP: &str = "http://";
 pub const PROTOCOL_HTTPS: &str = "https://";
 pub const PROTOCOL_OSU: &str = "osu://";
@@ -12,28 +20,39 @@ pub const KNOWN_PROTOCOLS: [&str; 4] =
 pub enum LinkLocation {
     Raw {
         pos: (usize, usize),
+        protocol: ProtocolType,
     },
     Markdown {
         pos: (usize, usize),
         title: (usize, usize),
         location: (usize, usize),
+        protocol: ProtocolType,
     },
     Wiki {
         pos: (usize, usize),
         title: (usize, usize),
+        protocol: ProtocolType,
     },
 }
 
 impl LinkLocation {
     pub fn position(&self) -> &(usize, usize) {
         match self {
-            Self::Raw { pos } | Self::Markdown { pos, .. } | Self::Wiki { pos, .. } => pos,
+            Self::Raw { pos, .. } | Self::Markdown { pos, .. } | Self::Wiki { pos, .. } => pos,
+        }
+    }
+
+    pub fn protocol(&self) -> ProtocolType {
+        match self {
+            Self::Raw { protocol, .. }
+            | Self::Markdown { protocol, .. }
+            | Self::Wiki { protocol, .. } => protocol.clone(),
         }
     }
 
     pub fn title(&self, s: &str) -> String {
         match self {
-            Self::Raw { pos } => s[pos.0..pos.1].to_owned(),
+            Self::Raw { pos, .. } => s[pos.0..pos.1].to_owned(),
             Self::Wiki { title, .. } => format!("wiki:{}", &s[title.0..title.1]),
             Self::Markdown { title, .. } => s[title.0..title.1].to_owned(),
         }
@@ -41,7 +60,7 @@ impl LinkLocation {
 
     pub fn location(&self, s: &str) -> String {
         match self {
-            Self::Raw { pos } => s[pos.0..pos.1].to_owned(),
+            Self::Raw { pos, .. } => s[pos.0..pos.1].to_owned(),
             Self::Wiki { title, .. } => format!("https://osu.ppy.sh/wiki/{}", &s[title.0..title.1]),
             Self::Markdown { location, .. } => s[location.0..location.1].to_owned(),
         }
@@ -51,7 +70,11 @@ impl LinkLocation {
 #[derive(PartialEq, Debug, Clone)]
 pub enum MessageChunk {
     Text(String),
-    Link { title: String, location: String },
+    Link {
+        title: String,
+        location: String,
+        protocol: ProtocolType,
+    },
 }
 
 impl Message {
@@ -62,11 +85,20 @@ impl Message {
         let mut i = 0;
         let bs = self.text.as_bytes();
 
-        let protocol_found = |pos: usize| -> bool {
-            KNOWN_PROTOCOLS.iter().any(|protocol| {
-                pos + protocol.len() < bs.len()
-                    && &bs[pos..pos + protocol.len()] == protocol.as_bytes()
-            })
+        let protocol_found = |pos: usize| -> Option<ProtocolType> {
+            for (proto_type, proto_repr) in [
+                (ProtocolType::HTTP, PROTOCOL_HTTP),
+                (ProtocolType::HTTPS, PROTOCOL_HTTPS),
+                (ProtocolType::OSU, PROTOCOL_OSU),
+                (ProtocolType::OSUMP, PROTOCOL_OSUMP),
+            ] {
+                if pos + proto_repr.len() < bs.len()
+                    && &bs[pos..pos + proto_repr.len()] == proto_repr.as_bytes()
+                {
+                    return Some(proto_type);
+                }
+            }
+            return None;
         };
 
         while i < bs.len() {
@@ -82,11 +114,14 @@ impl Message {
             let start = i;
 
             // Plain link starting with a protocol, no title.
-            if protocol_found(i) {
+            if let Some(protocol) = protocol_found(i) {
                 while i < bs.len() && bs[i] != b' ' {
                     i += 1;
                 }
-                links.push(LinkLocation::Raw { pos: (start, i) });
+                links.push(LinkLocation::Raw {
+                    pos: (start, i),
+                    protocol,
+                });
                 continue;
             }
 
@@ -99,6 +134,7 @@ impl Message {
                     links.push(LinkLocation::Wiki {
                         pos: (start, i + 2),
                         title: (start + 2, i),
+                        protocol: ProtocolType::HTTPS,
                     });
                 } else {
                     // Reset failed state and see what the next loop iteration will bring.
@@ -109,7 +145,7 @@ impl Message {
             }
 
             // Link with title
-            if protocol_found(i + 1) {
+            if let Some(protocol) = protocol_found(i + 1) {
                 // Extract the location.
                 let location_start = i + 1;
                 while i < bs.len() && bs[i] != b' ' {
@@ -134,6 +170,7 @@ impl Message {
                             pos: (start, end),
                             title: (title_start, title_end),
                             location: (location_start, location_end),
+                            protocol,
                         });
                         continue;
                     } else {
@@ -165,6 +202,7 @@ impl Message {
             ret.push(MessageChunk::Link {
                 title: links[i].title(&self.text),
                 location: links[i].location(&self.text),
+                protocol: links[i].protocol(),
             });
             if i + 1 < links.len() {
                 let next_pos = links[i + 1].position();
@@ -218,7 +256,8 @@ mod tests {
             message.chunks.unwrap(),
             vec![MessageChunk::Link {
                 location: "http://test".into(),
-                title: "Test (links here)]".into()
+                title: "Test (links here)]".into(),
+                protocol: ProtocolType::HTTP,
             }]
         );
 
@@ -229,7 +268,8 @@ mod tests {
                 MessageChunk::Text("[".into()),
                 MessageChunk::Link {
                     location: "http://test".into(),
-                    title: "http://test".into()
+                    title: "http://test".into(),
+                    protocol: ProtocolType::HTTP,
                 },
                 MessageChunk::Text(" Test (links here)".into()),
             ]
@@ -244,12 +284,14 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "http://test".into(),
-                    title: "Test (links here)".into()
+                    title: "Test (links here)".into(),
+                    protocol: ProtocolType::HTTP,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "http://test".into(),
-                    title: "Test (links here)".into()
+                    title: "Test (links here)".into(),
+                    protocol: ProtocolType::HTTP,
                 }
             ]
         );
@@ -260,11 +302,13 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "http://test".into(),
-                    title: "Test (links here)".into()
+                    title: "Test (links here)".into(),
+                    protocol: ProtocolType::HTTP,
                 },
                 MessageChunk::Link {
                     location: "http://test".into(),
-                    title: "Test (links here)".into()
+                    title: "Test (links here)".into(),
+                    protocol: ProtocolType::HTTP,
                 },
                 MessageChunk::Text(" and after".into()),
             ]
@@ -279,7 +323,8 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rules".into(),
-                    title: "wiki:rules".into()
+                    title: "wiki:rules".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
                 MessageChunk::Text(" is the way to go".into()),
             ]
@@ -291,7 +336,8 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rule".into(),
-                    title: "wiki:rule".into()
+                    title: "wiki:rule".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
                 MessageChunk::Text("s]] is the way to go".into()),
             ]
@@ -306,12 +352,14 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "https://a".into(),
-                    title: "https://a".into()
+                    title: "https://a".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "https://bhttps://".into(),
-                    title: "https://bhttps://".into()
+                    title: "https://bhttps://".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
                 MessageChunk::Text(" c".into()),
             ]
@@ -326,16 +374,19 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "https://ya.ru".into(),
-                    title: "https://ya.ru".into()
+                    title: "https://ya.ru".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "http://example.com".into(),
-                    title: "example".into()
+                    title: "example".into(),
+                    protocol: ProtocolType::HTTP,
                 },
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/silence".into(),
-                    title: "wiki:silence".into()
+                    title: "wiki:silence".into(),
+                    protocol: ProtocolType::HTTPS,
                 },
             ]
         );
@@ -349,12 +400,14 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     title: "osump://12345".into(),
-                    location: "osump://12345".into()
+                    location: "osump://12345".into(),
+                    protocol: ProtocolType::OSUMP,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     title: "osu://chan/#russian".into(),
                     location: "osu://chan/#russian".into(),
+                    protocol: ProtocolType::OSU,
                 }
             ]
         );
@@ -368,12 +421,14 @@ mod tests {
             vec![
                 MessageChunk::Link {
                     location: "osump://12345".into(),
-                    title: "join my room".into()
+                    title: "join my room".into(),
+                    protocol: ProtocolType::OSUMP,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "osu://chan/#osu".into(),
                     title: "#chaos".into(),
+                    protocol: ProtocolType::OSU,
                 }
             ]
         );
