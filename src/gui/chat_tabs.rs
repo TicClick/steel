@@ -245,7 +245,9 @@ impl ChatTabs {
                                 (interleaved_pos, chat_tab.rect.center().y);
 
                             if chat_tab.clicked() {
-                                state.core.chat_switch_requested(&state.active_chat_tab_name, None);
+                                state
+                                    .core
+                                    .chat_switch_requested(&state.active_chat_tab_name, None);
                             }
                             if matches!(chat_state, ChatState::JoinInProgress) {
                                 ui.spinner();
@@ -292,7 +294,9 @@ impl ChatTabs {
                 coloured_label,
             );
             if chat_tab.clicked() {
-                state.core.chat_switch_requested(&state.active_chat_tab_name, None);
+                state
+                    .core
+                    .chat_switch_requested(&state.active_chat_tab_name, None);
             }
         }
     }

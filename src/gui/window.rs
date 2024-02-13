@@ -165,11 +165,7 @@ impl ApplicationWindow {
             true => format!("steel v{}", crate::VERSION),
             false => {
                 if let Some(chat) = self.s.active_chat() {
-                    format!(
-                        "{} – steel v{}",
-                        chat.name,
-                        crate::VERSION
-                    )
+                    format!("{} – steel v{}", chat.name, crate::VERSION)
                 } else {
                     format!("steel v{}", crate::VERSION)
                 }
@@ -260,8 +256,9 @@ impl ApplicationWindow {
                 }
 
                 UIMessageIn::NewMessageReceived { target, message } => {
-                    let name_updated = self.s
-                        .push_chat_message(target.clone(), message.clone(), ctx);
+                    let name_updated =
+                        self.s
+                            .push_chat_message(target.clone(), message.clone(), ctx);
                     if name_updated {
                         self.refresh_window_title(ctx);
                     }

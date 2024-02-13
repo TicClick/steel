@@ -147,7 +147,12 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(&mut self, target: String, mut message: Message, ctx: &egui::Context) -> bool {
+    pub fn push_chat_message(
+        &mut self,
+        target: String,
+        mut message: Message,
+        ctx: &egui::Context,
+    ) -> bool {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
 
@@ -193,7 +198,7 @@ impl UIState {
                 }
             }
         }
-        return name_updated;
+        name_updated
     }
 
     pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
