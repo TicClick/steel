@@ -94,7 +94,7 @@ impl CoreClient {
             .unwrap();
     }
 
-    pub fn chat_switch_requested(&self, target: &str, message_id: usize) {
+    pub fn chat_switch_requested(&self, target: &str, message_id: Option<usize>) {
         self.server
             .blocking_send(AppMessageIn::UIChatSwitchRequested(
                 target.to_owned(),

@@ -160,6 +160,24 @@ impl ApplicationWindow {
         }
     }
 
+    fn refresh_window_title(&self, ctx: &egui::Context) {
+        let new_tab_title = match self.s.active_chat_tab_name.starts_with('$') {
+            true => format!("steel v{}", crate::VERSION),
+            false => {
+                if let Some(chat) = self.s.active_chat() {
+                    format!(
+                        "{} – steel v{}",
+                        chat.name,
+                        crate::VERSION
+                    )
+                } else {
+                    format!("steel v{}", crate::VERSION)
+                }
+            }
+        };
+        ctx.send_viewport_cmd(egui::ViewportCommand::Title(new_tab_title));
+    }
+
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
         if self.date_announcer.should_announce() {
             let text = format!(
@@ -206,6 +224,9 @@ impl ApplicationWindow {
                     } else {
                         self.s.add_new_chat(name, state, switch_to_chat);
                     }
+                    if switch_to_chat {
+                        self.refresh_window_title(ctx);
+                    }
                 }
 
                 UIMessageIn::NewChatStatusReceived {
@@ -220,10 +241,14 @@ impl ApplicationWindow {
 
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
                     if self.s.has_chat(&name) {
-                        self.s.highlights.mark_as_read(&name);
-                        self.s.active_chat_tab_name = name;
-                        self.chat.scroll_to = Some(message_id);
+                        let lowercase_name = name.to_lowercase();
+                        self.s.highlights.mark_as_read(&lowercase_name);
+                        self.s.active_chat_tab_name = lowercase_name;
+                        if message_id.is_some() {
+                            self.chat.scroll_to = message_id;
+                        }
                     }
+                    self.refresh_window_title(ctx);
                 }
 
                 UIMessageIn::ChannelJoined(name) => {
@@ -235,8 +260,11 @@ impl ApplicationWindow {
                 }
 
                 UIMessageIn::NewMessageReceived { target, message } => {
-                    self.s
+                    let name_updated = self.s
                         .push_chat_message(target.clone(), message.clone(), ctx);
+                    if name_updated {
+                        self.refresh_window_title(ctx);
+                    }
 
                     #[cfg(feature = "glass")]
                     match message.username == self.s.settings.chat.irc.username {
@@ -262,6 +290,7 @@ impl ApplicationWindow {
 
                 UIMessageIn::ChatClosed(name) => {
                     self.s.remove_chat(name);
+                    self.refresh_window_title(ctx);
                 }
 
                 UIMessageIn::ChatCleared(name) => {
@@ -303,18 +332,6 @@ impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
-
-        if !self.s.active_chat_tab_name.is_empty() {
-            let title = match self.s.active_chat_tab_name.starts_with('$') {
-                true => format!("steel v{}", crate::VERSION),
-                false => format!(
-                    "{} – steel v{}",
-                    self.s.active_chat_tab_name,
-                    crate::VERSION
-                ),
-            };
-            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
-        }
 
         self.set_theme(ctx);
 
