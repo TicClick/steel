@@ -18,7 +18,7 @@ pub enum UIMessageIn {
         details: String,
     },
     NewChatRequested(String, ChatState, bool),
-    ChatSwitchRequested(String, usize),
+    ChatSwitchRequested(String, Option<usize>),
     ChannelJoined(String),
     ChatClosed(String),
     ChatCleared(String),

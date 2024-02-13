@@ -133,7 +133,7 @@ impl Application {
         self.join_channel(&channel);
     }
 
-    pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: usize) {
+    pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: Option<usize>) {
         self.ui_queue
             .blocking_send(UIMessageIn::ChatSwitchRequested(chat, message_id))
             .unwrap();

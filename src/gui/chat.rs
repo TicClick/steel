@@ -529,9 +529,7 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
             }
         });
         if switch_requested {
-            state
-                .core
-                .chat_switch_requested(chat_name, message.id.unwrap());
+            state.core.chat_switch_requested(chat_name, message.id);
         }
     }
 }

@@ -147,14 +147,23 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(&mut self, target: String, mut message: Message, ctx: &egui::Context) {
+    pub fn push_chat_message(
+        &mut self,
+        target: String,
+        mut message: Message,
+        ctx: &egui::Context,
+    ) -> bool {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
+
+        let mut name_updated = true;
+
         if let Some(pos) = self.name_to_chat.get(&normalized) {
             if let Some(ch) = self.chats.get_mut(*pos) {
                 // If the chat was open with an improper case, fix it!
                 if ch.name != target {
                     ch.name = target;
+                    name_updated = true;
                 }
 
                 message.id = Some(ch.messages.len());
@@ -189,6 +198,7 @@ impl UIState {
                 }
             }
         }
+        name_updated
     }
 
     pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
