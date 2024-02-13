@@ -413,7 +413,12 @@ impl UpdaterBackend {
             target,
             backup
         );
-        std::fs::rename(&target, &backup)?;
+
+        // The original executable has already been renamed during the previous update round, and now we have fetched
+        // a binary from another release stream.
+        if target.exists() {
+            std::fs::rename(&target, &backup)?;
+        }
 
         let reader = Box::new(std::io::Cursor::new(data));
         let extraction_result = match archive_type {
