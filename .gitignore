@@ -1,8 +1,5 @@
 .vscode
 target
-*.dll
-*.so
 
-Cargo.lock
 settings.yaml
 runtime.log
