@@ -1,5 +1,13 @@
 use crate::chat::Message;
 
+pub const PROTOCOL_HTTP: &str = "http://";
+pub const PROTOCOL_HTTPS: &str = "https://";
+pub const PROTOCOL_OSU: &str = "osu://";
+pub const PROTOCOL_OSUMP: &str = "osump://";
+
+pub const KNOWN_PROTOCOLS: [&str; 4] =
+    [PROTOCOL_HTTP, PROTOCOL_HTTPS, PROTOCOL_OSU, PROTOCOL_OSUMP];
+
 #[derive(PartialEq, Debug)]
 pub enum LinkLocation {
     Raw {
@@ -53,9 +61,18 @@ impl Message {
 
         let mut i = 0;
         let bs = self.text.as_bytes();
+
+        let protocol_found = |pos: usize| -> bool {
+            KNOWN_PROTOCOLS.iter().any(|protocol| {
+                pos + protocol.len() < bs.len()
+                    && &bs[pos..pos + protocol.len()] == protocol.as_bytes()
+            })
+        };
+
         while i < bs.len() {
-            // Only consider [[...]], [...], or http(s)://. Yeah, I know there are other protocols and formats, but no.
-            while i < bs.len() && (bs[i] != b'[' && bs[i] != b'h') {
+            // Only consider [[...]], [...], http(s)://, or osu(mp)://.
+            // Yeah, I know there are other protocols and formats, but no.
+            while i < bs.len() && (bs[i] != b'[' && bs[i] != b'h' && bs[i] != b'o') {
                 i += 1;
             }
             if i == bs.len() {
@@ -64,10 +81,8 @@ impl Message {
 
             let start = i;
 
-            // HTTP(s), no title.
-            if (i + 7 < bs.len() && &bs[i..i + 7] == "http://".as_bytes())
-                || (i + 8 < bs.len() && &bs[i..i + 8] == "https://".as_bytes())
-            {
+            // Plain link starting with a protocol, no title.
+            if protocol_found(i) {
                 while i < bs.len() && bs[i] != b' ' {
                     i += 1;
                 }
@@ -94,9 +109,7 @@ impl Message {
             }
 
             // Link with title
-            if ((i + 1) + 7 < bs.len() && &bs[(i + 1)..(i + 1) + 7] == "http://".as_bytes())
-                || ((i + 1) + 8 < bs.len() && &bs[(i + 1)..(i + 1) + 8] == "https://".as_bytes())
-            {
+            if protocol_found(i + 1) {
                 // Extract the location.
                 let location_start = i + 1;
                 while i < bs.len() && bs[i] != b' ' {
@@ -324,6 +337,44 @@ mod tests {
                     location: "https://osu.ppy.sh/wiki/silence".into(),
                     title: "wiki:silence".into()
                 },
+            ]
+        );
+    }
+
+    #[test]
+    fn osu_specific_raw() {
+        let message = m("osump://12345 osu://chan/#russian");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![
+                MessageChunk::Link {
+                    title: "osump://12345".into(),
+                    location: "osump://12345".into()
+                },
+                MessageChunk::Text(" ".into()),
+                MessageChunk::Link {
+                    title: "osu://chan/#russian".into(),
+                    location: "osu://chan/#russian".into(),
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn osu_specific_markdown() {
+        let message = m("[osump://12345 join my room] [osu://chan/#osu #chaos]");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![
+                MessageChunk::Link {
+                    location: "osump://12345".into(),
+                    title: "join my room".into()
+                },
+                MessageChunk::Text(" ".into()),
+                MessageChunk::Link {
+                    location: "osu://chan/#osu".into(),
+                    title: "#chaos".into(),
+                }
             ]
         );
     }
