@@ -46,3 +46,8 @@ serde_json = "1.0.111"
 [features]
 default = []
 glass = ["dep:glass"]
+
+[workspace]
+members = [
+    "./crates/steel_core",
+]

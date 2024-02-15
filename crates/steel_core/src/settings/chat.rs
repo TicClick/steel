@@ -9,6 +9,9 @@ pub struct Chat {
     pub autojoin: Vec<String>,
     pub irc: IRCChatSettings,
     pub api: HTTPChatSettings,
+
+    #[serde(default)]
+    pub behaviour: ChatBehaviour,
 }
 
 impl Default for Chat {
@@ -20,6 +23,7 @@ impl Default for Chat {
             autojoin: Vec::default(),
             irc: IRCChatSettings::default(),
             api: HTTPChatSettings::default(),
+            behaviour: ChatBehaviour::default(),
         }
     }
 }
@@ -40,3 +44,20 @@ pub struct IRCChatSettings {
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct HTTPChatSettings {}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChatBehaviour {
+    pub handle_osu_chat_links: bool,
+
+    #[serde(default)]
+    pub handle_osu_beatmap_links: bool,
+}
+
+impl Default for ChatBehaviour {
+    fn default() -> Self {
+        Self {
+            handle_osu_chat_links: true,
+            handle_osu_beatmap_links: true,
+        }
+    }
+}
