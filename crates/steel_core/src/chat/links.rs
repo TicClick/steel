@@ -4,8 +4,41 @@ use crate::chat::Message;
 pub enum ProtocolType {
     HTTP,
     HTTPS,
-    OSU,
-    OSUMP,
+    OSU(OsuProtocolAction),
+}
+
+impl ProtocolType {
+    fn from(value: &[u8]) -> Option<Self> {
+        if value.starts_with(PROTOCOL_HTTP.as_bytes()) {
+            Some(Self::HTTP)
+        } else if value.starts_with(PROTOCOL_HTTPS.as_bytes()) {
+            Some(Self::HTTPS)
+        } else {
+            // osu! doesn't recognize multiplayer links without a trailing slash, but we do.
+            // The rest of actions seem to work regardless of the slash's presence.
+
+            let mut value = value;
+            if value.ends_with(&[b'/']) {
+                value = &value[..value.len() - 1];
+            }
+
+            if value.starts_with(PROTOCOL_OSU.as_bytes()) {
+                if let Some(a) = OsuProtocolAction::extract_from_osu(value) {
+                    Some(Self::OSU(a))
+                } else {
+                    None
+                }
+            } else if value.starts_with(PROTOCOL_OSUMP.as_bytes()) {
+                if let Some(a) = OsuProtocolAction::extract_from_osump(value) {
+                    Some(Self::OSU(a))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+    }
 }
 
 pub const PROTOCOL_HTTP: &str = "http://";
@@ -15,6 +48,79 @@ pub const PROTOCOL_OSUMP: &str = "osump://";
 
 pub const KNOWN_PROTOCOLS: [&str; 4] =
     [PROTOCOL_HTTP, PROTOCOL_HTTPS, PROTOCOL_OSU, PROTOCOL_OSUMP];
+
+#[derive(Debug, PartialEq, Clone)]
+pub enum OsuProtocolAction {
+    Chat(String),
+    OpenBeatmap(u64), // Let's be optimistic
+    OpenDifficulty(u64),
+    Multiplayer(u32),
+}
+
+impl OsuProtocolAction {
+    fn extract_from_osu(s: &[u8]) -> Option<Self> {
+        if s.len() < PROTOCOL_OSU.len() {
+            return None;
+        }
+
+        let rest = &s[PROTOCOL_OSU.len()..];
+        if rest.starts_with(b"chan/") {
+            match std::str::from_utf8(&rest[5..]) {
+                Ok(channel) => Some(Self::Chat(channel.to_owned())),
+                Err(_) => None,
+            }
+        } else if rest.starts_with(b"dl/s/") {
+            match std::str::from_utf8(&rest[5..]) {
+                Ok(beatmap_id) => match beatmap_id.parse() {
+                    Ok(beatmap_id) => Some(Self::OpenBeatmap(beatmap_id)),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        } else if rest.starts_with(b"dl/b/") {
+            match std::str::from_utf8(&rest[5..]) {
+                Ok(difficulty_id) => match difficulty_id.parse() {
+                    Ok(difficulty_id) => Some(Self::OpenDifficulty(difficulty_id)),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        } else if rest.starts_with(b"dl/") {
+            match std::str::from_utf8(&rest[3..]) {
+                Ok(beatmap_id) => match beatmap_id.parse() {
+                    Ok(beatmap_id) => Some(Self::OpenBeatmap(beatmap_id)),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        } else if rest.starts_with(b"b/") {
+            match std::str::from_utf8(&rest[2..]) {
+                Ok(difficulty_id) => match difficulty_id.parse() {
+                    Ok(difficulty_id) => Some(Self::OpenDifficulty(difficulty_id)),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn extract_from_osump(s: &[u8]) -> Option<Self> {
+        if s.len() < PROTOCOL_OSUMP.len() {
+            return None;
+        }
+
+        let rest = &s[PROTOCOL_OSUMP.len()..];
+        match std::str::from_utf8(rest) {
+            Ok(lobby_id) => match lobby_id.parse() {
+                Ok(lobby_id) => Some(Self::Multiplayer(lobby_id)),
+                Err(_) => None,
+            },
+            Err(_) => None,
+        }
+    }
+}
 
 #[derive(PartialEq, Debug)]
 pub enum LinkLocation {
@@ -85,20 +191,11 @@ impl Message {
         let mut i = 0;
         let bs = self.text.as_bytes();
 
-        let protocol_found = |pos: usize| -> Option<ProtocolType> {
-            for (proto_type, proto_repr) in [
-                (ProtocolType::HTTP, PROTOCOL_HTTP),
-                (ProtocolType::HTTPS, PROTOCOL_HTTPS),
-                (ProtocolType::OSU, PROTOCOL_OSU),
-                (ProtocolType::OSUMP, PROTOCOL_OSUMP),
-            ] {
-                if pos + proto_repr.len() < bs.len()
-                    && &bs[pos..pos + proto_repr.len()] == proto_repr.as_bytes()
-                {
-                    return Some(proto_type);
-                }
-            }
-            return None;
+        let protocol_lookahead = |pos: usize| -> bool {
+            KNOWN_PROTOCOLS.iter().any(|protocol| {
+                pos + protocol.len() < bs.len()
+                    && &bs[pos..pos + protocol.len()] == protocol.as_bytes()
+            })
         };
 
         while i < bs.len() {
@@ -114,14 +211,16 @@ impl Message {
             let start = i;
 
             // Plain link starting with a protocol, no title.
-            if let Some(protocol) = protocol_found(i) {
+            if protocol_lookahead(i) {
                 while i < bs.len() && bs[i] != b' ' {
                     i += 1;
                 }
-                links.push(LinkLocation::Raw {
-                    pos: (start, i),
-                    protocol,
-                });
+                if let Some(protocol_type) = ProtocolType::from(&bs[start..i]) {
+                    links.push(LinkLocation::Raw {
+                        pos: (start, i),
+                        protocol: protocol_type,
+                    });
+                }
                 continue;
             }
 
@@ -145,7 +244,7 @@ impl Message {
             }
 
             // Link with title
-            if let Some(protocol) = protocol_found(i + 1) {
+            if protocol_lookahead(i + 1) {
                 // Extract the location.
                 let location_start = i + 1;
                 while i < bs.len() && bs[i] != b' ' {
@@ -166,12 +265,17 @@ impl Message {
                         }
                         let title_end = i - 1;
                         let end = i;
-                        links.push(LinkLocation::Markdown {
-                            pos: (start, end),
-                            title: (title_start, title_end),
-                            location: (location_start, location_end),
-                            protocol,
-                        });
+
+                        if let Some(protocol_type) =
+                            ProtocolType::from(&bs[location_start..location_end])
+                        {
+                            links.push(LinkLocation::Markdown {
+                                pos: (start, end),
+                                title: (title_start, title_end),
+                                location: (location_start, location_end),
+                                protocol: protocol_type,
+                            });
+                        }
                         continue;
                     } else {
                         // Reset failed state and see what the next loop iteration will bring.
@@ -393,21 +497,130 @@ mod tests {
     }
 
     #[test]
+    fn osu_multiplayer_raw() {
+        let message = m("osump://12345");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osump://12345".into(),
+                location: "osump://12345".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::Multiplayer(12345)),
+            },]
+        );
+
+        let message = m("osump://12345/");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osump://12345/".into(),
+                location: "osump://12345/".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::Multiplayer(12345)),
+            },]
+        );
+    }
+
+    #[test]
+    fn osu_download_beatmapset_raw() {
+        let message = m("osu://dl/42311");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/42311".into(),
+                location: "osu://dl/42311".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenBeatmap(42311)),
+            },]
+        );
+
+        let message = m("osu://dl/42311/");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/42311/".into(),
+                location: "osu://dl/42311/".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenBeatmap(42311)),
+            },]
+        );
+
+        let message = m("osu://dl/s/42311");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/s/42311".into(),
+                location: "osu://dl/s/42311".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenBeatmap(42311)),
+            },]
+        );
+
+        let message = m("osu://dl/s/42311/");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/s/42311/".into(),
+                location: "osu://dl/s/42311/".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenBeatmap(42311)),
+            },]
+        );
+    }
+
+    #[test]
+    fn osu_download_difficulty_raw() {
+        let message = m("osu://dl/b/641387");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/b/641387".into(),
+                location: "osu://dl/b/641387".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenDifficulty(641387)),
+            },]
+        );
+
+        let message = m("osu://dl/b/641387/");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://dl/b/641387/".into(),
+                location: "osu://dl/b/641387/".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenDifficulty(641387)),
+            },]
+        );
+
+        let message = m("osu://b/641387");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://b/641387".into(),
+                location: "osu://b/641387".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenDifficulty(641387)),
+            },]
+        );
+
+        let message = m("osu://b/641387/");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![MessageChunk::Link {
+                title: "osu://b/641387/".into(),
+                location: "osu://b/641387/".into(),
+                protocol: ProtocolType::OSU(OsuProtocolAction::OpenDifficulty(641387)),
+            },]
+        );
+    }
+
+    #[test]
     fn osu_specific_raw() {
-        let message = m("osump://12345 osu://chan/#russian");
+        let message = m("osump://12345/ osu://chan/#russian");
         assert_eq!(
             message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
-                    title: "osump://12345".into(),
-                    location: "osump://12345".into(),
-                    protocol: ProtocolType::OSUMP,
+                    title: "osump://12345/".into(),
+                    location: "osump://12345/".into(),
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Multiplayer(12345)),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     title: "osu://chan/#russian".into(),
                     location: "osu://chan/#russian".into(),
-                    protocol: ProtocolType::OSU,
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Chat("#russian".into())),
                 }
             ]
         );
@@ -415,21 +628,49 @@ mod tests {
 
     #[test]
     fn osu_specific_markdown() {
-        let message = m("[osump://12345 join my room] [osu://chan/#osu #chaos]");
+        let message = m("[osump://12345/ join my room] [osu://chan/#osu #chaos]");
         assert_eq!(
             message.chunks.unwrap(),
             vec![
                 MessageChunk::Link {
-                    location: "osump://12345".into(),
+                    location: "osump://12345/".into(),
                     title: "join my room".into(),
-                    protocol: ProtocolType::OSUMP,
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Multiplayer(12345)),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "osu://chan/#osu".into(),
                     title: "#chaos".into(),
-                    protocol: ProtocolType::OSU,
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Chat("#osu".into())),
                 }
+            ]
+        );
+    }
+
+    #[test]
+    fn unicode() {
+        let message =
+            m("[osump://12345/ моя комната] [osu://chan/#osu #господичтоэто] [osu://dl/123 非]");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![
+                MessageChunk::Link {
+                    location: "osump://12345/".into(),
+                    title: "моя комната".into(),
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Multiplayer(12345)),
+                },
+                MessageChunk::Text(" ".into()),
+                MessageChunk::Link {
+                    location: "osu://chan/#osu".into(),
+                    title: "#господичтоэто".into(),
+                    protocol: ProtocolType::OSU(OsuProtocolAction::Chat("#osu".into())),
+                },
+                MessageChunk::Text(" ".into()),
+                MessageChunk::Link {
+                    location: "osu://dl/123".into(),
+                    title: "非".into(),
+                    protocol: ProtocolType::OSU(OsuProtocolAction::OpenBeatmap(123)),
+                },
             ]
         );
     }

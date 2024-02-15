@@ -166,6 +166,27 @@ impl SettingsWindow {
                 "If gone offline, try connecting to the chat every 15 seconds",
             );
 
+            ui.heading("behaviour");
+            ui.vertical(|ui| {
+                ui.checkbox(
+                    &mut state.settings.chat.behaviour.handle_osu_chat_links,
+                    "handle osu! chat links",
+                )
+                .on_hover_text_at_pointer(
+                    "open/switch to channels directly in the app instead of doing it in osu!.\n\
+                    affected links: osu://chan/",
+                );
+
+                ui.checkbox(
+                    &mut state.settings.chat.behaviour.handle_osu_beatmap_links,
+                    "handle osu! beatmap links",
+                )
+                .on_hover_text_at_pointer(
+                    "open beatmap links in the browser instead of doing it in osu!.\n\
+                    affected links: osu://dl/, osu://dl/b/, osu://dl/s/, osu://b/",
+                );
+            });
+
             self.autojoin.show(&mut state.settings, ui);
         });
     }

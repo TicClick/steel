@@ -1,6 +1,7 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::{BTreeMap, BTreeSet};
+use steel_core::chat::links::{OsuProtocolAction, ProtocolType};
 
 use steel_core::TextStyle;
 
@@ -534,6 +535,7 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
     }
 }
 
+// FIXME: this needs to be handled better, with less code repetition.
 fn format_chat_message_text(
     ui: &mut egui::Ui,
     state: &UIState,
@@ -555,15 +557,131 @@ fn format_chat_message_text(
                     MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
                         let text_chunk =
                             egui::RichText::new(s).with_styles(styles, &state.settings);
-                        if let MessageChunk::Link { location: loc, .. } = c {
-                            ui.hyperlink_to(text_chunk, loc.clone()).context_menu(|ui| {
-                                if ui.button("Copy URL").clicked() {
-                                    ui.ctx().output_mut(|o| {
-                                        o.copied_text = loc.to_owned();
-                                    });
-                                    ui.close_menu();
+                        if let MessageChunk::Link {
+                            location, protocol, ..
+                        } = c
+                        {
+                            let make_regular_link =
+                                |ui: &mut egui::Ui, chunk: &egui::RichText, loc: &str| {
+                                    ui.hyperlink_to(chunk.to_owned(), loc.to_owned())
+                                        .context_menu(|ui| {
+                                            if ui.button("Copy URL").clicked() {
+                                                ui.ctx().output_mut(|o| {
+                                                    o.copied_text = loc.to_owned();
+                                                });
+                                                ui.close_menu();
+                                            }
+                                        });
+                                };
+
+                            if let ProtocolType::OSU(osu_action) = protocol {
+                                match osu_action {
+                                    OsuProtocolAction::Chat(chat) => {
+                                        match state.settings.chat.behaviour.handle_osu_chat_links {
+                                            true => {
+                                                if ui
+                                                    .link(text_chunk)
+                                                    .on_hover_text_at_pointer(
+                                                        match chat.is_channel() {
+                                                            true => format!("Open {}", chat),
+                                                            false => format!("Chat with {}", chat),
+                                                        },
+                                                    )
+                                                    .clicked()
+                                                {
+                                                    if state.has_chat(chat) {
+                                                        state
+                                                            .core
+                                                            .chat_switch_requested(chat, None);
+                                                    } else {
+                                                        match chat.is_channel() {
+                                                            true => state
+                                                                .core
+                                                                .channel_join_requested(chat),
+                                                            false => {
+                                                                state.core.private_chat_opened(chat)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            false => make_regular_link(ui, &text_chunk, location),
+                                        }
+                                    }
+                                    OsuProtocolAction::OpenBeatmap(beatmap_id) => {
+                                        match state.settings.chat.behaviour.handle_osu_beatmap_links
+                                        {
+                                            true => {
+                                                let location = format!(
+                                                    "https://osu.ppy.sh/beatmapsets/{}",
+                                                    beatmap_id
+                                                );
+                                                if ui
+                                                    .link(text_chunk)
+                                                    .on_hover_text_at_pointer(format!(
+                                                        "Beatmap #{} (open in browser)",
+                                                        beatmap_id
+                                                    ))
+                                                    .context_menu(|ui| {
+                                                        if ui.button("Copy URL").clicked() {
+                                                            ui.ctx().output_mut(|o| {
+                                                                o.copied_text = location.to_owned();
+                                                            });
+                                                            ui.close_menu();
+                                                        }
+                                                    })
+                                                    .clicked()
+                                                {
+                                                    ui.output_mut(|o| {
+                                                        o.open_url =
+                                                            Some(egui::OpenUrl::new_tab(location));
+                                                    });
+                                                }
+                                            }
+                                            false => make_regular_link(ui, &text_chunk, location),
+                                        }
+                                    }
+                                    OsuProtocolAction::OpenDifficulty(difficulty_id) => {
+                                        match state.settings.chat.behaviour.handle_osu_beatmap_links
+                                        {
+                                            true => {
+                                                let location = format!(
+                                                    "https://osu.ppy.sh/beatmaps/{}",
+                                                    difficulty_id
+                                                );
+                                                if ui
+                                                    .link(text_chunk)
+                                                    .on_hover_text_at_pointer(format!(
+                                                        "Beatmap difficulty #{} (open in browser)",
+                                                        difficulty_id
+                                                    ))
+                                                    .context_menu(|ui| {
+                                                        if ui.button("Copy URL").clicked() {
+                                                            ui.ctx().output_mut(|o| {
+                                                                o.copied_text = location.to_owned();
+                                                            });
+                                                            ui.close_menu();
+                                                        }
+                                                    })
+                                                    .clicked()
+                                                {
+                                                    ui.output_mut(|o| {
+                                                        o.open_url =
+                                                            Some(egui::OpenUrl::new_tab(location));
+                                                    });
+                                                }
+                                            }
+                                            false => make_regular_link(ui, &text_chunk, location),
+                                        }
+                                    }
+                                    // TODO: find a use for this
+                                    OsuProtocolAction::Multiplayer(_lobby_id) => {
+                                        make_regular_link(ui, &text_chunk, location);
+                                    }
                                 }
-                            });
+                            } else {
+                                make_regular_link(ui, &text_chunk, location);
+                            }
                         } else {
                             ui.label(text_chunk);
                         }
