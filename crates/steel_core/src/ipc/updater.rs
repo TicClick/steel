@@ -73,10 +73,8 @@ impl ReleaseMetadataGitHub {
         }
 
         let mut preferred_architectures = Vec::new();
-        if cfg!(target_os = "macos") {
-            if cfg!(target_arch = "aarch64") {
-                preferred_architectures.push("aarch64-");
-            }
+        if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+            preferred_architectures.push("aarch64-");
         }
         if cfg!(target_arch = "x86_64") {
             preferred_architectures.push("x86_64-");
@@ -102,7 +100,7 @@ impl ReleaseMetadataGitHub {
                 }
             }
         }
-        return None;
+        None
     }
 
     pub fn size(&self) -> usize {
