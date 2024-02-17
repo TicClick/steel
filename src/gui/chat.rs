@@ -580,7 +580,7 @@ fn format_chat_message_text(
                             };
                         match link_type {
                             LinkType::HTTP | LinkType::HTTPS => {
-                                make_regular_link(ui, &display_text, &location);
+                                make_regular_link(ui, &display_text, location);
                             }
                             LinkType::OSU(osu_action) => {
                                 match osu_action {

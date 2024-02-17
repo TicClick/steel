@@ -33,9 +33,9 @@ impl From<String> for Colour {
     }
 }
 
-impl Into<String> for Colour {
-    fn into(self) -> String {
-        format!("{} {} {}", self.rgb[0], self.rgb[1], self.rgb[2])
+impl From<Colour> for String {
+    fn from(val: Colour) -> Self {
+        format!("{} {} {}", val.rgb[0], val.rgb[1], val.rgb[2])
     }
 }
 

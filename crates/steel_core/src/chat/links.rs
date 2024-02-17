@@ -24,17 +24,9 @@ impl LinkType {
             }
 
             if value.starts_with(PROTOCOL_OSU.as_bytes()) {
-                if let Some(a) = Action::extract_from_osu(value) {
-                    Some(Self::OSU(a))
-                } else {
-                    None
-                }
+                Action::extract_from_osu(value).map(Self::OSU)
             } else if value.starts_with(PROTOCOL_OSUMP.as_bytes()) {
-                if let Some(a) = Action::extract_from_osump(value) {
-                    Some(Self::OSU(a))
-                } else {
-                    None
-                }
+                Action::extract_from_osump(value).map(Self::OSU)
             } else {
                 None
             }
