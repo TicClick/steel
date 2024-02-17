@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::{BTreeMap, BTreeSet};
-use steel_core::chat::links::{OsuProtocolAction, ProtocolType};
+use steel_core::chat::links::{Action, LinkType};
 
 use steel_core::TextStyle;
 
@@ -574,9 +574,9 @@ fn format_chat_message_text(
                                         });
                                 };
 
-                            if let ProtocolType::OSU(osu_action) = protocol {
+                            if let LinkType::OSU(osu_action) = protocol {
                                 match osu_action {
-                                    OsuProtocolAction::Chat(chat) => {
+                                    Action::Chat(chat) => {
                                         match state.settings.chat.behaviour.handle_osu_chat_links {
                                             true => {
                                                 if ui
@@ -608,7 +608,7 @@ fn format_chat_message_text(
                                             false => make_regular_link(ui, &text_chunk, location),
                                         }
                                     }
-                                    OsuProtocolAction::OpenBeatmap(beatmap_id) => {
+                                    Action::OpenBeatmap(beatmap_id) => {
                                         match state.settings.chat.behaviour.handle_osu_beatmap_links
                                         {
                                             true => {
@@ -641,7 +641,7 @@ fn format_chat_message_text(
                                             false => make_regular_link(ui, &text_chunk, location),
                                         }
                                     }
-                                    OsuProtocolAction::OpenDifficulty(difficulty_id) => {
+                                    Action::OpenDifficulty(difficulty_id) => {
                                         match state.settings.chat.behaviour.handle_osu_beatmap_links
                                         {
                                             true => {
@@ -675,7 +675,7 @@ fn format_chat_message_text(
                                         }
                                     }
                                     // TODO: find a use for this
-                                    OsuProtocolAction::Multiplayer(_lobby_id) => {
+                                    Action::Multiplayer(_lobby_id) => {
                                         make_regular_link(ui, &text_chunk, location);
                                     }
                                 }
