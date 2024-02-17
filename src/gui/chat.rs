@@ -554,33 +554,41 @@ fn format_chat_message_text(
         if let Some(chunks) = &msg.chunks {
             for c in chunks {
                 match &c {
-                    MessageChunk::Text(s) | MessageChunk::Link { title: s, .. } => {
-                        let text_chunk =
-                            egui::RichText::new(s).with_styles(styles, &state.settings);
-                        if let MessageChunk::Link {
-                            location, protocol, ..
-                        } = c
-                        {
-                            let make_regular_link =
-                                |ui: &mut egui::Ui, chunk: &egui::RichText, loc: &str| {
-                                    ui.hyperlink_to(chunk.to_owned(), loc.to_owned())
-                                        .context_menu(|ui| {
-                                            if ui.button("Copy URL").clicked() {
-                                                ui.ctx().output_mut(|o| {
-                                                    o.copied_text = loc.to_owned();
-                                                });
-                                                ui.close_menu();
-                                            }
-                                        });
-                                };
-
-                            if let LinkType::OSU(osu_action) = protocol {
+                    MessageChunk::Text(text) => {
+                        let display_text =
+                            egui::RichText::new(text).with_styles(styles, &state.settings);
+                        ui.label(display_text);
+                    }
+                    MessageChunk::Link {
+                        title,
+                        location,
+                        link_type,
+                    } => {
+                        let display_text =
+                            egui::RichText::new(title).with_styles(styles, &state.settings);
+                        let make_regular_link =
+                            |ui: &mut egui::Ui, text: &egui::RichText, loc: &str| {
+                                ui.hyperlink_to(text.to_owned(), loc.to_owned())
+                                    .context_menu(|ui| {
+                                        if ui.button("Copy URL").clicked() {
+                                            ui.ctx().output_mut(|o| {
+                                                o.copied_text = loc.to_owned();
+                                            });
+                                            ui.close_menu();
+                                        }
+                                    });
+                            };
+                        match link_type {
+                            LinkType::HTTP | LinkType::HTTPS => {
+                                make_regular_link(ui, &display_text, &location);
+                            }
+                            LinkType::OSU(osu_action) => {
                                 match osu_action {
                                     Action::Chat(chat) => {
                                         match state.settings.chat.behaviour.handle_osu_chat_links {
                                             true => {
                                                 if ui
-                                                    .link(text_chunk)
+                                                    .link(display_text)
                                                     .on_hover_text_at_pointer(
                                                         match chat.is_channel() {
                                                             true => format!("Open {}", chat),
@@ -605,7 +613,7 @@ fn format_chat_message_text(
                                                     }
                                                 }
                                             }
-                                            false => make_regular_link(ui, &text_chunk, location),
+                                            false => make_regular_link(ui, &display_text, location),
                                         }
                                     }
                                     Action::OpenBeatmap(beatmap_id) => {
@@ -617,7 +625,7 @@ fn format_chat_message_text(
                                                     beatmap_id
                                                 );
                                                 if ui
-                                                    .link(text_chunk)
+                                                    .link(display_text)
                                                     .on_hover_text_at_pointer(format!(
                                                         "Beatmap #{} (open in browser)",
                                                         beatmap_id
@@ -638,7 +646,7 @@ fn format_chat_message_text(
                                                     });
                                                 }
                                             }
-                                            false => make_regular_link(ui, &text_chunk, location),
+                                            false => make_regular_link(ui, &display_text, location),
                                         }
                                     }
                                     Action::OpenDifficulty(difficulty_id) => {
@@ -650,7 +658,7 @@ fn format_chat_message_text(
                                                     difficulty_id
                                                 );
                                                 if ui
-                                                    .link(text_chunk)
+                                                    .link(display_text)
                                                     .on_hover_text_at_pointer(format!(
                                                         "Beatmap difficulty #{} (open in browser)",
                                                         difficulty_id
@@ -671,19 +679,28 @@ fn format_chat_message_text(
                                                     });
                                                 }
                                             }
-                                            false => make_regular_link(ui, &text_chunk, location),
+                                            false => make_regular_link(ui, &display_text, location),
                                         }
                                     }
                                     // TODO: find a use for this
                                     Action::Multiplayer(_lobby_id) => {
-                                        make_regular_link(ui, &text_chunk, location);
+                                        make_regular_link(ui, &display_text, location);
                                     }
                                 }
-                            } else {
-                                make_regular_link(ui, &text_chunk, location);
                             }
-                        } else {
-                            ui.label(text_chunk);
+                            LinkType::Channel => {
+                                if ui
+                                    .link(display_text)
+                                    .on_hover_text_at_pointer(format!("Open {}", location))
+                                    .clicked()
+                                {
+                                    if state.has_chat(location) {
+                                        state.core.chat_switch_requested(location, None);
+                                    } else {
+                                        state.core.channel_join_requested(location);
+                                    }
+                                }
+                            }
                         }
                     }
                 }

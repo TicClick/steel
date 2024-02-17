@@ -4,6 +4,7 @@ use crate::chat::Message;
 pub enum LinkType {
     HTTP,
     HTTPS,
+    Channel,
     OSU(Action),
 }
 
@@ -179,7 +180,7 @@ pub enum MessageChunk {
     Link {
         title: String,
         location: String,
-        protocol: LinkType,
+        link_type: LinkType,
     },
 }
 
@@ -201,7 +202,8 @@ impl Message {
         while i < bs.len() {
             // Only consider [[...]], [...], http(s)://, or osu(mp)://.
             // Yeah, I know there are other protocols and formats, but no.
-            while i < bs.len() && (bs[i] != b'[' && bs[i] != b'h' && bs[i] != b'o') {
+            while i < bs.len() && (bs[i] != b'[' && bs[i] != b'h' && bs[i] != b'o' && bs[i] != b'#')
+            {
                 i += 1;
             }
             if i == bs.len() {
@@ -221,6 +223,19 @@ impl Message {
                         protocol: protocol_type,
                     });
                 }
+                continue;
+            }
+
+            // Channel name.
+            if i < bs.len() && bs[i] == b'#' {
+                i += 1;
+                while i < bs.len() && b'a' <= bs[i] && bs[i] <= b'z' {
+                    i += 1;
+                }
+                links.push(LinkLocation::Raw {
+                    pos: (start, i),
+                    protocol: LinkType::Channel,
+                });
                 continue;
             }
 
@@ -306,7 +321,7 @@ impl Message {
             ret.push(MessageChunk::Link {
                 title: links[i].title(&self.text),
                 location: links[i].location(&self.text),
-                protocol: links[i].protocol(),
+                link_type: links[i].protocol(),
             });
             if i + 1 < links.len() {
                 let next_pos = links[i + 1].position();
@@ -361,7 +376,7 @@ mod tests {
             vec![MessageChunk::Link {
                 location: "http://test".into(),
                 title: "Test (links here)]".into(),
-                protocol: LinkType::HTTP,
+                link_type: LinkType::HTTP,
             }]
         );
 
@@ -373,7 +388,7 @@ mod tests {
                 MessageChunk::Link {
                     location: "http://test".into(),
                     title: "http://test".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 },
                 MessageChunk::Text(" Test (links here)".into()),
             ]
@@ -389,13 +404,13 @@ mod tests {
                 MessageChunk::Link {
                     location: "http://test".into(),
                     title: "Test (links here)".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "http://test".into(),
                     title: "Test (links here)".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 }
             ]
         );
@@ -407,12 +422,12 @@ mod tests {
                 MessageChunk::Link {
                     location: "http://test".into(),
                     title: "Test (links here)".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 },
                 MessageChunk::Link {
                     location: "http://test".into(),
                     title: "Test (links here)".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 },
                 MessageChunk::Text(" and after".into()),
             ]
@@ -428,7 +443,7 @@ mod tests {
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rules".into(),
                     title: "wiki:rules".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
                 MessageChunk::Text(" is the way to go".into()),
             ]
@@ -441,7 +456,7 @@ mod tests {
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/rule".into(),
                     title: "wiki:rule".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
                 MessageChunk::Text("s]] is the way to go".into()),
             ]
@@ -457,13 +472,13 @@ mod tests {
                 MessageChunk::Link {
                     location: "https://a".into(),
                     title: "https://a".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "https://bhttps://".into(),
                     title: "https://bhttps://".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
                 MessageChunk::Text(" c".into()),
             ]
@@ -479,18 +494,18 @@ mod tests {
                 MessageChunk::Link {
                     location: "https://ya.ru".into(),
                     title: "https://ya.ru".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "http://example.com".into(),
                     title: "example".into(),
-                    protocol: LinkType::HTTP,
+                    link_type: LinkType::HTTP,
                 },
                 MessageChunk::Link {
                     location: "https://osu.ppy.sh/wiki/silence".into(),
                     title: "wiki:silence".into(),
-                    protocol: LinkType::HTTPS,
+                    link_type: LinkType::HTTPS,
                 },
             ]
         );
@@ -504,7 +519,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osump://12345".into(),
                 location: "osump://12345".into(),
-                protocol: LinkType::OSU(Action::Multiplayer(12345)),
+                link_type: LinkType::OSU(Action::Multiplayer(12345)),
             },]
         );
 
@@ -514,7 +529,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osump://12345/".into(),
                 location: "osump://12345/".into(),
-                protocol: LinkType::OSU(Action::Multiplayer(12345)),
+                link_type: LinkType::OSU(Action::Multiplayer(12345)),
             },]
         );
     }
@@ -527,7 +542,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/42311".into(),
                 location: "osu://dl/42311".into(),
-                protocol: LinkType::OSU(Action::OpenBeatmap(42311)),
+                link_type: LinkType::OSU(Action::OpenBeatmap(42311)),
             },]
         );
 
@@ -537,7 +552,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/42311/".into(),
                 location: "osu://dl/42311/".into(),
-                protocol: LinkType::OSU(Action::OpenBeatmap(42311)),
+                link_type: LinkType::OSU(Action::OpenBeatmap(42311)),
             },]
         );
 
@@ -547,7 +562,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/s/42311".into(),
                 location: "osu://dl/s/42311".into(),
-                protocol: LinkType::OSU(Action::OpenBeatmap(42311)),
+                link_type: LinkType::OSU(Action::OpenBeatmap(42311)),
             },]
         );
 
@@ -557,7 +572,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/s/42311/".into(),
                 location: "osu://dl/s/42311/".into(),
-                protocol: LinkType::OSU(Action::OpenBeatmap(42311)),
+                link_type: LinkType::OSU(Action::OpenBeatmap(42311)),
             },]
         );
     }
@@ -570,7 +585,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/b/641387".into(),
                 location: "osu://dl/b/641387".into(),
-                protocol: LinkType::OSU(Action::OpenDifficulty(641387)),
+                link_type: LinkType::OSU(Action::OpenDifficulty(641387)),
             },]
         );
 
@@ -580,7 +595,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://dl/b/641387/".into(),
                 location: "osu://dl/b/641387/".into(),
-                protocol: LinkType::OSU(Action::OpenDifficulty(641387)),
+                link_type: LinkType::OSU(Action::OpenDifficulty(641387)),
             },]
         );
 
@@ -590,7 +605,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://b/641387".into(),
                 location: "osu://b/641387".into(),
-                protocol: LinkType::OSU(Action::OpenDifficulty(641387)),
+                link_type: LinkType::OSU(Action::OpenDifficulty(641387)),
             },]
         );
 
@@ -600,7 +615,7 @@ mod tests {
             vec![MessageChunk::Link {
                 title: "osu://b/641387/".into(),
                 location: "osu://b/641387/".into(),
-                protocol: LinkType::OSU(Action::OpenDifficulty(641387)),
+                link_type: LinkType::OSU(Action::OpenDifficulty(641387)),
             },]
         );
     }
@@ -614,13 +629,13 @@ mod tests {
                 MessageChunk::Link {
                     title: "osump://12345/".into(),
                     location: "osump://12345/".into(),
-                    protocol: LinkType::OSU(Action::Multiplayer(12345)),
+                    link_type: LinkType::OSU(Action::Multiplayer(12345)),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     title: "osu://chan/#russian".into(),
                     location: "osu://chan/#russian".into(),
-                    protocol: LinkType::OSU(Action::Chat("#russian".into())),
+                    link_type: LinkType::OSU(Action::Chat("#russian".into())),
                 }
             ]
         );
@@ -635,13 +650,13 @@ mod tests {
                 MessageChunk::Link {
                     location: "osump://12345/".into(),
                     title: "join my room".into(),
-                    protocol: LinkType::OSU(Action::Multiplayer(12345)),
+                    link_type: LinkType::OSU(Action::Multiplayer(12345)),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "osu://chan/#osu".into(),
                     title: "#chaos".into(),
-                    protocol: LinkType::OSU(Action::Chat("#osu".into())),
+                    link_type: LinkType::OSU(Action::Chat("#osu".into())),
                 }
             ]
         );
@@ -657,19 +672,19 @@ mod tests {
                 MessageChunk::Link {
                     location: "osump://12345/".into(),
                     title: "моя комната".into(),
-                    protocol: LinkType::OSU(Action::Multiplayer(12345)),
+                    link_type: LinkType::OSU(Action::Multiplayer(12345)),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "osu://chan/#osu".into(),
                     title: "#господичтоэто".into(),
-                    protocol: LinkType::OSU(Action::Chat("#osu".into())),
+                    link_type: LinkType::OSU(Action::Chat("#osu".into())),
                 },
                 MessageChunk::Text(" ".into()),
                 MessageChunk::Link {
                     location: "osu://dl/123".into(),
                     title: "非".into(),
-                    protocol: LinkType::OSU(Action::OpenBeatmap(123)),
+                    link_type: LinkType::OSU(Action::OpenBeatmap(123)),
                 },
             ]
         );
