@@ -143,24 +143,39 @@ impl Menu {
 
     fn show_help_menu(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, state: &mut UIState) {
         ui.menu_button("help", |ui| {
-            if ui.button("open diagnostic log").on_hover_text_at_pointer(
-                "open the text journal with debug messages and errors -- may or may not help with debugging"
-            ).clicked() {
-                crate::core::os::open_runtime_log();
-                ui.close_menu();
-            }
-
             let autoupdate_status = format!("automated updates: {}", match state.settings.application.autoupdate.enabled {
                 true => "enabled",
                 false => "disabled",
             });
-
-            if ui.button("check for updates").on_hover_text_at_pointer(autoupdate_status).clicked() {
+            if ui.button("update").on_hover_text_at_pointer(autoupdate_status).clicked() {
                 self.show_update = !self.show_update;
                 ui.close_menu();
             }
 
             ui.separator();
+
+            ui.menu_button("open", |ui| {
+                if ui.button("app location").on_hover_text_at_pointer(
+                    "open the directory where the app is located"
+                ).clicked() {
+                    crate::core::os::open_own_directory();
+                    ui.close_menu();
+                }
+
+                if ui.button("log file").on_hover_text_at_pointer(
+                    "open text journal with debug messages and errors -- may or may not help with debugging"
+                ).clicked() {
+                    crate::core::os::open_runtime_log();
+                    ui.close_menu();
+                }
+
+                if ui.button("settings file").on_hover_text_at_pointer(
+                    "open settings in Notepad"
+                ).clicked() {
+                    crate::core::os::open_settings_file();
+                    ui.close_menu();
+                }
+            });
 
             if ui.button("usage guide").on_hover_text_at_pointer(
                 "show the help window with bits about interface, features, and all things related"
