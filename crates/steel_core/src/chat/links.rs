@@ -221,13 +221,16 @@ impl Message {
             // Channel name.
             if i < bs.len() && bs[i] == b'#' {
                 i += 1;
-                while i < bs.len() && b'a' <= bs[i] && bs[i] <= b'z' {
+                while i < bs.len() && ((b'a' <= bs[i] && bs[i] <= b'z') || bs[i] == b'_') {
                     i += 1;
                 }
-                links.push(LinkLocation::Raw {
-                    pos: (start, i),
-                    protocol: LinkType::Channel,
-                });
+                // '#' is an invalid channel name -- skip it.
+                if i > start + 1 {
+                    links.push(LinkLocation::Raw {
+                        pos: (start, i),
+                        protocol: LinkType::Channel,
+                    });
+                }
                 continue;
             }
 

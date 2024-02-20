@@ -236,9 +236,9 @@ impl ApplicationWindow {
                 }
 
                 UIMessageIn::ChatSwitchRequested(name, message_id) => {
+                    let lowercase_name = name.to_lowercase();
+                    self.s.highlights.mark_as_read(&lowercase_name);
                     if self.s.has_chat(&name) {
-                        let lowercase_name = name.to_lowercase();
-                        self.s.highlights.mark_as_read(&lowercase_name);
                         self.s.active_chat_tab_name = lowercase_name;
                         if message_id.is_some() {
                             self.chat.scroll_to = message_id;

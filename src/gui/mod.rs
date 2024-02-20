@@ -76,14 +76,14 @@ impl DecoratedText for &str {
 }
 
 pub fn validate_username(input: &str) -> Result<(), &'static str> {
-    match input.contains(|ch: char| !ch.is_ascii_alphanumeric() && !"-_ []".contains(ch)) {
+    match input.contains(|ch: char| !(ch.is_ascii_alphanumeric() || "-_ []@".contains(ch))) {
         true => Err("invalid username"),
         false => Ok(()),
     }
 }
 
 pub fn validate_channel_name(input: &str) -> Result<(), &'static str> {
-    match input.contains(|ch: char| !ch.is_ascii_alphanumeric() && ch != '#') {
+    match input.contains(|ch: char| !(ch.is_ascii_alphanumeric() || ch == '#' || ch == '_')) {
         true => Err("invalid channel name"),
         false => Ok(()),
     }
