@@ -156,7 +156,7 @@ impl UIState {
         let normalized = target.to_lowercase();
         let tab_inactive = !self.is_active_tab(&normalized);
 
-        let mut name_updated = true;
+        let mut name_updated = false;
 
         if let Some(pos) = self.name_to_chat.get(&normalized) {
             if let Some(ch) = self.chats.get_mut(*pos) {
