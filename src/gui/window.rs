@@ -136,6 +136,7 @@ pub struct ApplicationWindow {
     ui_queue: Receiver<UIMessageIn>,
     s: UIState,
     date_announcer: DateAnnouncer,
+    filter_ui: gui::filter::FilterWindow,
 }
 
 impl ApplicationWindow {
@@ -157,6 +158,7 @@ impl ApplicationWindow {
             ui_queue,
             s: UIState::new(app_queue_handle),
             date_announcer: DateAnnouncer::default(),
+            filter_ui: gui::filter::FilterWindow::default(),
         }
     }
 
@@ -345,6 +347,9 @@ impl eframe::App for ApplicationWindow {
         self.menu
             .show(ctx, frame, &mut self.s, &mut self.chat.response_widget_id);
         self.chat_tabs.show(ctx, &mut self.s);
+
+        self.filter_ui.show(ctx, &mut self.s);
+
         self.chat.show(ctx, &self.s);
 
         if !self.menu.dialogs_visible() {

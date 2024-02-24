@@ -190,9 +190,13 @@ impl ChatWindow {
                             body.heterogeneous_rows(heights, |mut row| {
                                 let row_index = row.index();
                                 last_visible_row = row_index;
-                                row.col(|ui| {
-                                    self.show_regular_chat_single_message(ui, state, ch, row_index);
-                                });
+                                if state.filter.matches(&ch.messages[row_index]) {
+                                    row.col(|ui| {
+                                        self.show_regular_chat_single_message(
+                                            ui, state, ch, row_index,
+                                        );
+                                    });
+                                }
                             });
                         } else {
                             match state.active_chat_tab_name.as_str() {
