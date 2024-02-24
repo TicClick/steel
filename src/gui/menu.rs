@@ -110,6 +110,13 @@ impl Menu {
         response_widget_id: &mut Option<egui::Id>,
     ) {
         ui.menu_button("chat", |ui| {
+            if ui.button("find...").clicked() {
+                state.filter.active = true;
+                ui.close_menu();
+            }
+
+            ui.separator();
+
             let (action, enabled) = match state.connection {
                 ConnectionStatus::Disconnected { .. } => ("connect".to_owned(), true),
                 ConnectionStatus::InProgress => ("connecting...".to_owned(), false),

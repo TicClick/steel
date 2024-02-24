@@ -94,7 +94,8 @@ pub struct FilterWindow {
 
 impl FilterWindow {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
-        let mut activated_now = false;
+        self.show_ui = state.filter.active; // Handle menu clicks (chat > find...).
+        let mut activated_now = false; // Handle Ctrl-F presses that happened during the current frame.
 
         if !self.show_ui && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F)) {
             self.show_ui = true;
@@ -107,11 +108,6 @@ impl FilterWindow {
             activated_now = false;
         }
 
-        if !self.show_ui {
-            state.filter.active = false;
-            return;
-        }
-
         egui::Window::new("chat filter")
             .auto_sized()
             .open(&mut self.show_ui)
@@ -119,19 +115,30 @@ impl FilterWindow {
                 ui.vertical(|ui| {
                     ui.horizontal(|ui| {
                         ui.label("message");
-                        let resp = ui.add(egui::TextEdit::singleline(&mut state.filter.text.input).desired_width(150.));
+                        let resp = ui.add(
+                            egui::TextEdit::singleline(&mut state.filter.text.input)
+                                .desired_width(150.),
+                        );
                         if activated_now {
                             resp.request_focus();
                         }
                     });
                     ui.horizontal(|ui| {
                         ui.label("username");
-                        ui.add(egui::TextEdit::singleline(&mut state.filter.username.input).desired_width(150.));
+                        ui.add(
+                            egui::TextEdit::singleline(&mut state.filter.username.input)
+                                .desired_width(150.),
+                        );
                     });
                     if ui.button("reset").clicked() {
                         state.filter.reset();
                     }
                 });
             });
+
+        // Deactivate the filter if the window has been closed during the current frame.
+        if !self.show_ui {
+            state.filter.active = false;
+        }
     }
 }
