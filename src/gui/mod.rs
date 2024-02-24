@@ -7,6 +7,7 @@ pub mod about;
 pub mod chat;
 pub mod chat_tabs;
 pub mod command;
+pub mod filter;
 pub mod highlights;
 pub mod menu;
 pub mod settings;

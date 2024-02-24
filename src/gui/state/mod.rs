@@ -11,6 +11,7 @@ use crate::core::settings::Settings;
 
 use crate::gui::highlights;
 
+use super::filter::FilterCollection;
 use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
 
 #[derive(Debug)]
@@ -42,6 +43,8 @@ pub struct UIState {
 
     #[cfg(feature = "glass")]
     pub glass: glass::Glass,
+
+    pub filter: FilterCollection,
 }
 
 impl UIState {
@@ -60,6 +63,8 @@ impl UIState {
 
             #[cfg(feature = "glass")]
             glass: glass::Glass::default(),
+
+            filter: FilterCollection::default(),
         }
     }
 
