@@ -17,10 +17,15 @@ impl SettingsWindow {
             ui.heading("application");
             ui.horizontal(|ui| {
                 ui.label("interface scaling");
+                let previous_frame_scaling_value = state.settings.ui.scaling;
                 let font_size_slider = egui::Slider::new(&mut state.settings.ui.scaling, 1.0..=2.5)
                     .fixed_decimals(2)
-                    .drag_value_speed(0.5);
-                if ui.add(font_size_slider).drag_released() {
+                    .drag_value_speed(0.1);
+
+                let resp = ui.add(font_size_slider);
+                if (previous_frame_scaling_value != state.settings.ui.scaling && !resp.dragged())
+                    || (resp.drag_released())
+                {
                     ui.ctx().set_pixels_per_point(state.settings.ui.scaling);
                 }
             });
