@@ -91,15 +91,21 @@ impl UsageWindow {
         ui.vertical(|ui| {
             ui.heading("chat");
             ui.label(
-                "type / to see available chat commands. these without input parameters are instant, so take heed.\n\
-                \n\
-                hover over a timestamp to see its date and UTC time. the messages are stamped on delivery \
-                to your device, so unless the network is terribly laggy, 99.9% of the time it's accurate enough.\n\
-                \n\
-                some more UX wisdom:\n\
-                - left clicking a user's name will insert it into the chat input\n\
-                - right clicking them will bring out the context menu\n\
-                - chat links are clickable and can be copied\n\
+                "- type / to see available chat commands. the commands without input parameters are instant, so take heed.\n\
+                - hover over a timestamp to see its date and UTC time. the messages are stamped on delivery \
+                to your device, so unless the network is terribly laggy, 99.9% of the time it's accurate enough."
+            );
+
+            ui.heading("actions");
+            ui.label(
+                "- Ctrl + F anywhere: open chat filter dialog \n\
+                - left click on user: insert username into text input\n\
+                - right click on user: show context menu"
+            );
+
+            ui.heading("some more UX wisdom");
+            ui.label(
+                "- chat links are clickable and can be copied\n\
                 - \"mIRC colours\" aren't supported. AOL has died, and so has MSN -- sorry! we'll all be there."
             )
         });
