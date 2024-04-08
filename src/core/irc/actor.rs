@@ -120,6 +120,7 @@ impl IRCActor {
                         .unwrap();
                     *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
+                    let mut disconnected_by_user = false;
                     let mut stream = clt.stream().unwrap();
                     loop {
                         let (lock, cv) = &*arc;
@@ -130,10 +131,7 @@ impl IRCActor {
                             if *g {
                                 *g = false;
                                 clt.send_quit("").unwrap();
-                                tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                    ConnectionStatus::Disconnected { by_user: true },
-                                ))
-                                .unwrap();
+                                disconnected_by_user = true;
                                 break;
                             }
                         }
@@ -148,10 +146,6 @@ impl IRCActor {
                                         )),
                                     ))
                                     .unwrap();
-                                    tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                        ConnectionStatus::Disconnected { by_user: false },
-                                    ))
-                                    .unwrap();
                                     break;
                                 }
                                 Ok(msg) => {
@@ -159,14 +153,21 @@ impl IRCActor {
                                 }
                             },
                             None => {
-                                tx.blocking_send(AppMessageIn::ConnectionChanged(
-                                    ConnectionStatus::Disconnected { by_user: false },
-                                ))
+                                tx.blocking_send(AppMessageIn::ChatError(IRCError::FatalError(
+                                    "remote server has closed the connection, probably because it went offline".to_owned(),
+                                )))
                                 .unwrap();
                                 break;
                             }
                         }
                     }
+
+                    tx.blocking_send(AppMessageIn::ConnectionChanged(
+                        ConnectionStatus::Disconnected {
+                            by_user: disconnected_by_user,
+                        },
+                    ))
+                    .unwrap();
                 }
             }
         }));
