@@ -122,7 +122,7 @@ impl Menu {
                 ConnectionStatus::InProgress => ("connecting...".to_owned(), false),
                 ConnectionStatus::Scheduled(when) => {
                     let action = format!(
-                        "reconnecting ({}s)",
+                        "reconnect (or wait {}s)",
                         (when - chrono::Local::now()).num_seconds()
                     );
                     (action, true)
