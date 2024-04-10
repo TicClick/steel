@@ -113,7 +113,10 @@ impl ChatWindow {
                                 result
                             }
                         {
-                            state.core.chat_message_sent(&ch.name, &self.chat_input);
+                            let trimmed_message = self.chat_input.trim();
+                            if !trimmed_message.is_empty() {
+                                state.core.chat_message_sent(&ch.name, trimmed_message);
+                            }
                             self.chat_input.clear();
                             response.request_focus();
                         }
