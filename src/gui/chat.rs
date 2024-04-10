@@ -180,6 +180,11 @@ impl ChatWindow {
                     .clone()
                     .into_iter();
                 let mut last_visible_row = 0;
+                let mut max_rows = self
+                    .cached_row_heights
+                    .get_mut(&state.active_chat_tab_name)
+                    .unwrap()
+                    .len();
 
                 builder
                     .max_scroll_height(view_height)
@@ -187,17 +192,54 @@ impl ChatWindow {
                     .auto_shrink([false; 2])
                     .body(|body| {
                         if let Some(ch) = state.active_chat() {
-                            body.heterogeneous_rows(heights, |mut row| {
-                                let row_index = row.index();
-                                last_visible_row = row_index;
-                                if state.filter.matches(&ch.messages[row_index]) {
+                            // Filter the messages. I can probably only pass the references around instead of copying
+                            // the whole object, and avoid code duplication, but input types don't match, and I don't
+                            // have enough vigor to rewrite `Chat` in a way that `ch.messages` only stores their references.
+                            if state.filter.active {
+                                let mut filtered_payload = Vec::new();
+                                let mut filtered_heights = Vec::new();
+                                let mut original_indices = Vec::new();
+
+                                let heights: Vec<f32> = heights.collect();
+                                for (idx, m) in ch.messages.iter().enumerate() {
+                                    if state.filter.matches(m) {
+                                        filtered_payload.push(m);
+                                        filtered_heights.push(heights[idx]);
+                                        original_indices.push(idx);
+                                    }
+                                }
+                                max_rows = heights.len();
+
+                                body.heterogeneous_rows(filtered_heights.into_iter(), |mut row| {
+                                    let row_index = row.index();
+                                    last_visible_row = row_index;
                                     row.col(|ui| {
                                         self.show_regular_chat_single_message(
-                                            ui, state, ch, row_index,
+                                            ui,
+                                            state,
+                                            ch,
+                                            &ch.messages[original_indices[row_index]],
+                                            row_index,
+                                            false,
                                         );
                                     });
-                                }
-                            });
+                                });
+                            } else {
+                                body.heterogeneous_rows(heights, |mut row| {
+                                    let row_index = row.index();
+                                    last_visible_row = row_index;
+                                    row.col(|ui| {
+                                        self.show_regular_chat_single_message(
+                                            ui,
+                                            state,
+                                            ch,
+                                            &ch.messages[row_index],
+                                            row_index,
+                                            true,
+                                        );
+                                    });
+                                });
+                            }
                         } else {
                             match state.active_chat_tab_name.as_str() {
                                 super::SERVER_TAB_NAME => {
@@ -236,13 +278,7 @@ impl ChatWindow {
                     });
 
                 // FIXME: the shadow is removed as soon as the last row becomes PARTIALLY, NOT FULLY visible.
-                if last_visible_row + 1
-                    < self
-                        .cached_row_heights
-                        .get_mut(&state.active_chat_tab_name)
-                        .unwrap()
-                        .len()
-                {
+                if last_visible_row + 1 < max_rows {
                     if self.shadow_next_frame {
                         ui.inner_shadow_bottom(20);
                     } else {
@@ -260,10 +296,11 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         ch: &Chat,
+        msg: &Message,
         message_index: usize,
+        cache_heights: bool,
     ) {
-        let msg = &ch.messages[message_index];
-
+        // let msg = &ch.messages[message_index];
         #[allow(unused_mut)] // glass
         let mut username_styles = BTreeSet::<TextStyle>::new();
         let mut message_styles = BTreeSet::<TextStyle>::new();
@@ -302,9 +339,11 @@ impl ChatWindow {
             })
             .inner
             .inner;
-        self.cached_row_heights
-            .get_mut(&state.active_chat_tab_name)
-            .unwrap()[message_index] = updated_height;
+        if cache_heights {
+            self.cached_row_heights
+                .get_mut(&state.active_chat_tab_name)
+                .unwrap()[message_index] = updated_height;
+        }
     }
 
     fn show_highlights_tab_single_message(
