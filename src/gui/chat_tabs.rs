@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use eframe::egui::{self, Ui};
+use eframe::egui::{self, Frame, Margin, Ui};
 use steel_core::settings::Colour;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
@@ -12,27 +12,46 @@ use crate::gui::state::UIState;
 pub struct ChatTabs {
     pub new_channel_input: String,
     pub new_chat_input: String,
-    chat_row_height: Option<f32>,
     tab_centers: Vec<(usize, f32)>,
 }
 
 impl ChatTabs {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
+        let frame_maker = || Frame::none().inner_margin(Margin::symmetric(0., 2.));
+
         egui::SidePanel::left("chats").show(ctx, |ui| {
-            ui.heading("public channels");
-            if state.is_connected() {
-                self.show_new_chat_input(state, ui, ChatType::Channel);
-            }
-            self.show_chats(state, ui, ChatType::Channel);
+            egui::TopBottomPanel::top("public-channels-panel")
+                .resizable(true)
+                .show_separator_line(false)
+                .frame(frame_maker())
+                .show_inside(ui, |ui| {
+                    ui.heading("public channels");
+                    if state.is_connected() {
+                        self.show_new_chat_input(state, ui, ChatType::Channel);
+                    }
+                    self.show_chats(state, ui, ChatType::Channel);
+                });
 
-            ui.heading("private messages");
-            if state.is_connected() {
-                self.show_new_chat_input(state, ui, ChatType::Person);
-            }
-            self.show_chats(state, ui, ChatType::Person);
+            egui::TopBottomPanel::top("private-chats-panel")
+                .resizable(true)
+                .show_separator_line(false)
+                .frame(frame_maker())
+                .show_inside(ui, |ui| {
+                    ui.heading("private messages");
+                    if state.is_connected() {
+                        self.show_new_chat_input(state, ui, ChatType::Person);
+                    }
+                    self.show_chats(state, ui, ChatType::Person);
+                });
 
-            ui.heading("system");
-            self.show_system_tabs(state, ui);
+            egui::TopBottomPanel::top("system-chats-panel")
+                .resizable(false)
+                .show_separator_line(false)
+                .frame(frame_maker())
+                .show_inside(ui, |ui| {
+                    ui.heading("system");
+                    self.show_system_tabs(state, ui);
+                });
         });
     }
 }
@@ -215,11 +234,6 @@ impl ChatTabs {
             })
             .collect();
 
-        let chat_row_height = *self.chat_row_height.get_or_insert_with(|| {
-            ui.text_style_height(&egui::TextStyle::Body) + 2. * ui.spacing().item_spacing.y
-        });
-        let area_height = chat_row_height * it.len().clamp(0, 10) as f32;
-
         let mut chats_to_clear = BTreeSet::new();
         self.tab_centers.resize(state.chat_count(), (0, 0.));
         let tc = self.tab_centers.clone();
@@ -227,7 +241,6 @@ impl ChatTabs {
         egui::ScrollArea::vertical()
             .id_source(format!("{mode}-tabs"))
             .auto_shrink([false, true])
-            .max_height(area_height)
             .show(ui, |ui| {
                 for (interleaved_pos, normalized_chat_name, chat_name, chat_state) in it {
                     ui.horizontal(|ui| {
