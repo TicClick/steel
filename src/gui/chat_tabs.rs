@@ -76,34 +76,32 @@ fn tab_context_menu(
     mode: &ChatType,
     chats_to_clear: &mut BTreeSet<String>,
 ) {
-    if matches!(mode, ChatType::Channel) {
-        if state
-            .settings
-            .chat
-            .autojoin
-            .iter()
-            .any(|s| s == normalized_chat_name)
-        {
-            if ui.button("Remove from favourites").clicked() {
-                state
-                    .settings
-                    .chat
-                    .autojoin
-                    .retain(|s| s != normalized_chat_name);
-                // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
-                state.core.settings_updated(&state.settings);
-                ui.close_menu();
-            }
-        } else if ui.button("Add to favourites").clicked() {
+    if state
+        .settings
+        .chat
+        .autojoin
+        .iter()
+        .any(|s| s == normalized_chat_name)
+    {
+        if ui.button("Remove from favourites").clicked() {
             state
                 .settings
                 .chat
                 .autojoin
-                .push(normalized_chat_name.to_owned());
+                .retain(|s| s != normalized_chat_name);
             // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
             state.core.settings_updated(&state.settings);
             ui.close_menu();
         }
+    } else if ui.button("Add to favourites").clicked() {
+        state
+            .settings
+            .chat
+            .autojoin
+            .push(normalized_chat_name.to_owned());
+        // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
+        state.core.settings_updated(&state.settings);
+        ui.close_menu();
     }
 
     if ui.button("Clear messages").clicked() {
