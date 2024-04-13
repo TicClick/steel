@@ -8,6 +8,8 @@ use crate::core::chat::{ChatLike, ChatState, ChatType};
 use crate::gui::highlights::UnreadType;
 use crate::gui::state::UIState;
 
+const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
+
 #[derive(Default)]
 pub struct ChatTabs {
     pub new_channel_input: String,
@@ -241,6 +243,7 @@ impl ChatTabs {
         egui::ScrollArea::vertical()
             .id_source(format!("{mode}-tabs"))
             .auto_shrink([false, true])
+            .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
                 for (interleaved_pos, normalized_chat_name, chat_name, chat_state) in it {
                     ui.horizontal(|ui| {
