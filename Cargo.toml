@@ -35,8 +35,10 @@ tar = "0.4.40"
 zip = "0.6.6"
 md5 = "0.7.0"
 
-# dependency of the alsa-sys crate: librust-alsa-sys-dev
-rodio = "0.17.3"
+# Supporting library for rodio's "alsa-sys" dependency: librust-alsa-sys-dev
+# TODO(TicClick): The fork is a workaround for Windows not respecting default audio device change.
+# It can be removed along with TicClick/cpal once https://github.com/RustAudio/rodio/issues/463 is resolved.
+rodio = { git = "https://github.com/TicClick/rodio.git", branch = "master" } # v0.17.3
 png = "0.17.10"
 
 libloading = "0.8.1"
