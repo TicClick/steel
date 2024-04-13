@@ -231,6 +231,8 @@ impl Application {
                         self.maybe_remember_chat(&chat, false);
                         if chat.is_channel() {
                             self.join_channel(&chat);
+                        } else {
+                            self.push_chat_to_ui(&chat, false);
                         }
                     }
                 }

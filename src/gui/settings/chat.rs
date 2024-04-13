@@ -3,72 +3,111 @@ use std::collections::BTreeSet;
 
 use super::SettingsWindow;
 use crate::gui::state::UIState;
-use steel_core::chat::ChatLike;
+use steel_core::chat::{ChatLike, ChatType};
 use steel_core::settings::{ChatBackend, Settings};
 
 #[derive(Default)]
 pub struct AutojoinSection {
     autojoin_channel_input: String,
+    autojoin_user_input: String,
 }
 
 impl AutojoinSection {
-    pub fn show(&mut self, settings: &mut Settings, ui: &mut eframe::egui::Ui) {
-        let validation_result = crate::gui::validate_channel_name(&self.autojoin_channel_input);
+    fn display_editable_container(
+        settings: &mut Settings,
+        ui: &mut eframe::egui::Ui,
+        input: &mut String,
+        input_type: ChatType,
+    ) {
+        let validation_result = match input_type {
+            ChatType::Channel => crate::gui::validate_channel_name(input),
+            ChatType::Person => crate::gui::validate_username(input),
+        };
+        ui.horizontal(|ui| {
+            let add_item = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
+            let response = ui.add(egui::TextEdit::singleline(input).hint_text("name"));
 
+            let add_item = !input.is_empty()
+                && (add_item.clicked()
+                    || (response.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+            if add_item && validation_result.is_ok() {
+                let input_string = match input_type {
+                    ChatType::Channel => {
+                        if input.is_channel() {
+                            input.to_owned()
+                        } else {
+                            format!("#{}", input)
+                        }
+                    }
+                    ChatType::Person => input.to_owned(),
+                };
+
+                if !settings.chat.autojoin.contains(&input_string) {
+                    settings.chat.autojoin.push(input_string);
+                }
+                input.clear();
+                response.request_focus();
+            }
+        });
+        if let Err(reason) = validation_result {
+            crate::gui::chat_validation_error(ui, reason);
+        }
+
+        let mut to_remove = BTreeSet::new();
+        let layout = egui::Layout::left_to_right(egui::Align::Max).with_main_wrap(true);
+        ui.with_layout(layout, |ui| {
+            ui.spacing_mut().item_spacing.x /= 2.;
+            for name in settings
+                .chat
+                .autojoin
+                .iter()
+                .filter(|item| match input_type {
+                    ChatType::Channel => item.is_channel(),
+                    ChatType::Person => !item.is_channel(),
+                })
+            {
+                let item_button = ui
+                    .button(name)
+                    .on_hover_text_at_pointer("middle click = remove");
+                let mut remove_item = item_button.middle_clicked();
+                item_button.context_menu(|ui| {
+                    if ui.button("Remove").clicked() {
+                        remove_item = true;
+                        ui.close_menu();
+                    }
+                });
+                if remove_item {
+                    to_remove.insert(name.to_owned());
+                }
+            }
+            settings.chat.autojoin.retain(|s| !to_remove.contains(s));
+        });
+    }
+
+    pub fn show(&mut self, settings: &mut Settings, ui: &mut eframe::egui::Ui) {
         ui.vertical(|ui| {
             ui.heading("auto-join channels").on_hover_text_at_pointer(
-                "these channels will be open automatically when you connect to the server -- think of them as favourites"
+                "your favourite channels -- they will be automatically open on connect",
             );
-            ui.horizontal(|ui| {
-                let add_autojoin_channel = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
-                let response = ui.add(
-                    egui::TextEdit::singleline(&mut self.autojoin_channel_input)
-                        .hint_text("channel name"),
-                );
+            Self::display_editable_container(
+                settings,
+                ui,
+                &mut self.autojoin_channel_input,
+                ChatType::Channel,
+            );
+        });
 
-                let add_autojoin_channel = !self.autojoin_channel_input.is_empty()
-                    && (add_autojoin_channel.clicked()
-                        || (response.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
-
-                if add_autojoin_channel && validation_result.is_ok() {
-                    let channel_name = if self.autojoin_channel_input.is_channel() {
-                        self.autojoin_channel_input.to_owned()
-                    } else {
-                        format!("#{}", self.autojoin_channel_input)
-                    };
-                    if !settings.chat.autojoin.contains(&channel_name) {
-                        settings.chat.autojoin.push(channel_name);
-                    }
-                    self.autojoin_channel_input.clear();
-                    response.request_focus();
-                }
-            });
-            if let Err(reason) = validation_result {
-                crate::gui::chat_validation_error(ui, reason);
-            }
-
-            let mut to_remove = BTreeSet::new();
-            let layout = egui::Layout::left_to_right(egui::Align::Max).with_main_wrap(true);
-            ui.with_layout(layout, |ui| {
-                ui.spacing_mut().item_spacing.x /= 2.;
-                for name in settings.chat.autojoin.iter() {
-                    let channel_button = ui
-                        .button(name)
-                        .on_hover_text_at_pointer("middle click = remove");
-                    let mut remove_channel = channel_button.middle_clicked();
-                    channel_button.context_menu(|ui| {
-                        if ui.button("Remove").clicked() {
-                            remove_channel = true;
-                            ui.close_menu();
-                        }
-                    });
-                    if remove_channel {
-                        to_remove.insert(name.to_owned());
-                    }
-                }
-                settings.chat.autojoin.retain(|s| !to_remove.contains(s));
-            });
+        ui.vertical(|ui| {
+            ui.heading("auto-open chats").on_hover_text_at_pointer(
+                "your favourite users -- their chat windows will be automatically open on connect",
+            );
+            Self::display_editable_container(
+                settings,
+                ui,
+                &mut self.autojoin_user_input,
+                ChatType::Person,
+            );
         });
     }
 }
