@@ -221,7 +221,11 @@ impl Message {
             // Channel name.
             if i < bs.len() && bs[i] == b'#' {
                 i += 1;
-                while i < bs.len() && ((b'a' <= bs[i] && bs[i] <= b'z') || bs[i] == b'_') {
+                while i < bs.len()
+                    && ((b'a' <= bs[i] && bs[i] <= b'z')
+                        || bs[i] == b'_'
+                        || (b'0' <= bs[i] && bs[i] <= b'9'))
+                {
                     i += 1;
                 }
                 // '#' is an invalid channel name -- skip it.
@@ -681,6 +685,35 @@ mod tests {
                     title: "非".into(),
                     link_type: LinkType::OSU(Action::OpenBeatmap(123)),
                 },
+            ]
+        );
+    }
+
+    #[test]
+    fn plain_channel_names() {
+        let message = m("Check this out: #russian + #mp_10966036 + #spect_672931 = ???");
+        assert_eq!(
+            message.chunks.unwrap(),
+            vec![
+                MessageChunk::Text("Check this out: ".into()),
+                MessageChunk::Link {
+                    location: "#russian".into(),
+                    title: "#russian".into(),
+                    link_type: LinkType::Channel,
+                },
+                MessageChunk::Text(" + ".into()),
+                MessageChunk::Link {
+                    location: "#mp_10966036".into(),
+                    title: "#mp_10966036".into(),
+                    link_type: LinkType::Channel,
+                },
+                MessageChunk::Text(" + ".into()),
+                MessageChunk::Link {
+                    location: "#spect_672931".into(),
+                    title: "#spect_672931".into(),
+                    link_type: LinkType::Channel,
+                },
+                MessageChunk::Text(" = ???".into()),
             ]
         );
     }
