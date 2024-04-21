@@ -1,4 +1,5 @@
 use eframe::egui;
+use steel_core::chat::ChatLike;
 
 use super::state::UIState;
 
@@ -90,14 +91,14 @@ struct OpenChat {
 impl Command for OpenChat {
     fn new() -> Self {
         Self {
-            aliases: ["/chat".into(), "/query".into(), "/q".into(), "/join".into()].to_vec(),
+            aliases: ["/chat".into(), "/query".into(), "/q".into()].to_vec(),
         }
     }
     fn description(&self) -> &str {
-        "open a chat tab with user, or join a new #channel"
+        "open a chat tab with a user"
     }
     fn example(&self) -> &str {
-        "/chat #russian"
+        "/chat BanchoBot"
     }
     fn aliases(&self) -> &Vec<String> {
         &self.aliases
@@ -106,10 +107,44 @@ impl Command for OpenChat {
         1
     }
     fn ui_title(&self) -> egui::RichText {
-        egui::RichText::new("/chat <user or #channel>")
+        egui::RichText::new("/chat <user>")
     }
     fn action(&self, state: &UIState, args: Vec<String>) {
         state.core.private_chat_opened(&args[0]);
+    }
+}
+
+struct JoinChannel {
+    pub aliases: Vec<String>,
+}
+
+impl Command for JoinChannel {
+    fn new() -> Self {
+        Self {
+            aliases: ["/join".into(), "/j".into()].to_vec(),
+        }
+    }
+    fn description(&self) -> &str {
+        "join a channel"
+    }
+    fn example(&self) -> &str {
+        "/join #mapping"
+    }
+    fn aliases(&self) -> &Vec<String> {
+        &self.aliases
+    }
+    fn argcount(&self) -> usize {
+        1
+    }
+    fn ui_title(&self) -> egui::RichText {
+        egui::RichText::new("/join <#channel>")
+    }
+    fn action(&self, state: &UIState, args: Vec<String>) {
+        if args[0].is_channel() {
+            state.core.private_chat_opened(&args[0]);
+        } else {
+            state.core.private_chat_opened(&format!("#{}", &args[0]));
+        }
     }
 }
 
@@ -237,6 +272,7 @@ impl Default for CommandHelper {
             commands: vec![
                 Box::new(Me::new()),
                 Box::new(OpenChat::new()),
+                Box::new(JoinChannel::new()),
                 Box::new(CloseChat::new()),
                 Box::new(ClearChat::new()),
                 Box::new(ShowUsage::new()),
