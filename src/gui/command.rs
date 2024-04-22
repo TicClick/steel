@@ -141,9 +141,9 @@ impl Command for JoinChannel {
     }
     fn action(&self, state: &UIState, args: Vec<String>) {
         if args[0].is_channel() {
-            state.core.private_chat_opened(&args[0]);
+            state.core.channel_join_requested(&args[0]);
         } else {
-            state.core.private_chat_opened(&format!("#{}", &args[0]));
+            state.core.channel_join_requested(&format!("#{}", &args[0]));
         }
     }
 }
