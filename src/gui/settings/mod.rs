@@ -20,6 +20,8 @@ pub enum Tab {
     Chat,
     Interface,
     Notifications,
+    #[cfg(feature = "glass")]
+    Moderation,
 }
 
 #[derive(Default)]
@@ -55,13 +57,21 @@ impl SettingsWindow {
                     ui.selectable_value(&mut self.active_tab, Tab::Chat, "chat");
                     ui.selectable_value(&mut self.active_tab, Tab::Interface, "interface");
                     ui.selectable_value(&mut self.active_tab, Tab::Notifications, "notifications");
+
+                    #[cfg(feature = "glass")]
+                    ui.selectable_value(&mut self.active_tab, Tab::Moderation, "moderation");
                 });
+
                 ui.separator();
+
                 match self.active_tab {
                     Tab::Application => self.show_application_tab(ctx, ui, state),
                     Tab::Chat => self.show_chat_tab(ctx, ui, state),
                     Tab::Interface => self.show_ui_tab(ui, state),
                     Tab::Notifications => self.show_notifications_tab(ui, state),
+
+                    #[cfg(feature = "glass")]
+                    Tab::Moderation => state.glass.show_ui(ui, &state.settings.ui.theme),
                 }
             });
 
@@ -76,13 +86,21 @@ impl SettingsWindow {
                         .double_clicked()
                     {
                         state.core.settings_requested();
+
+                        #[cfg(feature = "glass")]
+                        state.glass.load_settings();
                     }
+
                     if ui
                         .button("save settings")
                         .on_hover_text_at_pointer("save active settings to file")
                         .clicked()
                     {
                         state.core.settings_updated(&state.settings.clone());
+
+                        #[cfg(feature = "glass")]
+                        state.glass.save_settings();
+
                         save_clicked = true;
                     }
                 });

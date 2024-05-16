@@ -5,7 +5,6 @@ pub mod journal;
 pub mod notifications;
 pub mod ui;
 
-use std::env;
 use std::io::Write;
 
 use serde::{Deserialize, Serialize};
@@ -21,9 +20,6 @@ pub use ui::{ChatColours, ThemeMode, UI};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
-    #[serde(skip)]
-    settings_path: Source,
-
     pub application: Application,
     pub chat: Chat,
     pub notifications: Notifications,
@@ -31,15 +27,12 @@ pub struct Settings {
     pub journal: Journal,
 }
 
-impl Settings {
-    pub fn from_file(source: &Source, fallback: bool) -> Self {
-        let path = source.expand();
-        match std::fs::read_to_string(&path) {
-            Ok(contents) => match serde_yaml::from_str::<Settings>(contents.as_str()) {
-                Ok(mut obj) => {
-                    obj.settings_path = source.to_owned();
-                    obj
-                }
+pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
+    fn from_file(source: &str, fallback: bool) -> Self {
+        log::info!("Loading settings from {:?}", source);
+        match std::fs::read_to_string(source) {
+            Ok(contents) => match serde_yaml::from_str::<Self>(&contents) {
+                Ok(obj) => obj,
                 Err(e) => {
                     panic!("Error while loading the config: {}", e);
                 }
@@ -48,61 +41,28 @@ impl Settings {
                 if fallback {
                     return Self::default();
                 }
-                panic!("Error reading file at {}: {}", path, e);
+                panic!("Error reading file at {:?}: {}", source, e);
             }
         }
     }
 
-    pub fn to_file(&self, path: &Source) {
-        let p = path.expand();
+    fn to_file(&self, path: &str) {
         match serde_yaml::to_string(self) {
-            Ok(s) => match std::fs::File::create(&p) {
+            Ok(s) => match std::fs::File::create(path) {
                 Ok(mut f) => {
                     if f.write(s.as_bytes()).is_err() {
                         panic!("Failed to save settings")
                     }
                 }
                 Err(e) => {
-                    panic!("Failed to create the file at {}: {}", p, e);
+                    panic!("Failed to save settings to {:?}: {}", path, e);
                 }
             },
             Err(e) => {
-                panic!("Error saving config: {}", e);
+                panic!("Error saving settings: {}", e);
             }
         }
     }
-
-    pub fn save(&self) {
-        self.to_file(&self.settings_path);
-    }
-
-    pub fn reload(&mut self) {
-        *self = Self::from_file(&self.settings_path, false);
-    }
 }
 
-const DEFAULT_FILE_NAME: &str = "settings.yaml";
-
-#[derive(Clone, Debug, Default)]
-pub enum Source {
-    #[default]
-    DefaultPath,
-    CustomPath(String),
-}
-
-impl Source {
-    pub fn expand(&self) -> String {
-        match self {
-            Source::DefaultPath => match env::current_dir() {
-                Ok(p) => p.join(DEFAULT_FILE_NAME).display().to_string(),
-                Err(e) => {
-                    panic!(
-                        "Failed to read current directory while looking for {}: {}",
-                        DEFAULT_FILE_NAME, e
-                    )
-                }
-            },
-            Source::CustomPath(p) => p.to_owned(),
-        }
-    }
-}
+impl Loadable for Settings {}
