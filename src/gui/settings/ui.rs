@@ -24,7 +24,7 @@ impl SettingsWindow {
 
                 let resp = ui.add(font_size_slider);
                 if (previous_frame_scaling_value != state.settings.ui.scaling && !resp.dragged())
-                    || (resp.drag_released())
+                    || (resp.drag_stopped())
                 {
                     ui.ctx().set_pixels_per_point(state.settings.ui.scaling);
                 }

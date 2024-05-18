@@ -327,7 +327,9 @@ impl CommandHelper {
                     if let Some(ciid) = chat_input_id {
                         if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), *ciid) {
                             let ccursor = egui::text::CCursor::new(input.chars().count());
-                            state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                            state
+                                .cursor
+                                .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
                             state.store(ui.ctx(), *ciid);
                         }
                     }
