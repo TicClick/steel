@@ -38,7 +38,7 @@ impl VersionString for String {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TextStyle {
     Bold,
     Italics,
@@ -47,4 +47,5 @@ pub enum TextStyle {
     Monospace,
 
     Highlight,
+    Coloured(ecolor::Color32),
 }

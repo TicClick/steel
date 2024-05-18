@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
+use steel_core::settings::Loadable;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 use steel_core::chat::irc::IRCError;
@@ -12,6 +13,7 @@ use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
+const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
 const EVENT_QUEUE_SIZE: usize = 1000;
 
 #[derive(Clone, Default)]
@@ -173,7 +175,7 @@ impl Application {
     }
 
     pub fn initialize(&mut self) {
-        self.load_settings(settings::Source::DefaultPath, true);
+        self.load_settings(true);
         log::set_max_level(self.state.settings.journal.app_events.level);
 
         self.start_updater();
@@ -182,8 +184,8 @@ impl Application {
         }
     }
 
-    pub fn load_settings(&mut self, source: settings::Source, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(&source, fallback);
+    pub fn load_settings(&mut self, fallback: bool) {
+        self.state.settings = settings::Settings::from_file(DEFAULT_SETTINGS_PATH, fallback);
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -201,7 +203,7 @@ impl Application {
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
         self.state.settings = settings;
-        self.state.settings.save();
+        self.state.settings.to_file(DEFAULT_SETTINGS_PATH);
     }
 
     pub fn ui_request_usage_window(&mut self) {

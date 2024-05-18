@@ -1,5 +1,4 @@
 use eframe::egui::{Color32, RichText, Ui};
-use std::collections::BTreeSet;
 
 use steel_core::TextStyle;
 
@@ -23,7 +22,7 @@ const HIGHLIGHTS_SEPARATOR: &str = ", ";
 pub trait DecoratedText {
     fn with_styles(
         self,
-        decorations: &Option<BTreeSet<TextStyle>>,
+        decorations: &Option<Vec<TextStyle>>,
         settings: &steel_core::settings::Settings,
     ) -> RichText;
 }
@@ -31,7 +30,7 @@ pub trait DecoratedText {
 impl DecoratedText for RichText {
     fn with_styles(
         mut self,
-        decorations: &Option<BTreeSet<TextStyle>>,
+        decorations: &Option<Vec<TextStyle>>,
         settings: &steel_core::settings::Settings,
     ) -> RichText {
         match decorations {
@@ -48,6 +47,7 @@ impl DecoratedText for RichText {
                         TextStyle::Highlight => {
                             self = self.color(settings.ui.colours().highlight.clone())
                         }
+                        TextStyle::Coloured(c) => self = self.color(*c),
                     }
                 }
                 self
@@ -59,7 +59,7 @@ impl DecoratedText for RichText {
 impl DecoratedText for String {
     fn with_styles(
         self,
-        decorations: &Option<BTreeSet<TextStyle>>,
+        decorations: &Option<Vec<TextStyle>>,
         settings: &steel_core::settings::Settings,
     ) -> RichText {
         RichText::new(self).with_styles(decorations, settings)
@@ -69,7 +69,7 @@ impl DecoratedText for String {
 impl DecoratedText for &str {
     fn with_styles(
         self,
-        decorations: &Option<BTreeSet<TextStyle>>,
+        decorations: &Option<Vec<TextStyle>>,
         settings: &steel_core::settings::Settings,
     ) -> RichText {
         RichText::new(self).with_styles(decorations, settings)

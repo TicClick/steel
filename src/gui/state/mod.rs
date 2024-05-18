@@ -62,7 +62,11 @@ impl UIState {
             sound_player: crate::core::sound::SoundPlayer::new(),
 
             #[cfg(feature = "glass")]
-            glass: glass::Glass::default(),
+            glass: {
+                let mut g = glass::Glass::default();
+                g.load_settings();
+                g
+            },
 
             filter: FilterCollection::default(),
         }

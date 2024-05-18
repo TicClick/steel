@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use steel_core::chat::links::{Action, LinkType};
 
 use steel_core::TextStyle;
@@ -246,11 +246,7 @@ impl ChatWindow {
                         } else {
                             match state.active_chat_tab_name.as_str() {
                                 super::SERVER_TAB_NAME => {
-                                    let server_tab_styles = Some({
-                                        let mut st = BTreeSet::new();
-                                        st.insert(TextStyle::Monospace);
-                                        st
-                                    });
+                                    let server_tab_styles = Some(vec![TextStyle::Monospace]);
                                     body.heterogeneous_rows(heights, |mut row| {
                                         let row_index = row.index();
                                         last_visible_row = row_index;
@@ -305,24 +301,27 @@ impl ChatWindow {
     ) {
         // let msg = &ch.messages[message_index];
         #[allow(unused_mut)] // glass
-        let mut username_styles = BTreeSet::<TextStyle>::new();
-        let mut message_styles = BTreeSet::<TextStyle>::new();
+        let mut username_styles = Vec::new();
+        let mut message_styles = Vec::new();
 
         #[cfg(feature = "glass")]
         {
-            if let Some(st) = state.glass.style_username(&ch.name, msg) {
-                username_styles.insert(st);
+            if let Some(st) = state
+                .glass
+                .style_username(&ch.name, msg, &state.settings.ui.theme)
+            {
+                username_styles.push(st);
             }
             if let Some(st) = state.glass.style_message(&ch.name, msg) {
-                message_styles.insert(st);
+                message_styles.push(st);
             }
         }
 
         if msg.highlight {
-            message_styles.insert(TextStyle::Highlight);
+            message_styles.push(TextStyle::Highlight);
         }
         if matches!(msg.r#type, MessageType::Action) {
-            message_styles.insert(TextStyle::Italics);
+            message_styles.push(TextStyle::Italics);
         }
 
         let updated_height = ui
@@ -375,7 +374,7 @@ impl ChatWindow {
         ui: &mut egui::Ui,
         state: &UIState,
         message_index: usize,
-        styles: &Option<BTreeSet<TextStyle>>,
+        styles: &Option<Vec<TextStyle>>,
     ) {
         let msg = &state.server_messages[message_index];
         let updated_height = ui
@@ -408,7 +407,7 @@ impl ChatWindow {
         state: &UIState,
         chat_name: &str,
         msg: &Message,
-        styles: &Option<BTreeSet<TextStyle>>,
+        styles: &Option<Vec<TextStyle>>,
     ) {
         let username_text = if msg.username == state.settings.chat.irc.username {
             egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
@@ -488,7 +487,7 @@ fn show_datetime(
     ui: &mut egui::Ui,
     state: &UIState,
     msg: &Message,
-    styles: &Option<BTreeSet<TextStyle>>,
+    styles: &Option<Vec<TextStyle>>,
 ) -> egui::Response {
     let timestamp = egui::RichText::new(msg.formatted_time()).with_styles(styles, &state.settings);
     ui.label(timestamp).on_hover_ui_at_pointer(|ui| {
@@ -586,7 +585,7 @@ fn format_chat_message_text(
     ui: &mut egui::Ui,
     state: &UIState,
     msg: &Message,
-    styles: &Option<BTreeSet<TextStyle>>,
+    styles: &Option<Vec<TextStyle>>,
 ) -> f32 {
     let layout = egui::Layout::from_main_dir_and_cross_align(
         egui::Direction::LeftToRight,
