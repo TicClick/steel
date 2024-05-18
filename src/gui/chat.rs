@@ -392,7 +392,7 @@ impl ChatWindow {
     pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
         if state.is_connected() {
             ctx.memory_mut(|mem| {
-                if mem.focus().is_none() {
+                if mem.focused().is_none() {
                     if let Some(id) = self.response_widget_id {
                         mem.request_focus(id);
                     }
@@ -450,12 +450,12 @@ impl ChatWindow {
     fn handle_username_click(&mut self, ui: &mut egui::Ui, msg: &Message) {
         if let Some(text_edit_id) = self.response_widget_id {
             if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), text_edit_id) {
-                let pos = match state.ccursor_range() {
+                let pos = match state.cursor.char_range() {
                     None => 0,
                     Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index),
                 };
 
-                if let Some(cc) = state.ccursor_range() {
+                if let Some(cc) = state.cursor.char_range() {
                     let start = std::cmp::min(cc.primary.index, cc.secondary.index);
                     let end = std::cmp::max(cc.primary.index, cc.secondary.index);
                     if start != end {
@@ -476,7 +476,9 @@ impl ChatWindow {
                 };
                 self.chat_input.insert_str(pos, &insertion);
                 let ccursor = egui::text::CCursor::new(pos + insertion.len());
-                state.set_ccursor_range(Some(egui::text::CCursorRange::one(ccursor)));
+                state
+                    .cursor
+                    .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
                 state.store(ui.ctx(), text_edit_id);
             }
         }
@@ -669,22 +671,23 @@ fn format_chat_message_text(
                                                     "https://osu.ppy.sh/beatmapsets/{}",
                                                     beatmap_id
                                                 );
-                                                if ui
+                                                let resp = ui
                                                     .link(display_text)
                                                     .on_hover_text_at_pointer(format!(
                                                         "Beatmap #{} (open in browser)",
                                                         beatmap_id
-                                                    ))
-                                                    .context_menu(|ui| {
-                                                        if ui.button("Copy URL").clicked() {
-                                                            ui.ctx().output_mut(|o| {
-                                                                o.copied_text = location.to_owned();
-                                                            });
-                                                            ui.close_menu();
-                                                        }
-                                                    })
-                                                    .clicked()
-                                                {
+                                                    ));
+
+                                                resp.context_menu(|ui| {
+                                                    if ui.button("Copy URL").clicked() {
+                                                        ui.ctx().output_mut(|o| {
+                                                            o.copied_text = location.to_owned();
+                                                        });
+                                                        ui.close_menu();
+                                                    }
+                                                });
+
+                                                if resp.clicked() {
                                                     ui.output_mut(|o| {
                                                         o.open_url =
                                                             Some(egui::OpenUrl::new_tab(location));
@@ -702,22 +705,23 @@ fn format_chat_message_text(
                                                     "https://osu.ppy.sh/beatmaps/{}",
                                                     difficulty_id
                                                 );
-                                                if ui
+                                                let resp = ui
                                                     .link(display_text)
                                                     .on_hover_text_at_pointer(format!(
                                                         "Beatmap difficulty #{} (open in browser)",
                                                         difficulty_id
-                                                    ))
-                                                    .context_menu(|ui| {
-                                                        if ui.button("Copy URL").clicked() {
-                                                            ui.ctx().output_mut(|o| {
-                                                                o.copied_text = location.to_owned();
-                                                            });
-                                                            ui.close_menu();
-                                                        }
-                                                    })
-                                                    .clicked()
-                                                {
+                                                    ));
+
+                                                resp.context_menu(|ui| {
+                                                    if ui.button("Copy URL").clicked() {
+                                                        ui.ctx().output_mut(|o| {
+                                                            o.copied_text = location.to_owned();
+                                                        });
+                                                        ui.close_menu();
+                                                    }
+                                                });
+
+                                                if resp.clicked() {
                                                     ui.output_mut(|o| {
                                                         o.open_url =
                                                             Some(egui::OpenUrl::new_tab(location));

@@ -31,7 +31,7 @@ impl ChatTabs {
                     if state.is_connected() {
                         self.show_new_chat_input(state, ui, ChatType::Channel);
                     }
-                    self.show_chats(state, ui, ChatType::Channel);
+                    self.show_chats(state, ctx, ui, ChatType::Channel);
                 });
 
             egui::TopBottomPanel::top("private-chats-panel")
@@ -43,7 +43,7 @@ impl ChatTabs {
                     if state.is_connected() {
                         self.show_new_chat_input(state, ui, ChatType::Person);
                     }
-                    self.show_chats(state, ui, ChatType::Person);
+                    self.show_chats(state, ctx, ui, ChatType::Person);
                 });
 
             egui::TopBottomPanel::top("system-chats-panel")
@@ -121,12 +121,13 @@ fn tab_context_menu(
 
 fn drag_source(
     ui: &mut Ui,
+    ctx: &egui::Context,
     id: egui::Id,
     own_interleaved_pos: usize,
     tab_centers: &Vec<(usize, f32)>,
     body: impl FnOnce(&mut egui::Ui),
 ) -> Option<usize> {
-    let is_being_dragged = ui.memory(|m| m.is_being_dragged(id));
+    let is_being_dragged = ctx.is_being_dragged(id);
     if !is_being_dragged {
         // TODO: Shift is used as a workaround to prevent drag events from suppressing clicks:
         // - https://github.com/emilk/egui/issues/2471
@@ -143,7 +144,13 @@ fn drag_source(
 
         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
             let delta = pointer_pos - response.rect.center();
-            ui.ctx().translate_layer(layer_id, delta);
+            ui.ctx().transform_layer_shapes(
+                layer_id,
+                egui::emath::TSTransform {
+                    scaling: 1.,
+                    translation: delta,
+                },
+            );
             if ui.input(|i| i.pointer.primary_released()) {
                 for (interleaved_pos, center) in tab_centers {
                     if center >= &pointer_pos.y && own_interleaved_pos != *interleaved_pos {
@@ -218,7 +225,13 @@ impl ChatTabs {
         });
     }
 
-    fn show_chats(&mut self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
+    fn show_chats(
+        &mut self,
+        state: &mut UIState,
+        ctx: &egui::Context,
+        ui: &mut Ui,
+        mode: ChatType,
+    ) {
         let it: Vec<(usize, String, String, ChatState)> = state
             .filter_chats(|(_, ch)| match mode {
                 ChatType::Channel => ch.name.is_channel(),
@@ -282,7 +295,7 @@ impl ChatTabs {
                         };
 
                         if let Some(place_after) =
-                            drag_source(ui, item_id, interleaved_pos, &tc, drawer)
+                            drag_source(ui, ctx, item_id, interleaved_pos, &tc, drawer)
                         {
                             state.place_tab_after(interleaved_pos, place_after);
                         }
