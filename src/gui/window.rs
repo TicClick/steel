@@ -280,25 +280,23 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {
-                let name_updated =
-                    self.s
-                        .push_chat_message(target.clone(), message.clone(), ctx);
+                let name_updated = self
+                    .s
+                    .push_chat_message(target.clone(), message.clone(), ctx);
                 if name_updated {
                     self.refresh_window_title(ctx);
                 }
 
                 #[cfg(feature = "glass")]
                 match message.username == self.s.settings.chat.irc.username {
-                    false => {
-                        self.s
-                            .glass
-                            .handle_incoming_message(&self.s.core, &target, &message)
-                    }
-                    true => {
-                        self.s
-                            .glass
-                            .handle_outgoing_message(&self.s.core, &target, &message)
-                    }
+                    false => self
+                        .s
+                        .glass
+                        .handle_incoming_message(&self.s.core, &target, &message),
+                    true => self
+                        .s
+                        .glass
+                        .handle_outgoing_message(&self.s.core, &target, &message),
                 }
 
                 ctx.request_repaint();

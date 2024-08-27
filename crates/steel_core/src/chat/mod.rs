@@ -114,8 +114,10 @@ impl Message {
             .to_string()
     }
 
-    pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>) {
+    pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
         let separator = "$$";
+        let wrap_with_separators = |v| format!("{separator}{v}{separator}");
+
         let normalized_text = self
             .text
             .to_lowercase()
@@ -124,14 +126,19 @@ impl Message {
             })
             .collect::<Vec<&str>>()
             .join(separator);
-        let normalized_text = format!("{separator}{normalized_text}{separator}");
+        let normalized_text = wrap_with_separators(normalized_text);
 
         for keyword in keywords.iter().filter(|k| !k.is_empty()) {
-            let keyword = format!("{separator}{}{separator}", keyword.replace(' ', separator));
+            let keyword = wrap_with_separators(keyword.replace(' ', separator));
             if normalized_text.contains(&keyword) {
                 self.highlight = true;
                 break;
             }
+        }
+
+        if let Some(u) = username {
+            self.highlight =
+                self.highlight || normalized_text.contains(&wrap_with_separators(u.to_lowercase()));
         }
     }
 }
