@@ -1,7 +1,7 @@
 mod actor;
 mod event_handler;
 
-use tokio::sync::mpsc::{channel, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use crate::actor::{Actor, ActorHandle};
 
@@ -22,16 +22,14 @@ pub enum IRCMessageIn {
 }
 
 pub struct IRCActorHandle {
-    actor: Sender<IRCMessageIn>,
+    actor: UnboundedSender<IRCMessageIn>,
 }
 
 impl ActorHandle for IRCActorHandle {}
 
-const IRC_EVENT_QUEUE_SIZE: usize = 1000;
-
 impl IRCActorHandle {
-    pub fn new(app_event_sender: Sender<AppMessageIn>) -> Self {
-        let (irc_event_sender, irc_event_receiver) = channel(IRC_EVENT_QUEUE_SIZE);
+    pub fn new(app_event_sender: UnboundedSender<AppMessageIn>) -> Self {
+        let (irc_event_sender, irc_event_receiver) = unbounded_channel();
         let mut actor = actor::IRCActor::new(irc_event_receiver, app_event_sender);
         std::thread::spawn(move || {
             actor.run();
@@ -55,19 +53,19 @@ impl IRCActorHandle {
         };
 
         self.actor
-            .blocking_send(IRCMessageIn::Connect(Box::new(config)))
+            .send(IRCMessageIn::Connect(Box::new(config)))
             .expect("failed to queue chat connection");
     }
 
     pub fn disconnect(&self) {
         self.actor
-            .blocking_send(IRCMessageIn::Disconnect)
+            .send(IRCMessageIn::Disconnect)
             .expect("failed to queue disconnecting from chat");
     }
 
     pub fn send_action(&self, destination: &str, action: &str) {
         self.actor
-            .blocking_send(IRCMessageIn::SendMessage {
+            .send(IRCMessageIn::SendMessage {
                 r#type: MessageType::Action,
                 destination: destination.to_owned(),
                 content: action.to_owned(),
@@ -77,7 +75,7 @@ impl IRCActorHandle {
 
     pub fn send_message(&self, destination: &str, content: &str) {
         self.actor
-            .blocking_send(IRCMessageIn::SendMessage {
+            .send(IRCMessageIn::SendMessage {
                 r#type: MessageType::Text,
                 destination: destination.to_owned(),
                 content: content.to_owned(),
@@ -87,13 +85,13 @@ impl IRCActorHandle {
 
     pub fn join_channel(&self, channel: &str) {
         self.actor
-            .blocking_send(IRCMessageIn::JoinChannel(channel.to_owned()))
+            .send(IRCMessageIn::JoinChannel(channel.to_owned()))
             .expect("failed to queue joining a channel");
     }
 
     pub fn leave_channel(&self, channel: &str) {
         self.actor
-            .blocking_send(IRCMessageIn::LeaveChannel(channel.to_owned()))
+            .send(IRCMessageIn::LeaveChannel(channel.to_owned()))
             .expect("failed to queue leaving a channel");
     }
 }

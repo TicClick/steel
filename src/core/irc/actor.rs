@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use futures::prelude::*;
 use tokio::runtime;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::actor::Actor;
 use crate::core::chat;
@@ -19,8 +19,8 @@ use super::IRCMessageIn;
 static IRC_EVENT_WAIT_TIMEOUT: Duration = Duration::from_millis(5);
 
 pub struct IRCActor {
-    input: Receiver<IRCMessageIn>,
-    output: Sender<AppMessageIn>,
+    input: UnboundedReceiver<IRCMessageIn>,
+    output: UnboundedSender<AppMessageIn>,
     irc_stream_sender: Arc<Mutex<Option<irc::client::Sender>>>,
 
     irc_sync: Arc<(Mutex<bool>, Condvar)>,
@@ -28,7 +28,7 @@ pub struct IRCActor {
 }
 
 impl Actor<IRCMessageIn, AppMessageIn> for IRCActor {
-    fn new(input: Receiver<IRCMessageIn>, output: Sender<AppMessageIn>) -> Self {
+    fn new(input: UnboundedReceiver<IRCMessageIn>, output: UnboundedSender<AppMessageIn>) -> Self {
         IRCActor {
             input,
             output,
@@ -85,14 +85,18 @@ impl IRCActor {
         }
 
         self.output
-            .blocking_send(AppMessageIn::ConnectionChanged(
+            .send(AppMessageIn::ConnectionChanged(
                 ConnectionStatus::InProgress,
             ))
             .unwrap();
         self.start_irc_watcher(config, self.output.clone());
     }
 
-    fn start_irc_watcher(&mut self, config: irc::client::data::Config, tx: Sender<AppMessageIn>) {
+    fn start_irc_watcher(
+        &mut self,
+        config: irc::client::data::Config,
+        tx: UnboundedSender<AppMessageIn>,
+    ) {
         let own_username = config.username.clone().unwrap();
         let arc = Arc::clone(&self.irc_sync);
         let irc_stream_sender = Arc::clone(&self.irc_stream_sender);
@@ -104,19 +108,19 @@ impl IRCActor {
                 .unwrap();
             match rt.block_on(irc::client::Client::from_config(config)) {
                 Err(e) => {
-                    tx.blocking_send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+                    tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
                         "failed to start the IRC client: {}",
                         e
                     ))))
                     .unwrap();
-                    tx.blocking_send(AppMessageIn::ConnectionChanged(
+                    tx.send(AppMessageIn::ConnectionChanged(
                         ConnectionStatus::Disconnected { by_user: false },
                     ))
                     .unwrap();
                 }
                 Ok(mut clt) => {
                     clt.identify().unwrap();
-                    tx.blocking_send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
+                    tx.send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
                         .unwrap();
                     *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
@@ -139,12 +143,9 @@ impl IRCActor {
                         match rt.block_on(stream.next()) {
                             Some(result) => match result {
                                 Err(reason) => {
-                                    tx.blocking_send(AppMessageIn::ChatError(
-                                        IRCError::FatalError(format!(
-                                            "connection broken: {}",
-                                            reason
-                                        )),
-                                    ))
+                                    tx.send(AppMessageIn::ChatError(IRCError::FatalError(
+                                        format!("connection broken: {}", reason),
+                                    )))
                                     .unwrap();
                                     break;
                                 }
@@ -153,7 +154,7 @@ impl IRCActor {
                                 }
                             },
                             None => {
-                                tx.blocking_send(AppMessageIn::ChatError(IRCError::FatalError(
+                                tx.send(AppMessageIn::ChatError(IRCError::FatalError(
                                     "remote server has closed the connection, probably because it went offline".to_owned(),
                                 )))
                                 .unwrap();
@@ -162,7 +163,7 @@ impl IRCActor {
                         }
                     }
 
-                    tx.blocking_send(AppMessageIn::ConnectionChanged(
+                    tx.send(AppMessageIn::ConnectionChanged(
                         ConnectionStatus::Disconnected {
                             by_user: disconnected_by_user,
                         },

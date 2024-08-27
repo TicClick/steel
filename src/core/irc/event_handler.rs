@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 
 use irc::client::prelude::*;
 use irc_proto::mode::{ChannelMode, Mode};
@@ -9,9 +9,9 @@ use steel_core::ipc::server::AppMessageIn;
 
 static ACTION_PREFIX: &str = "\x01ACTION";
 
-pub fn empty_handler(_sender: &Sender<AppMessageIn>, _msg: irc::proto::Message) {}
+pub fn empty_handler(_sender: &UnboundedSender<AppMessageIn>, _msg: irc::proto::Message) {}
 
-pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) {
+pub fn privmsg_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     if let irc::proto::Command::PRIVMSG(_, ref text) = msg.command {
         let (message_type, text) = if text.starts_with(ACTION_PREFIX) {
             (
@@ -31,7 +31,7 @@ pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
             None => "(unknown sender)".to_owned(),
         };
         sender
-            .blocking_send(AppMessageIn::ChatMessageReceived {
+            .send(AppMessageIn::ChatMessageReceived {
                 target: message_target,
                 message: Message::new(&username, text, message_type),
             })
@@ -39,17 +39,17 @@ pub fn privmsg_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
     }
 }
 
-pub fn motd_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) {
+pub fn motd_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     if let irc::proto::Command::Response(_, args) = msg.command {
         sender
-            .blocking_send(AppMessageIn::ServerMessageReceived {
+            .send(AppMessageIn::ServerMessageReceived {
                 content: args[1..].join(" "),
             })
             .unwrap();
     }
 }
 
-pub fn default_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) {
+pub fn default_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     if let irc::proto::Command::Response(r, ref args) = msg.command {
         if r.is_error() {
             let error = match r {
@@ -71,27 +71,23 @@ pub fn default_handler(sender: &Sender<AppMessageIn>, msg: irc::proto::Message) 
                     }
                 }
             };
-            sender
-                .blocking_send(AppMessageIn::ChatError(error))
-                .unwrap();
+            sender.send(AppMessageIn::ChatError(error)).unwrap();
         } else {
             debug_handler(sender, msg);
         }
     }
 }
 
-pub fn debug_handler(_sender: &Sender<AppMessageIn>, msg: irc::proto::Message) {
+pub fn debug_handler(_sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     println!("message without handler: {:?}", msg);
 }
 
-pub fn join_handler(sender: &Sender<AppMessageIn>, channel: String) {
-    sender
-        .blocking_send(AppMessageIn::ChannelJoined(channel))
-        .unwrap();
+pub fn join_handler(sender: &UnboundedSender<AppMessageIn>, channel: String) {
+    sender.send(AppMessageIn::ChannelJoined(channel)).unwrap();
 }
 
 pub fn dispatch_message(
-    sender: &Sender<AppMessageIn>,
+    sender: &UnboundedSender<AppMessageIn>,
     msg: irc_proto::Message,
     own_username: &str,
 ) {
@@ -121,7 +117,7 @@ pub fn dispatch_message(
         Command::ChannelMODE(_, modes) => {
             for m in modes {
                 if let Mode::Plus(ChannelMode::Oper, Some(user)) = m {
-                    sender.blocking_send(AppMessageIn::ChatModeratorAdded(user)).unwrap();
+                    sender.send(AppMessageIn::ChatModeratorAdded(user)).unwrap();
                 }
             }
         }
@@ -132,7 +128,7 @@ pub fn dispatch_message(
         ) => {
             if let Some(users) = cmd.get(3) {
                 for user in users.split_ascii_whitespace().filter(|u| u.starts_with('@')) {
-                    sender.blocking_send(AppMessageIn::ChatModeratorAdded(user[1..].to_owned())).unwrap();
+                    sender.send(AppMessageIn::ChatModeratorAdded(user[1..].to_owned())).unwrap();
                 }
             }
         },

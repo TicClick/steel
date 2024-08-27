@@ -5,7 +5,7 @@ use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
 use eframe::egui;
-use tokio::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
 
@@ -48,7 +48,7 @@ pub struct UIState {
 }
 
 impl UIState {
-    pub fn new(app_queue_handle: Sender<AppMessageIn>) -> Self {
+    pub fn new(app_queue_handle: UnboundedSender<AppMessageIn>) -> Self {
         Self {
             connection: ConnectionStatus::default(),
             settings: Settings::default(),

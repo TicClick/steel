@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::Loadable;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
@@ -14,7 +14,6 @@ use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
-const EVENT_QUEUE_SIZE: usize = 1000;
 
 #[derive(Clone, Default)]
 pub struct ApplicationState {
@@ -25,17 +24,17 @@ pub struct ApplicationState {
 
 pub struct Application {
     state: ApplicationState,
-    events: Receiver<AppMessageIn>,
+    events: UnboundedReceiver<AppMessageIn>,
 
     irc: IRCActorHandle,
     updater: Option<Updater>,
-    ui_queue: Sender<UIMessageIn>,
-    pub app_queue: Sender<AppMessageIn>,
+    ui_queue: UnboundedSender<UIMessageIn>,
+    pub app_queue: UnboundedSender<AppMessageIn>,
 }
 
 impl Application {
-    pub fn new(ui_queue: Sender<UIMessageIn>) -> Self {
-        let (app_queue, events) = channel(EVENT_QUEUE_SIZE);
+    pub fn new(ui_queue: UnboundedSender<UIMessageIn>) -> Self {
+        let (app_queue, events) = unbounded_channel();
         Self {
             state: ApplicationState::default(),
             events,
@@ -137,7 +136,7 @@ impl Application {
 
     pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: Option<usize>) {
         self.ui_queue
-            .blocking_send(UIMessageIn::ChatSwitchRequested(chat, message_id))
+            .send(UIMessageIn::ChatSwitchRequested(chat, message_id))
             .unwrap();
     }
 
@@ -197,7 +196,7 @@ impl Application {
 
     pub fn ui_handle_settings_requested(&self) {
         self.ui_queue
-            .blocking_send(UIMessageIn::SettingsChanged(self.state.settings.clone()))
+            .send(UIMessageIn::SettingsChanged(self.state.settings.clone()))
             .unwrap();
     }
 
@@ -208,20 +207,20 @@ impl Application {
 
     pub fn ui_request_usage_window(&mut self) {
         self.ui_queue
-            .blocking_send(UIMessageIn::UsageWindowRequested)
+            .send(UIMessageIn::UsageWindowRequested)
             .unwrap();
     }
 
     pub fn ui_push_update_state(&mut self, state: UpdateState) {
         self.ui_queue
-            .blocking_send(UIMessageIn::UpdateStateChanged(state))
+            .send(UIMessageIn::UpdateStateChanged(state))
             .unwrap();
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {
         self.state.connection = status;
         self.ui_queue
-            .blocking_send(UIMessageIn::ConnectionStatusChanged(status))
+            .send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
         log::debug!("IRC connection status changed to {:?}", status);
         match status {
@@ -253,7 +252,7 @@ impl Application {
         let delta = chrono::Duration::seconds(15);
         let reconnect_time = chrono::Local::now() + delta;
         self.ui_queue
-            .blocking_send(UIMessageIn::ConnectionStatusChanged(
+            .send(UIMessageIn::ConnectionStatusChanged(
                 ConnectionStatus::Scheduled(reconnect_time),
             ))
             .unwrap();
@@ -261,7 +260,7 @@ impl Application {
         std::thread::spawn(move || {
             std::thread::sleep(delta.to_std().unwrap());
             queue
-                .blocking_send(AppMessageIn::UIConnectRequested)
+                .send(AppMessageIn::UIConnectRequested)
                 .expect("failed to trigger reconnection");
         });
     }
@@ -273,7 +272,7 @@ impl Application {
             ChatState::Joined
         };
         self.ui_queue
-            .blocking_send(UIMessageIn::NewChatRequested(
+            .send(UIMessageIn::NewChatRequested(
                 target.to_owned(),
                 chat_state,
                 switch,
@@ -289,7 +288,7 @@ impl Application {
     ) {
         self.maybe_remember_chat(&target, switch_if_missing);
         self.ui_queue
-            .blocking_send(UIMessageIn::NewMessageReceived { target, message })
+            .send(UIMessageIn::NewMessageReceived { target, message })
             .unwrap();
     }
 
@@ -304,7 +303,7 @@ impl Application {
     pub fn handle_server_message(&mut self, content: String) {
         log::debug!("IRC server message: {}", content);
         self.ui_queue
-            .blocking_send(UIMessageIn::NewServerMessageReceived(content))
+            .send(UIMessageIn::NewServerMessageReceived(content))
             .unwrap();
     }
 
@@ -324,7 +323,7 @@ impl Application {
             let normalized = chat.to_lowercase();
             self.state.chats.remove(&normalized);
             self.ui_queue
-                .blocking_send(UIMessageIn::NewChatStatusReceived {
+                .send(UIMessageIn::NewChatStatusReceived {
                     target: chat,
                     state: ChatState::Left,
                     details: content,
@@ -332,19 +331,19 @@ impl Application {
                 .unwrap();
         }
         self.ui_queue
-            .blocking_send(UIMessageIn::NewServerMessageReceived(error_text))
+            .send(UIMessageIn::NewServerMessageReceived(error_text))
             .unwrap();
     }
 
     pub fn handle_channel_join(&mut self, channel: String) {
         self.ui_queue
-            .blocking_send(UIMessageIn::ChannelJoined(channel))
+            .send(UIMessageIn::ChannelJoined(channel))
             .unwrap();
     }
 
     pub fn handle_chat_moderator_added(&mut self, username: String) {
         self.ui_queue
-            .blocking_send(UIMessageIn::ChatModeratorAdded(username))
+            .send(UIMessageIn::ChatModeratorAdded(username))
             .unwrap();
     }
 
@@ -372,14 +371,14 @@ impl Application {
             self.leave_channel(name);
         }
         self.ui_queue
-            .blocking_send(UIMessageIn::ChatClosed(name.to_owned()))
+            .send(UIMessageIn::ChatClosed(name.to_owned()))
             .unwrap();
     }
 
     pub fn ui_handle_clear_chat(&mut self, name: &str) {
         let normalized = name.to_lowercase();
         self.ui_queue
-            .blocking_send(UIMessageIn::ChatCleared(normalized))
+            .send(UIMessageIn::ChatCleared(normalized))
             .unwrap();
     }
 
@@ -387,7 +386,7 @@ impl Application {
         self.irc.send_message(target, text);
         let message = Message::new_text(&self.state.settings.chat.irc.username, text);
         self.ui_queue
-            .blocking_send(UIMessageIn::NewMessageReceived {
+            .send(UIMessageIn::NewMessageReceived {
                 target: target.to_owned(),
                 message,
             })
@@ -398,7 +397,7 @@ impl Application {
         self.irc.send_action(target, text);
         let message = Message::new_action(&self.state.settings.chat.irc.username, text);
         self.ui_queue
-            .blocking_send(UIMessageIn::NewMessageReceived {
+            .send(UIMessageIn::NewMessageReceived {
                 target: target.to_owned(),
                 message,
             })
