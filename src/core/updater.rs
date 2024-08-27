@@ -6,7 +6,7 @@ use steel_core::ipc::server::AppMessageIn;
 use steel_core::ipc::updater::*;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::VersionString;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub const RECENT_RELEASES_METADATA_URL: &str =
     "https://api.github.com/repos/TicClick/steel/releases";
@@ -70,13 +70,13 @@ pub struct Updater {
     state: Arc<Mutex<UpdateState>>,
     settings: AutoUpdate,
     th: std::thread::JoinHandle<()>,
-    backend_channel: Sender<BackendRequest>,
+    backend_channel: UnboundedSender<BackendRequest>,
 }
 
 impl Updater {
-    pub fn new(core: Sender<AppMessageIn>, settings: AutoUpdate) -> Self {
+    pub fn new(core: UnboundedSender<AppMessageIn>, settings: AutoUpdate) -> Self {
         let state = Arc::new(Mutex::new(UpdateState::default()));
-        let (tx, rx) = channel(5);
+        let (tx, rx) = unbounded_channel();
 
         let state_ = state.clone();
         let backend_transmitter = tx.clone();
@@ -109,37 +109,35 @@ impl Updater {
 
     pub fn toggle_autoupdate(&self, enabled: bool) {
         self.backend_channel
-            .blocking_send(BackendRequest::SetAutoupdateStatus(enabled))
+            .send(BackendRequest::SetAutoupdateStatus(enabled))
             .unwrap();
         if enabled {
             self.backend_channel
-                .blocking_send(BackendRequest::InitiateAutoupdate)
+                .send(BackendRequest::InitiateAutoupdate)
                 .unwrap();
         }
     }
 
     pub fn change_url(&self, url: &str) {
         self.backend_channel
-            .blocking_send(BackendRequest::ChangeURL(url.to_owned()))
+            .send(BackendRequest::ChangeURL(url.to_owned()))
             .unwrap();
     }
 
     pub fn check_version(&self) {
         self.backend_channel
-            .blocking_send(BackendRequest::FetchMetadata)
+            .send(BackendRequest::FetchMetadata)
             .unwrap();
     }
 
     pub fn download_new_version(&self) {
         self.backend_channel
-            .blocking_send(BackendRequest::FetchRelease)
+            .send(BackendRequest::FetchRelease)
             .unwrap();
     }
 
     pub fn stop(self) {
-        self.backend_channel
-            .blocking_send(BackendRequest::Quit)
-            .unwrap();
+        self.backend_channel.send(BackendRequest::Quit).unwrap();
         self.th.join().unwrap();
     }
 
@@ -164,9 +162,9 @@ pub const AUTOUPDATE_INTERVAL_MINUTES: i64 = 10;
 struct UpdaterBackend {
     src: UpdateSource,
     state: Arc<Mutex<UpdateState>>,
-    self_channel: Sender<BackendRequest>,
-    channel: Receiver<BackendRequest>,
-    core: Sender<AppMessageIn>,
+    self_channel: UnboundedSender<BackendRequest>,
+    channel: UnboundedReceiver<BackendRequest>,
+    core: UnboundedSender<AppMessageIn>,
     autoupdate: bool,
     last_autoupdate_run: Option<chrono::DateTime<chrono::Local>>,
     autoupdate_timer: Option<std::thread::JoinHandle<()>>,
@@ -176,9 +174,9 @@ impl UpdaterBackend {
     fn new(
         settings: AutoUpdate,
         state: Arc<Mutex<UpdateState>>,
-        self_channel: Sender<BackendRequest>,
-        channel: Receiver<BackendRequest>,
-        core: Sender<AppMessageIn>,
+        self_channel: UnboundedSender<BackendRequest>,
+        channel: UnboundedReceiver<BackendRequest>,
+        core: UnboundedSender<AppMessageIn>,
     ) -> Self {
         Self {
             src: settings.url.into(),
@@ -196,7 +194,7 @@ impl UpdaterBackend {
         crate::core::os::cleanup_after_update();
         if self.autoupdate {
             self.self_channel
-                .blocking_send(BackendRequest::InitiateAutoupdate)
+                .send(BackendRequest::InitiateAutoupdate)
                 .unwrap();
         }
         while let Some(msg) = self.channel.blocking_recv() {
@@ -265,8 +263,7 @@ impl UpdaterBackend {
             std::thread::sleep(std::time::Duration::from_secs(
                 60 * AUTOUPDATE_INTERVAL_MINUTES as u64,
             ));
-            tx.blocking_send(BackendRequest::InitiateAutoupdate)
-                .unwrap();
+            tx.send(BackendRequest::InitiateAutoupdate).unwrap();
         }));
 
         if matches!(self.state.lock().unwrap().state, State::ReleaseReady(_)) {
@@ -303,7 +300,7 @@ impl UpdaterBackend {
         *guard = new_state.clone();
         drop(guard);
         self.core
-            .blocking_send(AppMessageIn::UpdateStateChanged(new_state))
+            .send(AppMessageIn::UpdateStateChanged(new_state))
             .unwrap();
     }
 

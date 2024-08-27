@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-use tokio::sync::mpsc::channel;
+use tokio::sync::mpsc::unbounded_channel;
 
 pub mod actor;
 pub mod app;
@@ -9,7 +9,6 @@ pub mod gui;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-const UI_EVENT_QUEUE_SIZE: usize = 1000;
 const LOG_FILE_PATH: &str = "./runtime.log";
 
 fn setup_logging() {
@@ -41,7 +40,7 @@ fn main() {
     }
     setup_logging();
 
-    let (ui_queue_handle, ui_queue) = channel(UI_EVENT_QUEUE_SIZE);
+    let (ui_queue_handle, ui_queue) = unbounded_channel();
     let mut app = app::Application::new(ui_queue_handle);
     app.initialize();
 

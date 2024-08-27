@@ -1,6 +1,6 @@
 use chrono::{DurationRound, Timelike};
 use eframe::egui;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::core::chat::ChatState;
 use crate::gui;
@@ -10,6 +10,8 @@ use steel_core::chat::{ConnectionStatus, Message};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 use crate::core::settings;
+
+const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
 
 pub const NOTO_ARABIC: &str = "noto-arabic";
 pub const NOTO_HEBREW: &str = "noto-hebrew";
@@ -133,7 +135,7 @@ pub struct ApplicationWindow {
     update_window: gui::update_window::UpdateWindow,
     usage_window: gui::usage::UsageWindow,
 
-    ui_queue: Receiver<UIMessageIn>,
+    ui_queue: UnboundedReceiver<UIMessageIn>,
     s: UIState,
     date_announcer: DateAnnouncer,
     filter_ui: gui::filter::FilterWindow,
@@ -142,8 +144,8 @@ pub struct ApplicationWindow {
 impl ApplicationWindow {
     pub fn new(
         cc: &eframe::CreationContext,
-        ui_queue: Receiver<UIMessageIn>,
-        app_queue_handle: Sender<AppMessageIn>,
+        ui_queue: UnboundedReceiver<UIMessageIn>,
+        app_queue_handle: UnboundedSender<AppMessageIn>,
     ) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
 
@@ -197,121 +199,14 @@ impl ApplicationWindow {
         }
         self.date_announcer.refresh();
 
+        // If the main window is restored after having being minimized for some time, it still needs to be responsive
+        // enough.
+        let mut i = 0;
         while let Ok(event) = self.ui_queue.try_recv() {
-            match event {
-                UIMessageIn::SettingsChanged(settings) => {
-                    self.s.set_settings(ctx, settings);
-                }
-
-                UIMessageIn::ConnectionStatusChanged(conn) => {
-                    self.s.connection = conn;
-                    match conn {
-                        ConnectionStatus::Disconnected { .. } => {
-                            self.s.mark_all_as_disconnected();
-                        }
-                        ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                        ConnectionStatus::Connected => {
-                            self.s.mark_all_as_connected();
-                        }
-                    }
-                }
-
-                UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
-                    if self.s.has_chat(&name) {
-                        self.s.set_chat_state(&name, state, None);
-                    } else {
-                        self.s.add_new_chat(name, state, switch_to_chat);
-                    }
-                    if switch_to_chat {
-                        self.refresh_window_title(ctx);
-                    }
-                }
-
-                UIMessageIn::NewChatStatusReceived {
-                    target,
-                    state,
-                    details,
-                } => {
-                    if self.s.has_chat(&target) {
-                        self.s.set_chat_state(&target, state, Some(&details));
-                    }
-                }
-
-                UIMessageIn::ChatSwitchRequested(name, message_id) => {
-                    let lowercase_name = name.to_lowercase();
-                    self.s.highlights.mark_as_read(&lowercase_name);
-                    if self.s.has_chat(&name) {
-                        self.s.active_chat_tab_name = lowercase_name;
-                        if message_id.is_some() {
-                            self.chat.scroll_to = message_id;
-                        }
-                    }
-                    self.refresh_window_title(ctx);
-                }
-
-                UIMessageIn::ChannelJoined(name) => {
-                    self.s.set_chat_state(
-                        &name,
-                        ChatState::Joined,
-                        Some("You have joined the channel"),
-                    );
-                }
-
-                UIMessageIn::NewMessageReceived { target, message } => {
-                    let name_updated =
-                        self.s
-                            .push_chat_message(target.clone(), message.clone(), ctx);
-                    if name_updated {
-                        self.refresh_window_title(ctx);
-                    }
-
-                    #[cfg(feature = "glass")]
-                    match message.username == self.s.settings.chat.irc.username {
-                        false => {
-                            self.s
-                                .glass
-                                .handle_incoming_message(&self.s.core, &target, &message)
-                        }
-                        true => {
-                            self.s
-                                .glass
-                                .handle_outgoing_message(&self.s.core, &target, &message)
-                        }
-                    }
-
-                    ctx.request_repaint();
-                }
-
-                UIMessageIn::NewServerMessageReceived(text) => {
-                    self.s.push_server_message(&text);
-                    ctx.request_repaint();
-                }
-
-                UIMessageIn::ChatClosed(name) => {
-                    self.s.remove_chat(name);
-                    self.refresh_window_title(ctx);
-                }
-
-                UIMessageIn::ChatCleared(name) => {
-                    self.s.clear_chat(&name);
-                }
-
-                UIMessageIn::ChatModeratorAdded(name) => {
-                    for mods in [
-                        &mut self.s.settings.ui.dark_colours.mod_users,
-                        &mut self.s.settings.ui.light_colours.mod_users,
-                    ] {
-                        mods.insert(name.to_lowercase().replace(' ', "_"));
-                    }
-                }
-
-                UIMessageIn::UsageWindowRequested => {
-                    self.menu.show_usage = true;
-                }
-
-                UIMessageIn::UpdateStateChanged(state) => {
-                    self.s.update_state = state;
-                }
+            self.dispatch_event(event, ctx);
+            i += 1;
+            if i >= UI_EVENT_INTAKE_PER_REFRESH {
+                break;
             }
         }
     }
@@ -322,6 +217,124 @@ impl ApplicationWindow {
             settings::ThemeMode::Light => egui::Visuals::light(),
         };
         ctx.set_visuals(theme);
+    }
+
+    fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
+        match event {
+            UIMessageIn::SettingsChanged(settings) => {
+                self.s.set_settings(ctx, settings);
+            }
+
+            UIMessageIn::ConnectionStatusChanged(conn) => {
+                self.s.connection = conn;
+                match conn {
+                    ConnectionStatus::Disconnected { .. } => {
+                        self.s.mark_all_as_disconnected();
+                    }
+                    ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
+                    ConnectionStatus::Connected => {
+                        self.s.mark_all_as_connected();
+                    }
+                }
+            }
+
+            UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
+                if self.s.has_chat(&name) {
+                    self.s.set_chat_state(&name, state, None);
+                } else {
+                    self.s.add_new_chat(name, state, switch_to_chat);
+                }
+                if switch_to_chat {
+                    self.refresh_window_title(ctx);
+                }
+            }
+
+            UIMessageIn::NewChatStatusReceived {
+                target,
+                state,
+                details,
+            } => {
+                if self.s.has_chat(&target) {
+                    self.s.set_chat_state(&target, state, Some(&details));
+                }
+            }
+
+            UIMessageIn::ChatSwitchRequested(name, message_id) => {
+                let lowercase_name = name.to_lowercase();
+                self.s.highlights.mark_as_read(&lowercase_name);
+                if self.s.has_chat(&name) {
+                    self.s.active_chat_tab_name = lowercase_name;
+                    if message_id.is_some() {
+                        self.chat.scroll_to = message_id;
+                    }
+                }
+                self.refresh_window_title(ctx);
+            }
+
+            UIMessageIn::ChannelJoined(name) => {
+                self.s.set_chat_state(
+                    &name,
+                    ChatState::Joined,
+                    Some("You have joined the channel"),
+                );
+            }
+
+            UIMessageIn::NewMessageReceived { target, message } => {
+                let name_updated =
+                    self.s
+                        .push_chat_message(target.clone(), message.clone(), ctx);
+                if name_updated {
+                    self.refresh_window_title(ctx);
+                }
+
+                #[cfg(feature = "glass")]
+                match message.username == self.s.settings.chat.irc.username {
+                    false => {
+                        self.s
+                            .glass
+                            .handle_incoming_message(&self.s.core, &target, &message)
+                    }
+                    true => {
+                        self.s
+                            .glass
+                            .handle_outgoing_message(&self.s.core, &target, &message)
+                    }
+                }
+
+                ctx.request_repaint();
+            }
+
+            UIMessageIn::NewServerMessageReceived(text) => {
+                self.s.push_server_message(&text);
+                ctx.request_repaint();
+            }
+
+            UIMessageIn::ChatClosed(name) => {
+                self.s.remove_chat(name);
+                self.refresh_window_title(ctx);
+            }
+
+            UIMessageIn::ChatCleared(name) => {
+                self.s.clear_chat(&name);
+            }
+
+            UIMessageIn::ChatModeratorAdded(name) => {
+                for mods in [
+                    &mut self.s.settings.ui.dark_colours.mod_users,
+                    &mut self.s.settings.ui.light_colours.mod_users,
+                ] {
+                    mods.insert(name.to_lowercase().replace(' ', "_"));
+                }
+            }
+
+            UIMessageIn::UsageWindowRequested => {
+                self.menu.show_usage = true;
+            }
+
+            UIMessageIn::UpdateStateChanged(state) => {
+                self.s.update_state = state;
+            }
+        }
     }
 }
 
