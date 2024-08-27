@@ -77,8 +77,6 @@ impl UIState {
         ctx.set_pixels_per_point(self.settings.ui.scaling);
 
         self.highlights
-            .set_username(&self.settings.chat.irc.username);
-        self.highlights
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
@@ -177,7 +175,17 @@ impl UIState {
 
                 message.id = Some(ch.messages.len());
                 message.parse_for_links();
-                message.detect_highlights(self.highlights.keywords());
+
+                #[allow(unused_mut)] // glass
+                let mut current_username = Some(&self.settings.chat.irc.username);
+                #[cfg(feature = "glass")]
+                if self
+                    .glass
+                    .is_username_highlight_suppressed(&normalized, &message)
+                {
+                    current_username = None;
+                }
+                message.detect_highlights(self.highlights.keywords(), current_username);
 
                 let highlight = message.highlight;
                 if highlight {
