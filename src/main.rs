@@ -61,11 +61,11 @@ fn main() {
         &format!("steel v{}", VERSION),
         native_options,
         Box::new(|cc| {
-            Ok(Box::new(gui::window::ApplicationWindow::new(
+            Box::new(gui::window::ApplicationWindow::new(
                 cc,
                 ui_queue,
                 app_queue_handle,
-            )))
+            ))
         }),
     )
     .expect("failed to set up the app window");

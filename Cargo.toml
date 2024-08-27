@@ -1,6 +1,6 @@
 [package]
 name = "steel"
-version = "0.7.12"
+version = "0.7.13"
 edition = "2021"
 build = "src/build.rs"
 
@@ -13,8 +13,8 @@ winresource = "0.1"
 steel_core = { version = "*", path = "./crates/steel_core" }
 glass = { version = "*", path = "./crates/glass", optional = true}
 
-eframe = "0.28.1"
-egui_extras = "0.28.1"
+eframe = { git = "https://github.com/emilk/egui.git", rev = "738ea75453567c5f17a543e68aec8c48097cae7b" } # v0.27.2 with my patch
+egui_extras = { git = "https://github.com/emilk/egui.git", rev = "738ea75453567c5f17a543e68aec8c48097cae7b" } # v0.27.2 with my patch
 
 chrono = { version = "0.4.38", features = ["serde"] }
 irc = "1.0.0"

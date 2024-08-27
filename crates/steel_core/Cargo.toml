@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ecolor = "0.28.1"
+ecolor = { git = "https://github.com/emilk/egui.git", rev = "738ea75453567c5f17a543e68aec8c48097cae7b" } # v0.27.2 with my patch
 chrono = { version = "0.4.38", features = ["serde"] }
 irc-proto = "1.0.0"
 serde = { version = "1.0.202", features = ["serde_derive"] }
