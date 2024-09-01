@@ -1,0 +1,17 @@
+[package]
+name = "visual_tests"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+steel = { path = "../", version = "*" }
+glass = { version = "*", path = "../crates/glass", optional = true}
+
+eframe = { workspace = true }
+tokio = { workspace = true }
+rand = "0.8.5"
+
+[features]
+default = []
+glass = ["dep:glass"]
