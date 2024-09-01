@@ -117,7 +117,7 @@ pub enum State {
     Idle,
     FetchingMetadata,
     MetadataReady(ReleaseMetadataGitHub),
-    FetchingRelease(usize, usize),
+    FetchingRelease(usize, Option<usize>),
     ReleaseReady(ReleaseMetadataGitHub),
     UpdateError(String),
 }

@@ -376,7 +376,8 @@ impl UpdaterBackend {
                     "updater: fetching the new release from {}",
                     a.browser_download_url
                 );
-                set_state(&self.state, State::FetchingRelease(0, 0), &self.core);
+                set_state(&self.state, State::FetchingRelease(0, None), &self.core);
+
                 match ureq::request("GET", &a.browser_download_url).call() {
                     Ok(r) => {
                         let state = self.state.clone();
@@ -491,21 +492,28 @@ fn download(
     core: UnboundedSender<AppMessageIn>,
 ) -> Result<Vec<u8>, std::io::Error> {
     let chunk_sz = 1 << 18; // 256K
-    let total_bytes: usize = r.header("Content-Length").unwrap().parse().unwrap();
+    let total_bytes: Option<usize> = match r.header("Content-Length") {
+        Some(value) => Some(value.parse().unwrap()),
+        None => None,
+    };
 
     let initial_state = State::FetchingRelease(0, total_bytes);
     set_state(&state, initial_state, &core);
 
-    let mut chunk = Vec::with_capacity(std::cmp::min(total_bytes, chunk_sz));
+    let mut chunk = Vec::with_capacity(chunk_sz);
     let mut data = Vec::new();
     let mut stream = r.into_reader();
 
     loop {
         match stream.read_exact(&mut chunk) {
             Ok(_) => {
-                let bytes_left = total_bytes - data.len() - chunk.len();
+                let bytes_left = match total_bytes {
+                    Some(total) => total - data.len() - chunk.len(),
+                    None => chunk_sz,
+                };
                 data.append(&mut chunk);
 
+                // Change and send the state manually to avoid locking the mutex twice in a row unnecessarily.
                 let new_state = {
                     let mut state = state.lock().unwrap();
                     if state.stop_evt {
@@ -517,8 +525,7 @@ fn download(
                         ));
                     }
 
-                    let new_state = State::FetchingRelease(data.len(), total_bytes);
-                    (*state).state = new_state;
+                    (*state).state = State::FetchingRelease(data.len(), total_bytes);
                     state.clone()
                 };
                 core.send(AppMessageIn::UpdateStateChanged(new_state))
