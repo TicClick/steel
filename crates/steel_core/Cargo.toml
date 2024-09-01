@@ -6,16 +6,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ecolor = { git = "https://github.com/emilk/egui.git", rev = "738ea75453567c5f17a543e68aec8c48097cae7b" } # v0.27.2 with my patch
-chrono = { version = "0.4.38", features = ["serde"] }
-irc-proto = "1.0.0"
-serde = { version = "1.0.202", features = ["serde_derive"] }
-serde_yaml = "0.9.34"
-tokio = { version = "1.37.0", features = ["rt"] }
-thiserror = "1.0.61"
-simplelog = "0.12.2"
-log = "0.4.21"
-log-panics = { version = "2.1.0", features = ["with-backtrace"] }
-time = { version = "0.3.36", features = ["macros"] }
-percent-encoding = "2.3.1"
-ureq = { version = "2.9.7", features = ["json", "native-tls"] }
+ecolor = { workspace = true }
+chrono = { workspace = true }
+irc-proto = { workspace = true }
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+tokio = { workspace = true }
+thiserror = { workspace = true }
+simplelog = { workspace = true }
+log = { workspace = true }
+log-panics ={ workspace = true }
+time = { workspace = true }
+percent-encoding = { workspace = true }
+ureq = { workspace = true }
