@@ -65,6 +65,32 @@ pub fn test_update_url(url: &str) -> Result<UpdateSource, String> {
     }
 }
 
+fn set_state(
+    state: &Arc<Mutex<UpdateState>>,
+    current_step: State,
+    core: &UnboundedSender<AppMessageIn>,
+) {
+    if let State::UpdateError(ref text) = current_step {
+        log::error!("failed to perform the update: {}", text);
+    }
+
+    let new_state = {
+        let mut guard = state.lock().unwrap();
+        let new_state = UpdateState {
+            state: current_step,
+            stop_evt: guard.stop_evt,
+            when: Some(chrono::Local::now()),
+            url_test_result: guard.url_test_result.clone(),
+            force_update: guard.force_update,
+        };
+        *guard = new_state.clone();
+        new_state
+    };
+
+    core.send(AppMessageIn::UpdateStateChanged(new_state))
+        .unwrap();
+}
+
 #[derive(Debug)]
 pub struct Updater {
     state: Arc<Mutex<UpdateState>>,
@@ -236,7 +262,7 @@ impl UpdaterBackend {
                 guard.url_test_result = Some(Err(e));
             }
         }
-        self.set_state(State::Idle);
+        set_state(&self.state, State::Idle, &self.core);
     }
 
     fn run_update_cycle(&mut self) {
@@ -285,28 +311,9 @@ impl UpdaterBackend {
         }
     }
 
-    fn set_state(&self, state: State) {
-        if let State::UpdateError(ref text) = state {
-            log::error!("failed to perform the update: {}", text);
-        }
-        let mut guard = self.state.lock().unwrap();
-        let new_state = UpdateState {
-            state,
-            stop_evt: guard.stop_evt,
-            when: Some(chrono::Local::now()),
-            url_test_result: guard.url_test_result.clone(),
-            force_update: guard.force_update,
-        };
-        *guard = new_state.clone();
-        drop(guard);
-        self.core
-            .send(AppMessageIn::UpdateStateChanged(new_state))
-            .unwrap();
-    }
-
     fn fetch_metadata(&self) {
         log::debug!("updater: checking releases metadata");
-        self.set_state(State::FetchingMetadata);
+        set_state(&self.state, State::FetchingMetadata, &self.core);
         match &self.src {
             UpdateSource::Gist(s) => self.fetch_metadata_gist(s),
             UpdateSource::GitHub(s) => self.fetch_metadata_github(s),
@@ -321,14 +328,16 @@ impl UpdaterBackend {
                     if let Some(metadata_file) = files.files.get(GIST_METADATA_FILENAME) {
                         self.fetch_metadata_github(&metadata_file.raw_url);
                     } else {
-                        self.set_state(State::UpdateError(
-                            "updater: failed to fetch preliminary metadata file from gist.github.com".into(),
-                        ));
+                        set_state(
+                            &self.state,
+                            State::UpdateError("updater: failed to fetch preliminary metadata file from gist.github.com".into()),
+                            &self.core
+                        );
                     }
                 }
-                Err(e) => self.set_state(e.into()),
+                Err(e) => set_state(&self.state, e.into(), &self.core),
             },
-            Err(e) => self.set_state(e.into()),
+            Err(e) => set_state(&self.state, e.into(), &self.core),
         }
     }
 
@@ -343,17 +352,19 @@ impl UpdaterBackend {
                     for release in releases {
                         if release.platform_specific_asset().is_some() {
                             log::debug!("latest relevant release: {:?}", release);
-                            self.set_state(State::MetadataReady(release));
+                            set_state(&self.state, State::MetadataReady(release), &self.core);
                             return;
                         }
                     }
-                    self.set_state(State::UpdateError(
-                        "no suitable release found for your platform".into(),
-                    ));
+                    set_state(
+                        &self.state,
+                        State::UpdateError("no suitable release found for your platform".into()),
+                        &self.core,
+                    );
                 }
-                Err(e) => self.set_state(e.into()),
+                Err(e) => set_state(&self.state, e.into(), &self.core),
             },
-            Err(e) => self.set_state(e.into()),
+            Err(e) => set_state(&self.state, e.into(), &self.core),
         }
     }
 
@@ -365,20 +376,23 @@ impl UpdaterBackend {
                     "updater: fetching the new release from {}",
                     a.browser_download_url
                 );
-                self.set_state(State::FetchingRelease(0, 0));
+                set_state(&self.state, State::FetchingRelease(0, 0), &self.core);
                 match ureq::request("GET", &a.browser_download_url).call() {
                     Ok(r) => {
                         let state = self.state.clone();
-                        match std::thread::scope(|s| s.spawn(|| download(r, state)).join()) {
+                        let core = self.core.clone();
+                        match std::thread::scope(|s| s.spawn(|| download(r, state, core)).join()) {
                             Ok(Ok(data)) => match self.prepare_release(data, a.archive_type()) {
-                                Ok(()) => self.set_state(State::ReleaseReady(m)),
-                                Err(e) => self.set_state(e.into()),
+                                Ok(()) => {
+                                    set_state(&self.state, State::ReleaseReady(m), &self.core)
+                                }
+                                Err(e) => set_state(&self.state, e.into(), &self.core),
                             },
-                            Ok(Err(e)) => self.set_state(e.into()),
-                            Err(e) => self.set_state(e.into()),
+                            Ok(Err(e)) => set_state(&self.state, e.into(), &self.core),
+                            Err(e) => set_state(&self.state, e.into(), &self.core),
                         }
                     }
-                    Err(e) => self.set_state(e.into()),
+                    Err(e) => set_state(&self.state, e.into(), &self.core),
                 }
             }
         }
@@ -471,29 +485,45 @@ impl UpdaterBackend {
     }
 }
 
-fn download(r: ureq::Response, state: Arc<Mutex<UpdateState>>) -> Result<Vec<u8>, std::io::Error> {
+fn download(
+    r: ureq::Response,
+    state: Arc<Mutex<UpdateState>>,
+    core: UnboundedSender<AppMessageIn>,
+) -> Result<Vec<u8>, std::io::Error> {
     let chunk_sz = 1 << 18; // 256K
     let total_bytes: usize = r.header("Content-Length").unwrap().parse().unwrap();
-    state.lock().unwrap().state = State::FetchingRelease(0, total_bytes);
+
+    let initial_state = State::FetchingRelease(0, total_bytes);
+    set_state(&state, initial_state, &core);
+
     let mut chunk = Vec::with_capacity(std::cmp::min(total_bytes, chunk_sz));
     let mut data = Vec::new();
     let mut stream = r.into_reader();
+
     loop {
         match stream.read_exact(&mut chunk) {
             Ok(_) => {
                 let bytes_left = total_bytes - data.len() - chunk.len();
                 data.append(&mut chunk);
 
-                let mut state = state.lock().unwrap();
-                if state.stop_evt {
-                    log::info!("Update aborted by user");
-                    state.stop_evt = false;
-                    return Err(std::io::Error::new(
-                        std::io::ErrorKind::Interrupted,
-                        "Update aborted by user",
-                    ));
-                }
-                state.state = State::FetchingRelease(data.len(), total_bytes);
+                let new_state = {
+                    let mut state = state.lock().unwrap();
+                    if state.stop_evt {
+                        log::info!("Update aborted by user");
+                        state.stop_evt = false;
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Interrupted,
+                            "Update aborted by user",
+                        ));
+                    }
+
+                    let new_state = State::FetchingRelease(data.len(), total_bytes);
+                    (*state).state = new_state;
+                    state.clone()
+                };
+                core.send(AppMessageIn::UpdateStateChanged(new_state))
+                    .unwrap();
+
                 let next_chunk_sz = std::cmp::min(bytes_left, chunk_sz);
                 if next_chunk_sz > 0 {
                     chunk.resize(next_chunk_sz, 0);
