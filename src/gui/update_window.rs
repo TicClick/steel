@@ -72,14 +72,18 @@ impl UpdateWindow {
                     }
                     State::FetchingRelease(ready_bytes, total_bytes) => {
                         ui.vertical(|ui| {
-                            let pct = *ready_bytes as f32 / *total_bytes as f32;
-                            egui::ProgressBar::new(*ready_bytes as f32 / *total_bytes as f32)
-                                .text(format!(
-                                    "{} MB -- {}%",
-                                    total_bytes >> 20,
-                                    (pct * 100.0) as usize
-                                ))
-                                .ui(ui);
+                            if let Some(total_bytes) = total_bytes {
+                                let pct = *ready_bytes as f32 / *total_bytes as f32;
+                                egui::ProgressBar::new(*ready_bytes as f32 / *total_bytes as f32)
+                                    .text(format!(
+                                        "{} MB -- {}%",
+                                        total_bytes >> 20,
+                                        (pct * 100.0) as usize
+                                    ))
+                                    .ui(ui);
+                            } else {
+                                egui::Spinner::new().ui(ui);
+                            }
                         });
                         if ui.button("abort").clicked() {
                             state.core.abort_application_update();
