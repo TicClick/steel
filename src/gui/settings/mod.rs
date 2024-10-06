@@ -2,6 +2,7 @@
 
 mod application;
 mod chat;
+mod journal;
 mod notifications;
 mod ui;
 
@@ -22,6 +23,7 @@ pub enum Tab {
     Notifications,
     #[cfg(feature = "glass")]
     Moderation,
+    Logging,
 }
 
 #[derive(Default)]
@@ -60,6 +62,8 @@ impl SettingsWindow {
 
                     #[cfg(feature = "glass")]
                     ui.selectable_value(&mut self.active_tab, Tab::Moderation, "moderation");
+
+                    ui.selectable_value(&mut self.active_tab, Tab::Logging, "logging");
                 });
 
                 ui.separator();
@@ -72,6 +76,8 @@ impl SettingsWindow {
 
                     #[cfg(feature = "glass")]
                     Tab::Moderation => state.glass.show_ui(ui, &state.settings.ui.theme),
+
+                    Tab::Logging => self.show_logging_tab(ui, state),
                 }
             });
 

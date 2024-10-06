@@ -9,6 +9,7 @@ use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
+use crate::core::logging::ChatLoggerHandle;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
@@ -27,6 +28,7 @@ pub struct Application {
     events: UnboundedReceiver<AppMessageIn>,
 
     irc: IRCActorHandle,
+    chat_logger: Option<ChatLoggerHandle>,
     updater: Option<Updater>,
     ui_queue: UnboundedSender<UIMessageIn>,
     pub app_queue: UnboundedSender<AppMessageIn>,
@@ -40,6 +42,7 @@ impl Application {
             events,
             updater: None,
             irc: IRCActorHandle::new(app_queue.clone()),
+            chat_logger: None,
             ui_queue,
             app_queue,
         }
@@ -177,6 +180,8 @@ impl Application {
         self.load_settings(true);
         log::set_max_level(self.state.settings.journal.app_events.level);
 
+        self.enable_chat_logger(&self.state.settings.journal.clone());
+
         self.start_updater();
         if self.state.settings.chat.autoconnect {
             self.connect();
@@ -194,6 +199,41 @@ impl Application {
         self.ui_handle_settings_requested();
     }
 
+    fn enable_chat_logger(&mut self, logging_settings: &settings::Journal) {
+        self.chat_logger = Some(ChatLoggerHandle::new(
+            &logging_settings.chat_events.directory,
+            &logging_settings.chat_events.format,
+        ));
+    }
+
+    fn handle_logging_settings_change(&mut self, new_settings: &settings::Journal) {
+        let old_settings = self.state.settings.journal.clone();
+        if old_settings.app_events.level != new_settings.app_events.level {
+            log::set_max_level(new_settings.app_events.level);
+        }
+
+        if old_settings.chat_events.enabled != new_settings.chat_events.enabled {
+            match new_settings.chat_events.enabled {
+                true => self.enable_chat_logger(new_settings),
+                false => {
+                    if let Some(cl) = self.chat_logger.as_ref() {
+                        cl.shutdown()
+                    }
+                }
+            }
+        }
+
+        if let Some(chat_logger) = &self.chat_logger {
+            if old_settings.chat_events.directory != new_settings.chat_events.directory {
+                chat_logger.change_logging_directory(new_settings.chat_events.directory.clone());
+            }
+
+            if old_settings.chat_events.format != new_settings.chat_events.format {
+                chat_logger.change_log_format(new_settings.chat_events.format.clone());
+            }
+        }
+    }
+
     pub fn ui_handle_settings_requested(&self) {
         self.ui_queue
             .send(UIMessageIn::SettingsChanged(self.state.settings.clone()))
@@ -201,6 +241,8 @@ impl Application {
     }
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
+        self.handle_logging_settings_change(&settings.journal);
+
         self.state.settings = settings;
         self.state.settings.to_file(DEFAULT_SETTINGS_PATH);
     }
@@ -286,6 +328,10 @@ impl Application {
         message: Message,
         switch_if_missing: bool,
     ) {
+        if let Some(chat_logger) = &self.chat_logger {
+            chat_logger.log(target.clone(), message.clone());
+        }
+
         self.maybe_remember_chat(&target, switch_if_missing);
         self.ui_queue
             .send(UIMessageIn::NewMessageReceived { target, message })
@@ -370,6 +416,11 @@ impl Application {
         if name.is_channel() {
             self.leave_channel(name);
         }
+
+        if let Some(chat_logger) = &self.chat_logger {
+            chat_logger.close_log(normalized);
+        }
+
         self.ui_queue
             .send(UIMessageIn::ChatClosed(name.to_owned()))
             .unwrap();
