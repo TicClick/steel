@@ -286,8 +286,10 @@ impl UIState {
     }
 
     pub fn mark_all_as_disconnected(&mut self) {
-        for chat in self.chats.iter_mut() {
-            chat.set_state(
+        let open_chats: Vec<String> = self.chats.iter().map(|ch| ch.name.clone()).collect();
+        for chat_name in open_chats {
+            self.set_chat_state(
+                &chat_name,
                 ChatState::Left,
                 Some("You have left the chat (disconnected)"),
             );
@@ -295,13 +297,14 @@ impl UIState {
     }
 
     pub fn mark_all_as_connected(&mut self) {
-        for chat in self.chats.iter_mut() {
-            let (new_state, reason) = match chat.name.is_channel() {
+        let open_chats: Vec<String> = self.chats.iter().map(|ch| ch.name.clone()).collect();
+        for chat_name in open_chats {
+            let (new_state, reason) = match chat_name.is_channel() {
                 // Joins are handled by the app server
                 true => (ChatState::JoinInProgress, None),
                 false => (ChatState::Joined, Some("You are online")),
             };
-            chat.set_state(new_state, reason);
+            self.set_chat_state(&chat_name, new_state, reason);
         }
     }
 }
