@@ -125,8 +125,8 @@ impl ChatLoggerBackend {
         }
 
         let target_path = self.chat_path(&chat_name);
-        let mut f = match self.files.entry(target_path.clone()) {
-            Entry::Occupied(e) => e.into_mut(),
+        let (is_new_file, mut f) = match self.files.entry(target_path.clone()) {
+            Entry::Occupied(e) => (false, e.into_mut()),
             Entry::Vacant(e) => {
                 match std::fs::OpenOptions::new()
                     .read(true)
@@ -134,7 +134,7 @@ impl ChatLoggerBackend {
                     .append(true)
                     .open(target_path)
                 {
-                    Ok(handle) => e.insert(handle),
+                    Ok(handle) => (true, e.insert(handle)),
                     Err(e) => {
                         log::error!(
                             "Failed to open or create the chat log for {}: {}",
@@ -146,6 +146,17 @@ impl ChatLoggerBackend {
                 }
             }
         };
+
+        if is_new_file {
+            if let Err(e) = writeln!(&mut f, "\n") {
+                log::error!(
+                    "Failed to start a new logging session for {}: {}",
+                    chat_name,
+                    e
+                );
+                return Err(e);
+            }
+        }
 
         let formatted_message = format_message_for_logging(&self.log_line_format, &message);
         if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
