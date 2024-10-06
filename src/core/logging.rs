@@ -1,6 +1,7 @@
 use std::collections::{hash_map::Entry, HashMap};
+use std::fmt::Write as FmtWrite;
 use std::fs::File;
-use std::io::Write;
+use std::io::Write as IOWrite;
 use std::path::{Path, PathBuf};
 
 use steel_core::chat::Message;
@@ -107,51 +108,9 @@ impl ChatLoggerBackend {
     }
 
     fn chat_path(&self, chat_name: &str) -> PathBuf {
-        self.log_directory.join(chat_name.to_lowercase()).with_extension("log")
-    }
-
-    fn format_message(log_line_format: &str, message: &Message) -> String {
-        let mut result = String::new();
-        let mut placeholder = String::new();
-        let mut in_placeholder = false;
-
-        for c in log_line_format.chars() {
-            match c {
-                '{' => {
-                    in_placeholder = true;
-                    placeholder.clear();
-                }
-                '}' => {
-                    if in_placeholder {
-                        result.push_str(&Self::resolve_placeholder(&placeholder, message));
-                        in_placeholder = false;
-                    } else {
-                        result.push(c);
-                    }
-                }
-                _ => {
-                    if in_placeholder {
-                        placeholder.push(c);
-                    } else {
-                        result.push(c);
-                    }
-                }
-            }
-        }
-
-        result
-    }
-
-    fn resolve_placeholder(placeholder: &str, message: &Message) -> String {
-        if let Some(format) = placeholder.strip_prefix("date:") {
-            message.time.format(format).to_string()
-        } else {
-            match placeholder {
-                "username" => message.username.clone(),
-                "text" => message.text.clone(),
-                _ => String::from("{unknown}"),
-            }
-        }
+        self.log_directory
+            .join(chat_name.to_lowercase())
+            .with_extension("log")
     }
 
     fn log(&mut self, chat_name: String, message: Message) -> std::io::Result<()> {
@@ -188,7 +147,7 @@ impl ChatLoggerBackend {
             }
         };
 
-        let formatted_message = Self::format_message(&self.log_line_format, &message);
+        let formatted_message = format_message_for_logging(&self.log_line_format, &message);
         if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
             log::error!("Failed to append a chat log line for {}: {}", chat_name, e);
             return Err(e);
@@ -201,6 +160,54 @@ impl ChatLoggerBackend {
         let target_path = self.chat_path(&chat_name);
         if let Entry::Occupied(e) = self.files.entry(target_path) {
             e.remove_entry();
+        }
+    }
+}
+
+pub fn format_message_for_logging(log_line_format: &str, message: &Message) -> String {
+    let mut result = String::new();
+    let mut placeholder = String::new();
+    let mut in_placeholder = false;
+
+    for c in log_line_format.chars() {
+        match c {
+            '{' => {
+                in_placeholder = true;
+                placeholder.clear();
+            }
+            '}' => {
+                if in_placeholder {
+                    result.push_str(&resolve_placeholder(&placeholder, message));
+                    in_placeholder = false;
+                } else {
+                    result.push(c);
+                }
+            }
+            _ => {
+                if in_placeholder {
+                    placeholder.push(c);
+                } else {
+                    result.push(c);
+                }
+            }
+        }
+    }
+
+    result
+}
+
+fn resolve_placeholder(placeholder: &str, message: &Message) -> String {
+    if let Some(date_format) = placeholder.strip_prefix("date:") {
+        let mut buf = String::new();
+        match write!(&mut buf, "{}", message.time.format(date_format)) {
+            Ok(_) => buf,
+            Err(_) => format!("{{date:{}}}", date_format),
+        }
+    } else {
+        match placeholder {
+            "username" => message.username.clone(),
+            "text" => message.text.clone(),
+            _ => String::from("{unknown}"),
         }
     }
 }
