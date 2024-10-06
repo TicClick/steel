@@ -416,6 +416,11 @@ impl Application {
         if name.is_channel() {
             self.leave_channel(name);
         }
+
+        if let Some(chat_logger) = &self.chat_logger {
+            chat_logger.close_log(normalized);
+        }
+
         self.ui_queue
             .send(UIMessageIn::ChatClosed(name.to_owned()))
             .unwrap();
