@@ -7,20 +7,11 @@ use crate::settings::Settings;
 pub enum UIMessageIn {
     SettingsChanged(Settings),
     ConnectionStatusChanged(ConnectionStatus),
-    NewSystemMessage {
-        target: String,
-        message: Message,
-    },
-    NewMessageReceived {
-        target: String,
-        message: Message,
-    },
+    NewSystemMessage { target: String, message: Message },
+    NewMessageReceived { target: String, message: Message },
     NewServerMessageReceived(String),
-    NewChatStateReceived {
-        target: String,
-        state: ChatState,
-    },
-    NewChatRequested(String, ChatState, bool),
+    NewChatStateReceived { target: String, state: ChatState },
+    NewChatRequested { target: String, switch: bool },
     ChatSwitchRequested(String, Option<usize>),
     ChatClosed(String),
     ChatCleared(String),

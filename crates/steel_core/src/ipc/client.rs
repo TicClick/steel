@@ -16,21 +16,9 @@ impl CoreClient {
 }
 
 impl CoreClient {
-    pub fn channel_opened(&self, channel: &str) {
+    pub fn chat_opened(&self, chat: &str) {
         self.server
-            .send(AppMessageIn::UIChannelOpened(channel.to_owned()))
-            .unwrap();
-    }
-
-    pub fn private_chat_opened(&self, chat: &str) {
-        self.server
-            .send(AppMessageIn::UIPrivateChatOpened(chat.to_owned()))
-            .unwrap();
-    }
-
-    pub fn channel_join_requested(&self, channel: &str) {
-        self.server
-            .send(AppMessageIn::UIChannelJoinRequested(channel.to_owned()))
+            .send(AppMessageIn::UIChatOpened(chat.to_owned()))
             .unwrap();
     }
 

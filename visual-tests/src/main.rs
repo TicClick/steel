@@ -1,7 +1,7 @@
 use rand::{thread_rng, Rng};
 use tokio::sync::mpsc::unbounded_channel;
 
-use steel::core::chat::{ChatState, Message};
+use steel::core::chat::Message;
 use steel::core::ipc::ui::UIMessageIn;
 use steel::run_app;
 
@@ -15,11 +15,10 @@ pub fn main() {
         .unwrap();
 
     ui_queue_in
-        .send(UIMessageIn::NewChatRequested(
-            "#test".to_owned(),
-            ChatState::Joined,
-            true,
-        ))
+        .send(UIMessageIn::NewChatRequested {
+            target: "#test".to_owned(),
+            switch: true,
+        })
         .unwrap();
 
     for i in 0..25 {

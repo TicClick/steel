@@ -159,9 +159,9 @@ pub struct Chat {
 }
 
 impl Chat {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
-            name,
+            name: name.to_owned(),
             messages: Vec::new(),
             state: ChatState::Left,
         }

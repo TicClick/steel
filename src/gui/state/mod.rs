@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message};
+use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
@@ -116,16 +116,13 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, state: ChatState, switch_to_chat: bool) {
-        let mut chat = Chat::new(name);
-        chat.state = state;
-
+    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) {
+        let chat = Chat::new(&name);
         let normalized = chat.name.to_lowercase();
-        self.name_to_chat
-            .insert(normalized.to_owned(), self.chats.len());
+        self.name_to_chat.insert(normalized, self.chats.len());
         self.chats.push(chat);
         if switch_to_chat {
-            self.active_chat_tab_name = normalized;
+            self.active_chat_tab_name = name;
         }
     }
 
@@ -161,18 +158,12 @@ impl UIState {
         ctx: &egui::Context,
     ) -> bool {
         let normalized = target.to_lowercase();
-        let tab_inactive = !self.is_active_tab(&normalized);
-
+        let is_tab_inactive = !self.is_active_tab(&normalized);
+        let is_system_message = matches!(message.r#type, MessageType::System);
         let mut name_updated = false;
 
         if let Some(pos) = self.name_to_chat.get(&normalized) {
             if let Some(ch) = self.chats.get_mut(*pos) {
-                // If the chat was open with an improper case, fix it!
-                if ch.name != target {
-                    ch.name = target;
-                    name_updated = true;
-                }
-
                 message.id = Some(ch.messages.len());
                 message.parse_for_links();
 
@@ -185,10 +176,19 @@ impl UIState {
                 {
                     current_username = None;
                 }
+
+                // If the chat was open with an improper case, fix it!
+                if ch.name != target && !is_system_message {
+                    ch.name = target;
+                    name_updated = true;
+                }
+
                 message.detect_highlights(self.highlights.keywords(), current_username);
 
-                let highlight = message.highlight;
-                if highlight {
+                let contains_highlight = message.highlight;
+                let requires_attention = contains_highlight || !normalized.is_channel();
+
+                if contains_highlight {
                     self.highlights.add(&normalized, &message);
                     if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
                         self.highlights.mark_as_unread(HIGHLIGHTS_TAB_NAME);
@@ -196,8 +196,7 @@ impl UIState {
                 }
                 ch.push(message);
 
-                let requires_attention = highlight || !normalized.is_channel();
-                if tab_inactive {
+                if is_tab_inactive && !is_system_message {
                     if requires_attention {
                         self.highlights.mark_as_highlighted(&normalized);
                     } else {
@@ -282,29 +281,6 @@ impl UIState {
     pub fn push_to_all_chats(&mut self, message: Message) {
         for chat in self.chats.iter_mut() {
             chat.push(message.clone());
-        }
-    }
-
-    pub fn mark_all_as_disconnected(&mut self) {
-        let open_chats: Vec<String> = self.chats.iter().map(|ch| ch.name.clone()).collect();
-        for chat_name in open_chats {
-            self.set_chat_state(
-                &chat_name,
-                ChatState::Left,
-                Some("You have left the chat (disconnected)"),
-            );
-        }
-    }
-
-    pub fn mark_all_as_connected(&mut self) {
-        let open_chats: Vec<String> = self.chats.iter().map(|ch| ch.name.clone()).collect();
-        for chat_name in open_chats {
-            let (new_state, reason) = match chat_name.is_channel() {
-                // Joins are handled by the app server
-                true => (ChatState::JoinInProgress, None),
-                false => (ChatState::Joined, Some("You are online")),
-            };
-            self.set_chat_state(&chat_name, new_state, reason);
         }
     }
 }

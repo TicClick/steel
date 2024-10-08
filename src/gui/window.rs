@@ -2,11 +2,10 @@ use chrono::{DurationRound, Timelike};
 use eframe::egui;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::core::chat::ChatState;
 use crate::gui;
 
 use crate::gui::state::UIState;
-use steel_core::chat::{ConnectionStatus, Message};
+use steel_core::chat::Message;
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 use crate::core::settings;
@@ -231,24 +230,11 @@ impl ApplicationWindow {
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
                 self.s.connection = conn;
-                match conn {
-                    ConnectionStatus::Disconnected { .. } => {
-                        self.s.mark_all_as_disconnected();
-                    }
-                    ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                    ConnectionStatus::Connected => {
-                        self.s.mark_all_as_connected();
-                    }
-                }
             }
 
-            UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
-                if self.s.has_chat(&name) {
-                    self.s.set_chat_state(&name, state);
-                } else {
-                    self.s.add_new_chat(name, state, switch_to_chat);
-                }
-                if switch_to_chat {
+            UIMessageIn::NewChatRequested { target, switch } => {
+                self.s.add_new_chat(target, switch);
+                if switch {
                     self.refresh_window_title(ctx);
                 }
             }

@@ -203,17 +203,12 @@ impl ChatTabs {
                 if add_chat && validation_result.is_ok() {
                     // Whether the channel is valid or not is determined by the server (will send us a message),
                     // but for now let's add it to the interface.
-                    match mode {
-                        ChatType::Channel => {
-                            let channel_name = match input.is_channel() {
-                                true => input.clone(),
-                                false => format!("#{}", input),
-                            };
-                            state.core.channel_opened(&channel_name);
-                            state.core.channel_join_requested(&channel_name);
-                        }
-                        ChatType::Person => state.core.private_chat_opened(input),
-                    }
+                    let target = if matches!(mode, ChatType::Channel) && !input.is_channel() {
+                        format!("#{}", input)
+                    } else {
+                        input.to_owned()
+                    };
+                    state.core.chat_opened(&target);
                     input.clear();
                     response.request_focus();
                 }
