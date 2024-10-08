@@ -175,11 +175,8 @@ impl Chat {
         self.name.chat_type()
     }
 
-    pub fn set_state(&mut self, state: ChatState, reason: Option<&str>) {
+    pub fn set_state(&mut self, state: ChatState) {
         self.state = state;
-        if let Some(reason) = reason {
-            self.push(Message::new_system(reason));
-        }
     }
 }
 

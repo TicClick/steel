@@ -145,11 +145,11 @@ impl UIState {
         self.active_chat_tab_name == target
     }
 
-    pub fn set_chat_state(&mut self, target: &str, state: ChatState, reason: Option<&str>) {
+    pub fn set_chat_state(&mut self, target: &str, state: ChatState) {
         let normalized = target.to_lowercase();
         if let Some(pos) = self.name_to_chat.get(&normalized) {
             if let Some(ch) = self.chats.get_mut(*pos) {
-                ch.set_state(state, reason);
+                ch.set_state(state);
             }
         }
     }

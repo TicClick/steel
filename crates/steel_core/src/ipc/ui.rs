@@ -16,14 +16,12 @@ pub enum UIMessageIn {
         message: Message,
     },
     NewServerMessageReceived(String),
-    NewChatStatusReceived {
+    NewChatStateReceived {
         target: String,
         state: ChatState,
-        details: String,
     },
     NewChatRequested(String, ChatState, bool),
     ChatSwitchRequested(String, Option<usize>),
-    ChannelJoined(String),
     ChatClosed(String),
     ChatCleared(String),
     ChatModeratorAdded(String),

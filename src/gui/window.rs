@@ -244,7 +244,7 @@ impl ApplicationWindow {
 
             UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
                 if self.s.has_chat(&name) {
-                    self.s.set_chat_state(&name, state, None);
+                    self.s.set_chat_state(&name, state);
                 } else {
                     self.s.add_new_chat(name, state, switch_to_chat);
                 }
@@ -253,14 +253,8 @@ impl ApplicationWindow {
                 }
             }
 
-            UIMessageIn::NewChatStatusReceived {
-                target,
-                state,
-                details,
-            } => {
-                if self.s.has_chat(&target) {
-                    self.s.set_chat_state(&target, state, Some(&details));
-                }
+            UIMessageIn::NewChatStateReceived { target, state } => {
+                self.s.set_chat_state(&target, state);
             }
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
@@ -273,14 +267,6 @@ impl ApplicationWindow {
                     }
                 }
                 self.refresh_window_title(ctx);
-            }
-
-            UIMessageIn::ChannelJoined(name) => {
-                self.s.set_chat_state(
-                    &name,
-                    ChatState::Joined,
-                    Some("You have joined the channel"),
-                );
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {

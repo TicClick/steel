@@ -375,12 +375,12 @@ impl Application {
             let normalized = chat.to_lowercase();
             self.state.chats.remove(&normalized);
             self.ui_queue
-                .send(UIMessageIn::NewChatStatusReceived {
-                    target: chat,
+                .send(UIMessageIn::NewChatStateReceived {
+                    target: chat.clone(),
                     state: ChatState::Left,
-                    details: content,
                 })
                 .unwrap();
+            self.send_system_message(chat, &content);
         }
         self.ui_queue
             .send(UIMessageIn::NewServerMessageReceived(error_text))
@@ -389,8 +389,13 @@ impl Application {
 
     pub fn handle_channel_join(&mut self, channel: String) {
         self.ui_queue
-            .send(UIMessageIn::ChannelJoined(channel))
+            .send(UIMessageIn::NewChatStateReceived {
+                target: channel,
+                state: ChatState::Joined,
+            })
             .unwrap();
+        self.send_system_message(channel, "You have joined the channel");
+    }
 
     fn send_system_message(&mut self, target: String, text: &str) {
         let message = Message::new_system(text);
