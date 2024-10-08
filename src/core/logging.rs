@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Write as IOWrite;
 use std::path::{Path, PathBuf};
 
-use steel_core::chat::Message;
+use steel_core::chat::{Message, MessageType};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::actor::ActorHandle;
@@ -19,6 +19,7 @@ pub enum LoggingRequest {
 
 pub struct ChatLoggerHandle {
     channel: UnboundedSender<LoggingRequest>,
+    log_system_messages: bool,
 }
 
 impl ActorHandle for ChatLoggerHandle {}
@@ -30,13 +31,25 @@ impl ChatLoggerHandle {
         std::thread::spawn(move || {
             actor.run();
         });
-        Self { channel: tx }
+        Self {
+            channel: tx,
+            log_system_messages: true,
+        }
     }
 
-    pub fn log(&self, chat_name: String, message: Message) {
-        let _ = self
-            .channel
-            .send(LoggingRequest::LogMessage { chat_name, message });
+    pub fn log_system_messages(&mut self, log: bool) {
+        self.log_system_messages = log;
+    }
+
+    pub fn log(&self, chat_name: &str, message: &Message) {
+        if matches!(message.r#type, MessageType::System) && !self.log_system_messages {
+            return;
+        }
+
+        let _ = self.channel.send(LoggingRequest::LogMessage {
+            chat_name: chat_name.to_owned(),
+            message: message.to_owned(),
+        });
     }
 
     pub fn close_log(&self, chat_name: String) {

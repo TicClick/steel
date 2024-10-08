@@ -223,13 +223,19 @@ impl Application {
             }
         }
 
-        if let Some(chat_logger) = &self.chat_logger {
+        if let Some(chat_logger) = &mut self.chat_logger {
             if old_settings.chat_events.directory != new_settings.chat_events.directory {
                 chat_logger.change_logging_directory(new_settings.chat_events.directory.clone());
             }
 
             if old_settings.chat_events.format != new_settings.chat_events.format {
                 chat_logger.change_log_format(new_settings.chat_events.format.clone());
+            }
+
+            if old_settings.chat_events.with_system_events
+                != new_settings.chat_events.with_system_events
+            {
+                chat_logger.log_system_messages(new_settings.chat_events.with_system_events);
             }
         }
     }
@@ -329,7 +335,7 @@ impl Application {
         switch_if_missing: bool,
     ) {
         if let Some(chat_logger) = &self.chat_logger {
-            chat_logger.log(target.clone(), message.clone());
+            chat_logger.log(&target, &message);
         }
 
         self.maybe_remember_chat(&target, switch_if_missing);
@@ -384,6 +390,15 @@ impl Application {
     pub fn handle_channel_join(&mut self, channel: String) {
         self.ui_queue
             .send(UIMessageIn::ChannelJoined(channel))
+            .unwrap();
+
+    fn send_system_message(&mut self, target: String, text: &str) {
+        let message = Message::new_system(text);
+        if let Some(chat_logger) = &self.chat_logger {
+            chat_logger.log(&target, &message);
+        }
+        self.ui_queue
+            .send(UIMessageIn::NewSystemMessage { target, message })
             .unwrap();
     }
 

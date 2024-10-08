@@ -221,6 +221,10 @@ impl ApplicationWindow {
 
     fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
         match event {
+            UIMessageIn::NewSystemMessage { target, message } => {
+                self.s.push_chat_message(target, message, ctx);
+            }
+
             UIMessageIn::SettingsChanged(settings) => {
                 self.s.set_settings(ctx, settings);
             }
