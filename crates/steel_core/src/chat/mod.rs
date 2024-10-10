@@ -143,7 +143,7 @@ impl Message {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ChatState {
     #[default]
     Left,

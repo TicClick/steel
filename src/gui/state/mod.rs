@@ -146,7 +146,9 @@ impl UIState {
         let normalized = target.to_lowercase();
         if let Some(pos) = self.name_to_chat.get(&normalized) {
             if let Some(ch) = self.chats.get_mut(*pos) {
-                ch.set_state(state);
+                if ch.state != state {
+                    ch.set_state(state);
+                }
             }
         }
     }
