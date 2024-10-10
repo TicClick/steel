@@ -45,7 +45,7 @@ pub struct ChatEvents {
     pub enabled: bool,
     pub directory: String,
     pub format: String,
-    pub with_system_events: bool,
+    pub log_system_events: bool,
 }
 
 impl Default for ChatEvents {
@@ -57,7 +57,7 @@ impl Default for ChatEvents {
                 "{{date:{}}} <{{username}}> {{text}}",
                 DEFAULT_DATETIME_FORMAT
             ),
-            with_system_events: true,
+            log_system_events: true,
         }
     }
 }

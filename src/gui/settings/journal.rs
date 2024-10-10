@@ -21,7 +21,7 @@ impl SettingsWindow {
                 "enable chat logging",
             );
             ui.checkbox(
-                &mut state.settings.journal.chat_events.with_system_events,
+                &mut state.settings.journal.chat_events.log_system_events,
                 "log system events",
             );
 

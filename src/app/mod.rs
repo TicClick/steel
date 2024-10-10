@@ -238,10 +238,10 @@ impl Application {
                 chat_logger.change_log_format(new_settings.chat_events.format.clone());
             }
 
-            if old_settings.chat_events.with_system_events
-                != new_settings.chat_events.with_system_events
+            if old_settings.chat_events.log_system_events
+                != new_settings.chat_events.log_system_events
             {
-                chat_logger.log_system_messages(new_settings.chat_events.with_system_events);
+                chat_logger.log_system_messages(new_settings.chat_events.log_system_events);
             }
         }
     }
