@@ -162,14 +162,14 @@ impl Menu {
             ui.separator();
 
             ui.menu_button("open", |ui| {
-                if ui.button("app location").on_hover_text_at_pointer(
-                    "open the directory where the app is located"
+                if ui.button("runtime directory").on_hover_text_at_pointer(
+                    "open the directory where the application is located"
                 ).clicked() {
                     crate::core::os::open_own_directory();
                     ui.close_menu();
                 }
 
-                if ui.button("log file").on_hover_text_at_pointer(
+                if ui.button("runtime log").on_hover_text_at_pointer(
                     "open text journal with debug messages and errors -- may or may not help with debugging"
                 ).clicked() {
                     crate::core::os::open_runtime_log();
