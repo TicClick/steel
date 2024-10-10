@@ -76,8 +76,11 @@ impl ChatLoggerHandle {
 
 struct ChatLoggerBackend {
     log_directory: PathBuf,
+
     log_line_format: String,
     log_system_line_format: String,
+    log_action_line_format: String,
+
     channel: UnboundedReceiver<LoggingRequest>,
     files: HashMap<PathBuf, File>,
 }
@@ -90,8 +93,11 @@ impl ChatLoggerBackend {
     ) -> Self {
         Self {
             log_directory: Path::new(log_directory).to_path_buf(),
+
             log_line_format: log_line_format.to_owned(),
             log_system_line_format: to_log_system_line_format(log_line_format),
+            log_action_line_format: to_log_action_line_format(log_line_format),
+
             channel,
             files: HashMap::new(),
         }
@@ -107,6 +113,7 @@ impl ChatLoggerBackend {
                 }
                 LoggingRequest::ChangeLogFormat { log_line_format } => {
                     self.log_system_line_format = to_log_system_line_format(&log_line_format);
+                    self.log_action_line_format = to_log_action_line_format(&log_line_format);
                     self.log_line_format = log_line_format;
                 }
                 LoggingRequest::ChangeLoggingDirectory { logging_directory } => {
@@ -177,8 +184,10 @@ impl ChatLoggerBackend {
 
         let log_line_format = match message.r#type {
             MessageType::System => &self.log_system_line_format,
-            _ => &self.log_line_format,
+            MessageType::Text => &self.log_line_format,
+            MessageType::Action => &self.log_action_line_format,
         };
+
         let formatted_message = format_message_for_logging(log_line_format, &message);
         if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
             log::error!("Failed to append a chat log line for {}: {}", chat_name, e);
@@ -244,13 +253,24 @@ fn resolve_placeholder(placeholder: &str, message: &Message) -> String {
     }
 }
 
-fn to_log_system_line_format(log_line_format: &str) -> String {
+fn get_or_default_date_format(log_line_format: &str) -> String {
     if let Some(start_pos) = log_line_format.find("{date:") {
         if let Some(pos) = &log_line_format[start_pos..].find('}') {
             let end_pos = start_pos + *pos;
             let date_format = log_line_format[start_pos..end_pos + 1].to_owned();
-            return format!("{} * {{text}}", date_format);
+            return date_format;
         }
     }
-    format!("{{date:{}}} * {{text}}", DEFAULT_DATETIME_FORMAT)
+    format!("{{date:{}}}", DEFAULT_DATETIME_FORMAT)
+}
+
+fn to_log_system_line_format(log_line_format: &str) -> String {
+    format!("{} * {{text}}", get_or_default_date_format(log_line_format))
+}
+
+fn to_log_action_line_format(log_line_format: &str) -> String {
+    format!(
+        "{} * {{username}} {{text}}",
+        get_or_default_date_format(log_line_format)
+    )
 }
