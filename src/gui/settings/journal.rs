@@ -1,9 +1,14 @@
-use eframe::egui::RichText;
+use eframe::egui::{self, RichText};
 use steel_core::chat;
 
 use super::SettingsWindow;
 use crate::{
-    core::{self, logging::format_message_for_logging},
+    core::{
+        self,
+        logging::{
+            format_message_for_logging, to_log_action_line_format, to_log_system_line_format,
+        },
+    },
     gui::state::UIState,
 };
 
@@ -38,15 +43,10 @@ impl SettingsWindow {
             ui.text_edit_multiline(&mut state.settings.journal.chat_events.format);
 
             ui.horizontal_wrapped(|ui| {
-                ui.label(RichText::new("preview: →").color(ui.visuals().warn_fg_color));
-                let message =
-                    chat::Message::new_text("WilliamGibson", "I think I left my cyberdeck on");
-                let formatted_message = format_message_for_logging(
-                    &state.settings.journal.chat_events.format,
-                    &message,
-                );
-                ui.label(formatted_message);
-                ui.label(RichText::new("←").color(ui.visuals().warn_fg_color));
+                let mut example_chat_log =
+                    make_example_chat_log(&state.settings.journal.chat_events.format);
+                ui.add_enabled(false, egui::TextEdit::multiline(&mut example_chat_log));
+                // ui.label(RichText::new("←").color(ui.visuals().warn_fg_color));
             });
 
             ui.collapsing("click to show help", |ui| {
@@ -85,4 +85,28 @@ impl SettingsWindow {
 
         // TODO(logging): Add a setting for logging system events.
     }
+}
+
+fn make_example_chat_log(message_format: &str) -> String {
+    let action_message_format = to_log_action_line_format(message_format);
+    let system_message_format = to_log_system_line_format(message_format);
+    let chat_log = vec![
+        (
+            chat::Message::new_system("You have joined #sprawl"),
+            system_message_format.as_str(),
+        ),
+        (
+            chat::Message::new_text("WilliamGibson", "I think I left my cyberdeck on"),
+            message_format,
+        ),
+        (
+            chat::Message::new_action("WilliamGibson", "runs away"),
+            action_message_format.as_str(),
+        ),
+    ];
+    chat_log
+        .iter()
+        .map(|(message, line_format)| format_message_for_logging(line_format, message))
+        .collect::<Vec<String>>()
+        .join("\n")
 }

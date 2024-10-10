@@ -264,11 +264,11 @@ fn get_or_default_date_format(log_line_format: &str) -> String {
     format!("{{date:{}}}", DEFAULT_DATETIME_FORMAT)
 }
 
-fn to_log_system_line_format(log_line_format: &str) -> String {
+pub fn to_log_system_line_format(log_line_format: &str) -> String {
     format!("{} * {{text}}", get_or_default_date_format(log_line_format))
 }
 
-fn to_log_action_line_format(log_line_format: &str) -> String {
+pub fn to_log_action_line_format(log_line_format: &str) -> String {
     format!(
         "{} * {{username}} {{text}}",
         get_or_default_date_format(log_line_format)
