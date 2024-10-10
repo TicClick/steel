@@ -279,10 +279,4 @@ impl UIState {
     pub fn has_chat(&self, target: &str) -> bool {
         self.name_to_chat.contains_key(&target.to_lowercase())
     }
-
-    pub fn push_to_all_chats(&mut self, message: Message) {
-        for chat in self.chats.iter_mut() {
-            chat.push(message.clone());
-        }
-    }
 }

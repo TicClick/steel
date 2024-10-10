@@ -11,6 +11,7 @@ pub enum AppMessageIn {
     ChatMessageReceived { target: String, message: Message },
     ServerMessageReceived { content: String },
     ChannelJoined(String),
+    DateChanged(chrono::DateTime<chrono::Local>, String),
 
     UIConnectRequested,
     UIDisconnectRequested,

@@ -1,11 +1,9 @@
-use chrono::{DurationRound, Timelike};
 use eframe::egui;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui;
 
 use crate::gui::state::UIState;
-use steel_core::chat::Message;
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 use crate::core::settings;
@@ -88,43 +86,6 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-struct DateAnnouncer {
-    pub prev_event: Option<chrono::DateTime<chrono::Local>>,
-    pub current_event: chrono::DateTime<chrono::Local>,
-}
-
-impl Default for DateAnnouncer {
-    fn default() -> Self {
-        let now = chrono::Local::now();
-        Self {
-            prev_event: None,
-            current_event: now,
-        }
-    }
-}
-
-impl DateAnnouncer {
-    fn should_announce(&self) -> bool {
-        match self.prev_event {
-            None => {
-                self.current_event.hour() == 0
-                    && self.current_event.minute() == 0
-                    && self.current_event.second() == 0
-            }
-            Some(dt) => {
-                dt.date_naive() < self.current_event.date_naive()
-                    && self.current_event.hour() == 0
-                    && self.current_event.minute() == 0
-            }
-        }
-    }
-
-    fn refresh(&mut self) {
-        self.prev_event = Some(self.current_event);
-        self.current_event = chrono::Local::now();
-    }
-}
-
 pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
@@ -136,7 +97,6 @@ pub struct ApplicationWindow {
 
     ui_queue: UnboundedReceiver<UIMessageIn>,
     s: UIState,
-    date_announcer: DateAnnouncer,
     filter_ui: gui::filter::FilterWindow,
 }
 
@@ -158,7 +118,6 @@ impl ApplicationWindow {
             usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
-            date_announcer: DateAnnouncer::default(),
             filter_ui: gui::filter::FilterWindow::default(),
         }
     }
@@ -178,26 +137,6 @@ impl ApplicationWindow {
     }
 
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
-        if self.date_announcer.should_announce() {
-            let text = format!(
-                "A new day is born ({})",
-                self.date_announcer
-                    .current_event
-                    .date_naive()
-                    .format(crate::core::DEFAULT_DATE_FORMAT)
-            );
-            self.s.push_to_all_chats(
-                Message::new_system(&text).with_time(
-                    self.date_announcer
-                        .current_event
-                        .duration_trunc(chrono::Duration::days(1))
-                        .unwrap(),
-                ),
-            );
-            ctx.request_repaint();
-        }
-        self.date_announcer.refresh();
-
         // If the main window is restored after having being minimized for some time, it still needs to be responsive
         // enough.
         let mut i = 0;

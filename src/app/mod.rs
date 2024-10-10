@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::Loadable;
@@ -13,6 +14,8 @@ use crate::core::logging::ChatLoggerHandle;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
+
+pub mod date_announcer;
 
 const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
 
@@ -30,6 +33,7 @@ pub struct Application {
     irc: IRCActorHandle,
     chat_logger: Option<ChatLoggerHandle>,
     updater: Option<Updater>,
+    _date_announcer: DateAnnouncer,
     ui_queue: UnboundedSender<UIMessageIn>,
     pub app_queue: UnboundedSender<AppMessageIn>,
 }
@@ -41,6 +45,7 @@ impl Application {
             state: ApplicationState::default(),
             events,
             updater: None,
+            _date_announcer: DateAnnouncer::new(app_queue.clone()),
             irc: IRCActorHandle::new(app_queue.clone()),
             chat_logger: None,
             ui_queue,
@@ -51,6 +56,11 @@ impl Application {
     pub fn run(&mut self) {
         while let Some(event) = self.events.blocking_recv() {
             match event {
+                AppMessageIn::DateChanged(_date, message) => {
+                    for chat in self.state.chats.clone() {
+                        self.send_system_message(&chat, &message);
+                    }
+                }
                 AppMessageIn::ConnectionChanged(status) => {
                     self.handle_connection_status(status);
                 }
