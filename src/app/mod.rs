@@ -55,7 +55,7 @@ impl Application {
                     self.handle_connection_status(status);
                 }
                 AppMessageIn::ChatMessageReceived { target, message } => {
-                    self.handle_chat_message(target, message);
+                    self.handle_chat_message(&target, message);
                 }
                 AppMessageIn::ServerMessageReceived { content } => {
                     self.handle_server_message(content);
@@ -328,18 +328,21 @@ impl Application {
         });
     }
 
-    pub fn handle_chat_message(&mut self, target: String, message: Message) {
+    pub fn handle_chat_message(&mut self, target: &str, message: Message) {
         if !self.state.chats.contains(&target.to_lowercase()) {
-            self.save_chat(&target);
-            self.ui_add_chat(&target, false);
+            self.save_chat(target);
+            self.ui_add_chat(target, false);
         }
 
         if let Some(chat_logger) = &self.chat_logger {
-            chat_logger.log(&target, &message);
+            chat_logger.log(target, &message);
         }
 
         self.ui_queue
-            .send(UIMessageIn::NewMessageReceived { target, message })
+            .send(UIMessageIn::NewMessageReceived {
+                target: target.to_owned(),
+                message,
+            })
             .unwrap();
     }
 
@@ -491,23 +494,13 @@ impl Application {
     pub fn send_text_message(&mut self, target: &str, text: &str) {
         self.irc.send_message(target, text);
         let message = Message::new_text(&self.state.settings.chat.irc.username, text);
-        self.ui_queue
-            .send(UIMessageIn::NewMessageReceived {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.handle_chat_message(target, message);
     }
 
     pub fn send_action(&mut self, target: &str, text: &str) {
         self.irc.send_action(target, text);
         let message = Message::new_action(&self.state.settings.chat.irc.username, text);
-        self.ui_queue
-            .send(UIMessageIn::NewMessageReceived {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.handle_chat_message(target, message);
     }
 
     pub fn join_channel(&self, channel: &str) {
