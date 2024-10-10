@@ -29,7 +29,7 @@ impl SettingsWindow {
                     && std::path::Path::new(&state.settings.journal.chat_events.directory).exists()
                 {
                     core::os::open_external_directory(
-                        &mut state.settings.journal.chat_events.directory,
+                        &state.settings.journal.chat_events.directory,
                     );
                 }
             });

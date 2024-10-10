@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+use crate::DEFAULT_DATETIME_FORMAT;
+
+pub const DEFAULT_LOG_DIRECTORY: &str = "./chat-logs";
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Journal {
@@ -48,8 +52,11 @@ impl Default for ChatEvents {
     fn default() -> Self {
         Self {
             enabled: true,
-            directory: "./chat-logs".to_owned(),
-            format: "[{date:%Y-%m-%d %H:%M:%S}] <{username}> {text}".to_owned(),
+            directory: DEFAULT_LOG_DIRECTORY.to_owned(),
+            format: format!(
+                "{{date:{}}} <{{username}}> {{text}}",
+                DEFAULT_DATETIME_FORMAT
+            ),
             with_system_events: true,
         }
     }
