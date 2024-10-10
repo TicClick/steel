@@ -8,19 +8,22 @@ use steel_core::chat::{Message, MessageType};
 use steel_core::ipc::server::AppMessageIn;
 
 static ACTION_PREFIX: &str = "\x01ACTION";
+static ACTION_SUFFIX: &str = "\x01";
 
 pub fn empty_handler(_sender: &UnboundedSender<AppMessageIn>, _msg: irc::proto::Message) {}
 
 pub fn privmsg_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     if let irc::proto::Command::PRIVMSG(_, ref text) = msg.command {
-        let (message_type, text) = if text.starts_with(ACTION_PREFIX) {
-            (
-                MessageType::Action,
-                text.strip_prefix(ACTION_PREFIX).unwrap().trim(),
-            )
-        } else {
-            (MessageType::Text, text.as_str())
-        };
+        let (message_type, text) =
+            if let Some(text_without_prefix) = text.strip_prefix(ACTION_PREFIX) {
+                let action_text = match text_without_prefix.strip_suffix(ACTION_SUFFIX) {
+                    Some(clean_action) => clean_action,
+                    None => text_without_prefix,
+                };
+                (MessageType::Action, action_text.trim())
+            } else {
+                (MessageType::Text, text.as_str())
+            };
 
         let message_target = match msg.response_target() {
             Some(target) => target.to_owned(),
