@@ -1,12 +1,9 @@
-use chrono::{DurationRound, Timelike};
 use eframe::egui;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::core::chat::ChatState;
 use crate::gui;
 
 use crate::gui::state::UIState;
-use steel_core::chat::{ConnectionStatus, Message};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 use crate::core::settings;
@@ -89,43 +86,6 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-struct DateAnnouncer {
-    pub prev_event: Option<chrono::DateTime<chrono::Local>>,
-    pub current_event: chrono::DateTime<chrono::Local>,
-}
-
-impl Default for DateAnnouncer {
-    fn default() -> Self {
-        let now = chrono::Local::now();
-        Self {
-            prev_event: None,
-            current_event: now,
-        }
-    }
-}
-
-impl DateAnnouncer {
-    fn should_announce(&self) -> bool {
-        match self.prev_event {
-            None => {
-                self.current_event.hour() == 0
-                    && self.current_event.minute() == 0
-                    && self.current_event.second() == 0
-            }
-            Some(dt) => {
-                dt.date_naive() < self.current_event.date_naive()
-                    && self.current_event.hour() == 0
-                    && self.current_event.minute() == 0
-            }
-        }
-    }
-
-    fn refresh(&mut self) {
-        self.prev_event = Some(self.current_event);
-        self.current_event = chrono::Local::now();
-    }
-}
-
 pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
@@ -137,7 +97,6 @@ pub struct ApplicationWindow {
 
     ui_queue: UnboundedReceiver<UIMessageIn>,
     s: UIState,
-    date_announcer: DateAnnouncer,
     filter_ui: gui::filter::FilterWindow,
 }
 
@@ -159,7 +118,6 @@ impl ApplicationWindow {
             usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
             s: UIState::new(app_queue_handle),
-            date_announcer: DateAnnouncer::default(),
             filter_ui: gui::filter::FilterWindow::default(),
         }
     }
@@ -179,26 +137,6 @@ impl ApplicationWindow {
     }
 
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
-        if self.date_announcer.should_announce() {
-            let text = format!(
-                "A new day is born ({})",
-                self.date_announcer
-                    .current_event
-                    .date_naive()
-                    .format(crate::core::DEFAULT_DATE_FORMAT)
-            );
-            self.s.push_to_all_chats(
-                Message::new_system(&text).with_time(
-                    self.date_announcer
-                        .current_event
-                        .duration_trunc(chrono::Duration::days(1))
-                        .unwrap(),
-                ),
-            );
-            ctx.request_repaint();
-        }
-        self.date_announcer.refresh();
-
         // If the main window is restored after having being minimized for some time, it still needs to be responsive
         // enough.
         let mut i = 0;
@@ -221,42 +159,27 @@ impl ApplicationWindow {
 
     fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
         match event {
+            UIMessageIn::NewSystemMessage { target, message } => {
+                self.s.push_chat_message(target, message, ctx);
+            }
+
             UIMessageIn::SettingsChanged(settings) => {
                 self.s.set_settings(ctx, settings);
             }
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
                 self.s.connection = conn;
-                match conn {
-                    ConnectionStatus::Disconnected { .. } => {
-                        self.s.mark_all_as_disconnected();
-                    }
-                    ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-                    ConnectionStatus::Connected => {
-                        self.s.mark_all_as_connected();
-                    }
-                }
             }
 
-            UIMessageIn::NewChatRequested(name, state, switch_to_chat) => {
-                if self.s.has_chat(&name) {
-                    self.s.set_chat_state(&name, state, None);
-                } else {
-                    self.s.add_new_chat(name, state, switch_to_chat);
-                }
-                if switch_to_chat {
+            UIMessageIn::NewChatRequested { target, switch } => {
+                self.s.add_new_chat(target, switch);
+                if switch {
                     self.refresh_window_title(ctx);
                 }
             }
 
-            UIMessageIn::NewChatStatusReceived {
-                target,
-                state,
-                details,
-            } => {
-                if self.s.has_chat(&target) {
-                    self.s.set_chat_state(&target, state, Some(&details));
-                }
+            UIMessageIn::NewChatStateReceived { target, state } => {
+                self.s.set_chat_state(&target, state);
             }
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
@@ -269,14 +192,6 @@ impl ApplicationWindow {
                     }
                 }
                 self.refresh_window_title(ctx);
-            }
-
-            UIMessageIn::ChannelJoined(name) => {
-                self.s.set_chat_state(
-                    &name,
-                    ChatState::Joined,
-                    Some("You have joined the channel"),
-                );
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {

@@ -143,7 +143,7 @@ impl Message {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub enum ChatState {
     #[default]
     Left,
@@ -159,9 +159,9 @@ pub struct Chat {
 }
 
 impl Chat {
-    pub fn new(name: String) -> Self {
+    pub fn new(name: &str) -> Self {
         Self {
-            name,
+            name: name.to_owned(),
             messages: Vec::new(),
             state: ChatState::Left,
         }
@@ -175,11 +175,8 @@ impl Chat {
         self.name.chat_type()
     }
 
-    pub fn set_state(&mut self, state: ChatState, reason: Option<&str>) {
+    pub fn set_state(&mut self, state: ChatState) {
         self.state = state;
-        if let Some(reason) = reason {
-            self.push(Message::new_system(reason));
-        }
     }
 }
 

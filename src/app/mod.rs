@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 
+use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::Loadable;
@@ -13,6 +14,8 @@ use crate::core::logging::ChatLoggerHandle;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
+
+pub mod date_announcer;
 
 const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
 
@@ -30,6 +33,7 @@ pub struct Application {
     irc: IRCActorHandle,
     chat_logger: Option<ChatLoggerHandle>,
     updater: Option<Updater>,
+    _date_announcer: DateAnnouncer,
     ui_queue: UnboundedSender<UIMessageIn>,
     pub app_queue: UnboundedSender<AppMessageIn>,
 }
@@ -41,6 +45,7 @@ impl Application {
             state: ApplicationState::default(),
             events,
             updater: None,
+            _date_announcer: DateAnnouncer::new(app_queue.clone()),
             irc: IRCActorHandle::new(app_queue.clone()),
             chat_logger: None,
             ui_queue,
@@ -51,11 +56,16 @@ impl Application {
     pub fn run(&mut self) {
         while let Some(event) = self.events.blocking_recv() {
             match event {
+                AppMessageIn::DateChanged(_date, message) => {
+                    for chat in self.state.chats.clone() {
+                        self.send_system_message(&chat, &message);
+                    }
+                }
                 AppMessageIn::ConnectionChanged(status) => {
                     self.handle_connection_status(status);
                 }
                 AppMessageIn::ChatMessageReceived { target, message } => {
-                    self.handle_chat_message(target, message, false);
+                    self.handle_chat_message(&target, message);
                 }
                 AppMessageIn::ServerMessageReceived { content } => {
                     self.handle_server_message(content);
@@ -79,15 +89,13 @@ impl Application {
                 AppMessageIn::UIExitRequested => {
                     break;
                 }
-                AppMessageIn::UIChannelOpened(target)
-                | AppMessageIn::UIPrivateChatOpened(target) => {
-                    self.maybe_remember_chat(&target, true);
+
+                AppMessageIn::UIChatOpened(target) => {
+                    self.ui_handle_chat_opened(&target);
                 }
+
                 AppMessageIn::UIChatSwitchRequested(target, id) => {
-                    self.ui_handle_chat_switch_requested(target, id);
-                }
-                AppMessageIn::UIChannelJoinRequested(channel) => {
-                    self.handle_ui_channel_join_requested(channel);
+                    self.ui_handle_chat_switch_requested(&target, id);
                 }
                 AppMessageIn::UIChatClosed(target) => {
                     self.ui_handle_close_chat(&target);
@@ -132,14 +140,12 @@ impl Application {
 }
 
 impl Application {
-    pub fn handle_ui_channel_join_requested(&mut self, channel: String) {
-        self.maybe_remember_chat(&channel, true);
-        self.join_channel(&channel);
-    }
-
-    pub fn ui_handle_chat_switch_requested(&self, chat: String, message_id: Option<usize>) {
+    pub fn ui_handle_chat_switch_requested(&self, chat: &str, message_id: Option<usize>) {
         self.ui_queue
-            .send(UIMessageIn::ChatSwitchRequested(chat, message_id))
+            .send(UIMessageIn::ChatSwitchRequested(
+                chat.to_owned(),
+                message_id,
+            ))
             .unwrap();
     }
 
@@ -223,13 +229,19 @@ impl Application {
             }
         }
 
-        if let Some(chat_logger) = &self.chat_logger {
+        if let Some(chat_logger) = &mut self.chat_logger {
             if old_settings.chat_events.directory != new_settings.chat_events.directory {
                 chat_logger.change_logging_directory(new_settings.chat_events.directory.clone());
             }
 
             if old_settings.chat_events.format != new_settings.chat_events.format {
                 chat_logger.change_log_format(new_settings.chat_events.format.clone());
+            }
+
+            if old_settings.chat_events.log_system_events
+                != new_settings.chat_events.log_system_events
+            {
+                chat_logger.log_system_messages(new_settings.chat_events.log_system_events);
             }
         }
     }
@@ -267,24 +279,43 @@ impl Application {
         log::debug!("IRC connection status changed to {:?}", status);
         match status {
             ConnectionStatus::Connected => {
-                let chats = self.state.settings.chat.autojoin.clone();
-                let connected_to: Vec<String> = self.state.chats.iter().cloned().collect();
-                for cs in [chats, connected_to] {
-                    for chat in cs {
-                        self.maybe_remember_chat(&chat, false);
-                        if chat.is_channel() {
-                            self.join_channel(&chat);
-                        } else {
-                            self.push_chat_to_ui(&chat, false);
-                        }
-                    }
+                for chat in self.state.chats.clone() {
+                    self.rejoin_chat(&chat);
+                }
+
+                let wanted_chats = self
+                    .state
+                    .settings
+                    .chat
+                    .autojoin
+                    .iter()
+                    .filter(|ch| !self.state.chats.contains(&ch.to_lowercase()));
+                for chat in wanted_chats.cloned().collect::<Vec<String>>() {
+                    self.save_chat(&chat);
+                    self.ui_add_chat(&chat, false);
+                    self.rejoin_chat(&chat);
                 }
             }
             ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
             ConnectionStatus::Disconnected { by_user } => {
+                for chat in self.state.chats.iter().cloned().collect::<Vec<String>>() {
+                    self.change_chat_state(&chat, ChatState::Left);
+                }
                 if self.state.settings.chat.reconnect && !by_user {
                     self.queue_reconnect();
                 }
+            }
+        }
+    }
+
+    fn rejoin_chat(&mut self, chat: &str) {
+        match chat.is_channel() {
+            true => {
+                self.change_chat_state(chat, ChatState::JoinInProgress);
+                self.join_channel(chat);
+            }
+            false => {
+                self.change_chat_state(chat, ChatState::Joined);
             }
         }
     }
@@ -307,43 +338,54 @@ impl Application {
         });
     }
 
-    fn push_chat_to_ui(&self, target: &str, switch: bool) {
-        let chat_state = if target.is_channel() {
-            ChatState::JoinInProgress
-        } else {
-            ChatState::Joined
-        };
-        self.ui_queue
-            .send(UIMessageIn::NewChatRequested(
-                target.to_owned(),
-                chat_state,
-                switch,
-            ))
-            .unwrap();
-    }
+    pub fn handle_chat_message(&mut self, target: &str, message: Message) {
+        if !self.state.chats.contains(&target.to_lowercase()) {
+            self.save_chat(target);
+            self.ui_add_chat(target, false);
+        }
 
-    pub fn handle_chat_message(
-        &mut self,
-        target: String,
-        message: Message,
-        switch_if_missing: bool,
-    ) {
         if let Some(chat_logger) = &self.chat_logger {
-            chat_logger.log(target.clone(), message.clone());
+            chat_logger.log(target, &message);
         }
 
-        self.maybe_remember_chat(&target, switch_if_missing);
         self.ui_queue
-            .send(UIMessageIn::NewMessageReceived { target, message })
+            .send(UIMessageIn::NewMessageReceived {
+                target: target.to_owned(),
+                message,
+            })
             .unwrap();
     }
 
-    fn maybe_remember_chat(&mut self, target: &str, switch_if_missing: bool) {
-        let normalized = target.to_lowercase();
-        if !self.state.chats.contains(&normalized) {
-            self.state.chats.insert(normalized);
-            self.push_chat_to_ui(target, switch_if_missing);
+    fn ui_handle_chat_opened(&mut self, target: &str) {
+        if !self.state.chats.contains(&target.to_lowercase()) {
+            self.save_chat(target);
+            self.ui_add_chat(target, true);
         }
+        self.ui_handle_chat_switch_requested(target, None);
+
+        match target.is_channel() {
+            true => {
+                self.change_chat_state(target, ChatState::JoinInProgress);
+                self.join_channel(target);
+            }
+            false => {
+                self.change_chat_state(target, ChatState::Joined);
+            }
+        }
+    }
+
+    fn save_chat(&mut self, target: &str) {
+        let normalized = target.to_lowercase();
+        self.state.chats.insert(normalized);
+    }
+
+    fn ui_add_chat(&self, target: &str, switch: bool) {
+        self.ui_queue
+            .send(UIMessageIn::NewChatRequested {
+                target: target.to_owned(),
+                switch,
+            })
+            .unwrap();
     }
 
     pub fn handle_server_message(&mut self, content: String) {
@@ -368,22 +410,48 @@ impl Application {
         {
             let normalized = chat.to_lowercase();
             self.state.chats.remove(&normalized);
-            self.ui_queue
-                .send(UIMessageIn::NewChatStatusReceived {
-                    target: chat,
-                    state: ChatState::Left,
-                    details: content,
-                })
-                .unwrap();
+            self.change_chat_state(&chat, ChatState::Left);
+            self.send_system_message(&chat, &content);
         }
         self.ui_queue
             .send(UIMessageIn::NewServerMessageReceived(error_text))
             .unwrap();
     }
 
-    pub fn handle_channel_join(&mut self, channel: String) {
+    fn change_chat_state(&mut self, chat: &str, state: ChatState) {
         self.ui_queue
-            .send(UIMessageIn::ChannelJoined(channel))
+            .send(UIMessageIn::NewChatStateReceived {
+                target: chat.to_owned(),
+                state: state.clone(),
+            })
+            .unwrap();
+
+        match state {
+            ChatState::Left => {
+                self.send_system_message(chat, "You have left the chat (disconnected)")
+            }
+            ChatState::JoinInProgress => self.send_system_message(chat, "Joining the chat..."),
+            ChatState::Joined => match chat.is_channel() {
+                true => self.send_system_message(chat, "You have joined the chat"),
+                false => self.send_system_message(chat, "You have opened the chat"),
+            },
+        }
+    }
+
+    fn handle_channel_join(&mut self, channel: String) {
+        self.change_chat_state(&channel, ChatState::Joined);
+    }
+
+    fn send_system_message(&mut self, target: &str, text: &str) {
+        let message = Message::new_system(text);
+        if let Some(chat_logger) = &self.chat_logger {
+            chat_logger.log(target, &message);
+        }
+        self.ui_queue
+            .send(UIMessageIn::NewSystemMessage {
+                target: target.to_owned(),
+                message,
+            })
             .unwrap();
     }
 
@@ -436,23 +504,13 @@ impl Application {
     pub fn send_text_message(&mut self, target: &str, text: &str) {
         self.irc.send_message(target, text);
         let message = Message::new_text(&self.state.settings.chat.irc.username, text);
-        self.ui_queue
-            .send(UIMessageIn::NewMessageReceived {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.handle_chat_message(target, message);
     }
 
     pub fn send_action(&mut self, target: &str, text: &str) {
         self.irc.send_action(target, text);
         let message = Message::new_action(&self.state.settings.chat.irc.username, text);
-        self.ui_queue
-            .send(UIMessageIn::NewMessageReceived {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.handle_chat_message(target, message);
     }
 
     pub fn join_channel(&self, channel: &str) {

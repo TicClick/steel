@@ -110,7 +110,7 @@ impl Command for OpenChat {
         egui::RichText::new("/chat <user>")
     }
     fn action(&self, state: &UIState, args: Vec<String>) {
-        state.core.private_chat_opened(&args[0]);
+        state.core.chat_opened(&args[0]);
     }
 }
 
@@ -140,11 +140,12 @@ impl Command for JoinChannel {
         egui::RichText::new("/join <#channel>")
     }
     fn action(&self, state: &UIState, args: Vec<String>) {
-        if args[0].is_channel() {
-            state.core.channel_join_requested(&args[0]);
+        let target = if args[0].is_channel() {
+            args[0].to_owned()
         } else {
-            state.core.channel_join_requested(&format!("#{}", &args[0]));
-        }
+            format!("#{}", &args[0])
+        };
+        state.core.chat_opened(&target);
     }
 }
 

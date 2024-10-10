@@ -4,7 +4,8 @@ use std::fs::File;
 use std::io::Write as IOWrite;
 use std::path::{Path, PathBuf};
 
-use steel_core::chat::Message;
+use steel_core::chat::{Message, MessageType};
+use steel_core::DEFAULT_DATETIME_FORMAT;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::actor::ActorHandle;
@@ -19,6 +20,7 @@ pub enum LoggingRequest {
 
 pub struct ChatLoggerHandle {
     channel: UnboundedSender<LoggingRequest>,
+    log_system_messages: bool,
 }
 
 impl ActorHandle for ChatLoggerHandle {}
@@ -30,13 +32,25 @@ impl ChatLoggerHandle {
         std::thread::spawn(move || {
             actor.run();
         });
-        Self { channel: tx }
+        Self {
+            channel: tx,
+            log_system_messages: true,
+        }
     }
 
-    pub fn log(&self, chat_name: String, message: Message) {
-        let _ = self
-            .channel
-            .send(LoggingRequest::LogMessage { chat_name, message });
+    pub fn log_system_messages(&mut self, log: bool) {
+        self.log_system_messages = log;
+    }
+
+    pub fn log(&self, chat_name: &str, message: &Message) {
+        if matches!(message.r#type, MessageType::System) && !self.log_system_messages {
+            return;
+        }
+
+        let _ = self.channel.send(LoggingRequest::LogMessage {
+            chat_name: chat_name.to_owned(),
+            message: message.to_owned(),
+        });
     }
 
     pub fn close_log(&self, chat_name: String) {
@@ -62,7 +76,11 @@ impl ChatLoggerHandle {
 
 struct ChatLoggerBackend {
     log_directory: PathBuf,
+
     log_line_format: String,
+    log_system_line_format: String,
+    log_action_line_format: String,
+
     channel: UnboundedReceiver<LoggingRequest>,
     files: HashMap<PathBuf, File>,
 }
@@ -74,8 +92,12 @@ impl ChatLoggerBackend {
         channel: UnboundedReceiver<LoggingRequest>,
     ) -> Self {
         Self {
-            log_directory: Path::new(&log_directory).to_path_buf(),
+            log_directory: Path::new(log_directory).to_path_buf(),
+
             log_line_format: log_line_format.to_owned(),
+            log_system_line_format: to_log_system_line_format(log_line_format),
+            log_action_line_format: to_log_action_line_format(log_line_format),
+
             channel,
             files: HashMap::new(),
         }
@@ -90,6 +112,8 @@ impl ChatLoggerBackend {
                     }
                 }
                 LoggingRequest::ChangeLogFormat { log_line_format } => {
+                    self.log_system_line_format = to_log_system_line_format(&log_line_format);
+                    self.log_action_line_format = to_log_action_line_format(&log_line_format);
                     self.log_line_format = log_line_format;
                 }
                 LoggingRequest::ChangeLoggingDirectory { logging_directory } => {
@@ -158,7 +182,13 @@ impl ChatLoggerBackend {
             }
         }
 
-        let formatted_message = format_message_for_logging(&self.log_line_format, &message);
+        let log_line_format = match message.r#type {
+            MessageType::System => &self.log_system_line_format,
+            MessageType::Text => &self.log_line_format,
+            MessageType::Action => &self.log_action_line_format,
+        };
+
+        let formatted_message = format_message_for_logging(log_line_format, &message);
         if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
             log::error!("Failed to append a chat log line for {}: {}", chat_name, e);
             return Err(e);
@@ -221,4 +251,26 @@ fn resolve_placeholder(placeholder: &str, message: &Message) -> String {
             _ => String::from("{unknown}"),
         }
     }
+}
+
+fn get_or_default_date_format(log_line_format: &str) -> String {
+    if let Some(start_pos) = log_line_format.find("{date:") {
+        if let Some(pos) = &log_line_format[start_pos..].find('}') {
+            let end_pos = start_pos + *pos;
+            let date_format = log_line_format[start_pos..end_pos + 1].to_owned();
+            return date_format;
+        }
+    }
+    format!("{{date:{}}}", DEFAULT_DATETIME_FORMAT)
+}
+
+pub fn to_log_system_line_format(log_line_format: &str) -> String {
+    format!("{} * {{text}}", get_or_default_date_format(log_line_format))
+}
+
+pub fn to_log_action_line_format(log_line_format: &str) -> String {
+    format!(
+        "{} * {{username}} {{text}}",
+        get_or_default_date_format(log_line_format)
+    )
 }

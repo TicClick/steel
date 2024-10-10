@@ -503,7 +503,7 @@ fn show_datetime(
 #[allow(unused_variables)] // glass
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() && ui.button("💬 Open chat").clicked() {
-        state.core.private_chat_opened(&message.username);
+        state.core.chat_opened(&message.username);
         ui.close_menu();
     }
 
@@ -649,14 +649,7 @@ fn format_chat_message_text(
                                                             .core
                                                             .chat_switch_requested(chat, None);
                                                     } else {
-                                                        match chat.is_channel() {
-                                                            true => state
-                                                                .core
-                                                                .channel_join_requested(chat),
-                                                            false => {
-                                                                state.core.private_chat_opened(chat)
-                                                            }
-                                                        }
+                                                        state.core.chat_opened(chat)
                                                     }
                                                 }
                                             }
@@ -746,7 +739,7 @@ fn format_chat_message_text(
                                     if state.has_chat(location) {
                                         state.core.chat_switch_requested(location, None);
                                     } else {
-                                        state.core.channel_join_requested(location);
+                                        state.core.chat_opened(location);
                                     }
                                 }
                             }
