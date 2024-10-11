@@ -492,10 +492,9 @@ fn download(
     core: UnboundedSender<AppMessageIn>,
 ) -> Result<Vec<u8>, std::io::Error> {
     let chunk_sz = 1 << 18; // 256K
-    let total_bytes: Option<usize> = match r.header("Content-Length") {
-        Some(value) => Some(value.parse().unwrap()),
-        None => None,
-    };
+    let total_bytes: Option<usize> = r
+        .header("Content-Length")
+        .and_then(|value| value.parse().ok());
 
     let initial_state = State::FetchingRelease(0, total_bytes);
     set_state(&state, initial_state, &core);
@@ -525,7 +524,7 @@ fn download(
                         ));
                     }
 
-                    (*state).state = State::FetchingRelease(data.len(), total_bytes);
+                    state.state = State::FetchingRelease(data.len(), total_bytes);
                     state.clone()
                 };
                 core.send(AppMessageIn::UpdateStateChanged(new_state))

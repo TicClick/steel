@@ -66,5 +66,5 @@ pub fn run_app(
     )
     .expect("failed to set up the app window");
 
-    return app_thread;
+    app_thread
 }

@@ -19,7 +19,7 @@ impl LinkType {
             // The rest of actions seem to work regardless of the slash's presence.
 
             let mut value = value;
-            if value.ends_with(&[b'/']) {
+            if value.ends_with(b"/") {
                 value = &value[..value.len() - 1];
             }
 
