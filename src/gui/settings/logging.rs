@@ -10,6 +10,27 @@ use crate::{
 impl SettingsWindow {
     pub(super) fn show_logging_tab(&mut self, ui: &mut eframe::egui::Ui, state: &mut UIState) {
         ui.vertical(|ui| {
+            ui.heading("application logging");
+            ui.horizontal(|ui| {
+                ui.label("level");
+                egui::ComboBox::from_id_source("app-logging-level")
+                    .selected_text(state.settings.logging.application.level.as_str())
+                    .show_ui(ui, |ui| {
+                        for level in [
+                            log::LevelFilter::Debug,
+                            log::LevelFilter::Info,
+                            log::LevelFilter::Warn,
+                            log::LevelFilter::Error,
+                        ] {
+                            ui.selectable_value(
+                                &mut state.settings.logging.application.level,
+                                level,
+                                level.to_string(),
+                            );
+                        }
+                    });
+            });
+
             ui.heading("chat logging");
 
             ui.checkbox(
