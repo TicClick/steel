@@ -6,6 +6,7 @@ pub mod about;
 pub mod chat;
 pub mod chat_tabs;
 pub mod command;
+pub mod context_menu;
 pub mod filter;
 pub mod highlights;
 pub mod menu;

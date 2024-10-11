@@ -120,12 +120,6 @@ impl ChatLoggerBackend {
         }
     }
 
-    fn chat_path(&self, chat_name: &str) -> PathBuf {
-        self.directory
-            .join(chat_name.to_lowercase())
-            .with_extension("log")
-    }
-
     fn log(&mut self, chat_name: String, message: Message) -> std::io::Result<()> {
         if self.files.is_empty() {
             if let Err(e) = std::fs::create_dir_all(&self.directory) {
@@ -137,7 +131,7 @@ impl ChatLoggerBackend {
             }
         }
 
-        let target_path = self.chat_path(&chat_name);
+        let target_path = chat_log_path(&self.directory, &chat_name);
         let (is_new_file, mut f) = match self.files.entry(target_path.clone()) {
             Entry::Occupied(e) => (false, e.into_mut()),
             Entry::Vacant(e) => {
@@ -188,11 +182,17 @@ impl ChatLoggerBackend {
     }
 
     fn close(&mut self, chat_name: String) {
-        let target_path = self.chat_path(&chat_name);
+        let target_path = chat_log_path(&self.directory, &chat_name);
         if let Entry::Occupied(e) = self.files.entry(target_path) {
             e.remove_entry();
         }
     }
+}
+
+pub fn chat_log_path(logs_directory: &Path, chat_name: &str) -> PathBuf {
+    logs_directory
+        .join(chat_name.to_lowercase())
+        .with_extension("log")
 }
 
 pub fn format_message_for_logging(

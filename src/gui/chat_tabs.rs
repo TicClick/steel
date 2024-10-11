@@ -8,6 +8,8 @@ use crate::core::chat::{ChatLike, ChatState, ChatType};
 use crate::gui::highlights::UnreadType;
 use crate::gui::state::UIState;
 
+use super::context_menu::shared::menu_item_open_chat_log;
+
 const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
 
 #[derive(Default)]
@@ -104,10 +106,14 @@ fn tab_context_menu(
         ui.close_menu();
     }
 
+    menu_item_open_chat_log(ui, state, false, normalized_chat_name);
+
     if ui.button("Clear messages").clicked() {
         chats_to_clear.insert(normalized_chat_name.to_owned());
         ui.close_menu();
     }
+
+    ui.separator();
 
     let close_title = match mode {
         ChatType::Channel => "Leave",

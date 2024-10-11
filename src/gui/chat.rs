@@ -11,6 +11,8 @@ use crate::gui::DecoratedText;
 
 use crate::gui::command;
 
+use super::context_menu::shared::menu_item_open_chat_log;
+
 const MAX_MESSAGE_LENGTH: usize = 450;
 
 trait WithInnerShadow {
@@ -533,6 +535,8 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, messa
         });
         ui.close_menu();
     }
+
+    menu_item_open_chat_log(ui, state, true, &message.username);
 
     ui.separator();
 
