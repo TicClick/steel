@@ -42,12 +42,18 @@ impl SettingsWindow {
                 "log system events",
             );
 
+            ui.heading("logs directory");
             ui.horizontal(|ui| {
-                ui.label("directory with logs");
+                ui.label("location (will be created)");
                 ui.text_edit_singleline(&mut state.settings.logging.chat.directory)
-                    .on_hover_text_at_pointer("location of all the log files");
+                    .on_hover_text_at_pointer("both relative and absolute paths are supported");
 
-                if ui.button("open").clicked()
+                if ui
+                    .button("open")
+                    .on_hover_text_at_pointer(
+                        "open the directory. if it doesn't exist yet, nothing will happen",
+                    )
+                    .clicked()
                     && std::path::Path::new(&state.settings.logging.chat.directory).exists()
                 {
                     core::os::open_external_directory(&state.settings.logging.chat.directory);
