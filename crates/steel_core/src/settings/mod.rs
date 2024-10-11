@@ -1,7 +1,7 @@
 pub mod application;
 pub mod chat;
 pub mod colour;
-pub mod journal;
+pub mod logging;
 pub mod notifications;
 pub mod ui;
 
@@ -13,7 +13,7 @@ use serde_yaml;
 pub use application::Application;
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
-pub use journal::{AppLoggingConfig, Journal};
+pub use logging::{AppLoggingConfig, LoggingConfig};
 pub use notifications::{BuiltInSound, Highlights, Notifications, Sound};
 pub use ui::{ChatColours, ThemeMode, UI};
 
@@ -24,7 +24,7 @@ pub struct Settings {
     pub chat: Chat,
     pub notifications: Notifications,
     pub ui: UI,
-    pub journal: Journal,
+    pub logging: LoggingConfig,
 }
 
 pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {

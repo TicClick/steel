@@ -2,7 +2,7 @@
 
 mod application;
 mod chat;
-mod journal;
+mod logging;
 mod notifications;
 mod ui;
 

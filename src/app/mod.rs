@@ -184,9 +184,9 @@ impl Application {
 
     pub fn initialize(&mut self) {
         self.load_settings(true);
-        log::set_max_level(self.state.settings.journal.application.level);
+        log::set_max_level(self.state.settings.logging.application.level);
 
-        self.enable_chat_logger(&self.state.settings.journal.clone());
+        self.enable_chat_logger(&self.state.settings.logging.clone());
 
         self.start_updater();
         if self.state.settings.chat.autoconnect {
@@ -205,12 +205,12 @@ impl Application {
         self.ui_handle_settings_requested();
     }
 
-    fn enable_chat_logger(&mut self, logging_settings: &settings::Journal) {
+    fn enable_chat_logger(&mut self, logging_settings: &settings::LoggingConfig) {
         self.chat_logger = Some(ChatLoggerHandle::new(&logging_settings.chat));
     }
 
-    fn handle_logging_settings_change(&mut self, new_settings: &settings::Journal) {
-        let old_settings = self.state.settings.journal.clone();
+    fn handle_logging_settings_change(&mut self, new_settings: &settings::LoggingConfig) {
+        let old_settings = self.state.settings.logging.clone();
         if old_settings.application.level != new_settings.application.level {
             log::set_max_level(new_settings.application.level);
         }
@@ -248,7 +248,7 @@ impl Application {
     }
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
-        self.handle_logging_settings_change(&settings.journal);
+        self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
         self.state.settings.to_file(DEFAULT_SETTINGS_PATH);

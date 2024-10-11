@@ -1,5 +1,5 @@
 use eframe::egui::{self, RichText};
-use steel_core::{chat, settings::journal::ChatLoggingFormats};
+use steel_core::{chat, settings::logging::ChatLoggingFormats};
 
 use super::SettingsWindow;
 use crate::{
@@ -13,23 +13,23 @@ impl SettingsWindow {
             ui.heading("chat logging");
 
             ui.checkbox(
-                &mut state.settings.journal.chat.enabled,
+                &mut state.settings.logging.chat.enabled,
                 "enable chat logging",
             );
             ui.checkbox(
-                &mut state.settings.journal.chat.log_system_events,
+                &mut state.settings.logging.chat.log_system_events,
                 "log system events",
             );
 
             ui.horizontal(|ui| {
                 ui.label("directory with logs");
-                ui.text_edit_singleline(&mut state.settings.journal.chat.directory)
+                ui.text_edit_singleline(&mut state.settings.logging.chat.directory)
                     .on_hover_text_at_pointer("location of all the log files");
 
                 if ui.button("open").clicked()
-                    && std::path::Path::new(&state.settings.journal.chat.directory).exists()
+                    && std::path::Path::new(&state.settings.logging.chat.directory).exists()
                 {
-                    core::os::open_external_directory(&state.settings.journal.chat.directory);
+                    core::os::open_external_directory(&state.settings.logging.chat.directory);
                 }
             });
 
@@ -60,24 +60,24 @@ impl SettingsWindow {
 
             ui.horizontal(|ui| {
                 ui.label("regular message");
-                ui.text_edit_singleline(&mut state.settings.journal.chat.format.user_message);
+                ui.text_edit_singleline(&mut state.settings.logging.chat.format.user_message);
             });
             ui.horizontal(|ui| {
                 ui.label("user action");
-                ui.text_edit_singleline(&mut state.settings.journal.chat.format.user_action);
+                ui.text_edit_singleline(&mut state.settings.logging.chat.format.user_action);
             });
             ui.horizontal(|ui| {
                 ui.label("system message");
-                ui.text_edit_singleline(&mut state.settings.journal.chat.format.system_message);
+                ui.text_edit_singleline(&mut state.settings.logging.chat.format.system_message);
             });
             ui.horizontal(|ui| {
                 ui.label("date and time");
-                ui.text_edit_singleline(&mut state.settings.journal.chat.format.date);
+                ui.text_edit_singleline(&mut state.settings.logging.chat.format.date);
             });
 
             ui.horizontal_wrapped(|ui| {
                 let mut example_chat_log =
-                    make_example_chat_log(&state.settings.journal.chat.format);
+                    make_example_chat_log(&state.settings.logging.chat.format);
                 ui.add_enabled(false, egui::TextEdit::multiline(&mut example_chat_log));
             });
         });

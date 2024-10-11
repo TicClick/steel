@@ -5,7 +5,7 @@ use std::io::Write as IOWrite;
 use std::path::{Path, PathBuf};
 
 use steel_core::chat::{Message, MessageType};
-use steel_core::settings::journal::{ChatLoggingConfig, ChatLoggingFormats};
+use steel_core::settings::logging::{ChatLoggingConfig, ChatLoggingFormats};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::actor::ActorHandle;

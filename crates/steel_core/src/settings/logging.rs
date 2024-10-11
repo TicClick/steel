@@ -6,7 +6,7 @@ pub const DEFAULT_LOG_DIRECTORY: &str = "./chat-logs";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
-pub struct Journal {
+pub struct LoggingConfig {
     pub application: AppLoggingConfig,
     pub chat: ChatLoggingConfig,
 }
