@@ -108,6 +108,10 @@ impl ApplicationWindow {
     ) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
 
+        cc.egui_ctx.style_mut(|style| {
+            style.url_in_tooltip = true;
+        });
+
         Self {
             menu: gui::menu::Menu::new(),
             chat: gui::chat::ChatWindow::new(),
