@@ -21,6 +21,15 @@ pub fn main() {
         })
         .unwrap();
 
+    for i in 0..10 {
+        ui_queue_in
+            .send(UIMessageIn::NewChatRequested {
+                target: format!("#test-number-{}", i),
+                switch: true,
+            })
+            .unwrap();
+    }
+
     for i in 0..25 {
         let len = thread_rng().gen_range(1..40);
         let msg: String = thread_rng()

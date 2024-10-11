@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use eframe::egui::{self, Frame, Margin, Ui};
+use eframe::egui::{self, Color32, Frame, Margin, Ui};
 use steel_core::settings::Colour;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
@@ -16,7 +16,6 @@ const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
 pub struct ChatTabs {
     pub new_channel_input: String,
     pub new_chat_input: String,
-    tab_centers: Vec<(usize, f32)>,
 }
 
 impl ChatTabs {
@@ -33,7 +32,7 @@ impl ChatTabs {
                     if state.is_connected() {
                         self.show_new_chat_input(state, ui, ChatType::Channel);
                     }
-                    self.show_chats(state, ctx, ui, ChatType::Channel);
+                    self.show_chats(state,  ui, ChatType::Channel);
                 });
 
             egui::TopBottomPanel::top("private-chats-panel")
@@ -45,7 +44,7 @@ impl ChatTabs {
                     if state.is_connected() {
                         self.show_new_chat_input(state, ui, ChatType::Person);
                     }
-                    self.show_chats(state, ctx, ui, ChatType::Person);
+                    self.show_chats(state, ui, ChatType::Person);
                 });
 
             egui::TopBottomPanel::top("system-chats-panel")
@@ -125,49 +124,9 @@ fn tab_context_menu(
     }
 }
 
-fn drag_source(
-    ui: &mut Ui,
-    ctx: &egui::Context,
-    id: egui::Id,
-    own_interleaved_pos: usize,
-    tab_centers: &Vec<(usize, f32)>,
-    body: impl FnOnce(&mut egui::Ui),
-) -> Option<usize> {
-    let is_being_dragged = ctx.is_being_dragged(id);
-    if !is_being_dragged {
-        // TODO: Shift is used as a workaround to prevent drag events from suppressing clicks:
-        // - https://github.com/emilk/egui/issues/2471
-        // - https://github.com/emilk/egui/issues/2730
-        let response = ui.scope(body).response;
-        if ui.input(|i| i.modifiers.shift) {
-            ui.interact(response.rect, id, egui::Sense::drag());
-        }
-        None
-    } else {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-        let layer_id = egui::LayerId::new(egui::Order::Tooltip, id);
-        let response = ui.with_layer_id(layer_id, body).response;
-
-        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-            let delta = pointer_pos - response.rect.center();
-            ui.ctx().transform_layer_shapes(
-                layer_id,
-                egui::emath::TSTransform {
-                    scaling: 1.,
-                    translation: delta,
-                },
-            );
-            if ui.input(|i| i.pointer.primary_released()) {
-                for (interleaved_pos, center) in tab_centers {
-                    if center >= &pointer_pos.y && own_interleaved_pos != *interleaved_pos {
-                        return Some(*interleaved_pos);
-                    }
-                }
-                return Some(tab_centers.len() - 1);
-            }
-        }
-        None
-    }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct Location {
+    row: usize,
 }
 
 impl ChatTabs {
@@ -229,7 +188,6 @@ impl ChatTabs {
     fn show_chats(
         &mut self,
         state: &mut UIState,
-        ctx: &egui::Context,
         ui: &mut Ui,
         mode: ChatType,
     ) {
@@ -248,38 +206,41 @@ impl ChatTabs {
             })
             .collect();
 
-        let mut chats_to_clear = BTreeSet::new();
-        self.tab_centers.resize(state.chat_count(), (0, 0.));
-        let tc = self.tab_centers.clone();
+        let mut chats_to_clear = BTreeSet::<String>::new();
+        let mut from = None;
+        let mut to = None;
 
         egui::ScrollArea::vertical()
             .id_source(format!("{mode}-tabs"))
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
-                for (interleaved_pos, normalized_chat_name, chat_name, chat_state) in it {
-                    ui.horizontal(|ui| {
+                let frame = egui::Frame::default().inner_margin(4.0);
+                let (_, dropped_payload) = ui.dnd_drop_zone::<Location, ()>(frame, |ui| {
+                    for (interleaved_pos, normalized_chat_name, chat_name, chat_state) in it {
                         let item_id = egui::Id::new(&normalized_chat_name);
-                        let drawer = |ui: &mut egui::Ui| {
-                            let mut label = egui::RichText::new(chat_name);
-                            label = label.color(pick_tab_colour(state, &normalized_chat_name));
+                        let item_location = Location { row: interleaved_pos };
 
+                        let tab_label = egui::RichText::new(chat_name)
+                            .color(pick_tab_colour(state, &normalized_chat_name));
+
+                        let response = ui.dnd_drag_source(item_id, item_location, |ui| {
                             let chat_tab = ui.selectable_value(
                                 &mut state.active_chat_tab_name,
                                 normalized_chat_name.to_owned(),
-                                label,
+                                tab_label,
                             );
-                            self.tab_centers[interleaved_pos] =
-                                (interleaved_pos, chat_tab.rect.center().y);
+
+                            if matches!(chat_state, ChatState::JoinInProgress) {
+                                ui.spinner();
+                            }
 
                             if chat_tab.clicked() {
                                 state
                                     .core
                                     .chat_switch_requested(&state.active_chat_tab_name, None);
                             }
-                            if matches!(chat_state, ChatState::JoinInProgress) {
-                                ui.spinner();
-                            }
+
                             if chat_tab.middle_clicked() {
                                 state.core.chat_tab_closed(&normalized_chat_name);
                             }
@@ -293,16 +254,60 @@ impl ChatTabs {
                                     &mut chats_to_clear,
                                 )
                             });
-                        };
+                            chat_tab
+                        }).response;
 
-                        if let Some(place_after) =
-                            drag_source(ui, ctx, item_id, interleaved_pos, &tc, drawer)
-                        {
-                            state.place_tab_after(interleaved_pos, place_after);
+                        // Detect drops onto the item.
+                        if let (Some(pointer), Some(hovered_payload)) = (
+                            ui.input(|i| i.pointer.interact_pos()),
+                            response.dnd_hover_payload::<Location>()
+                        ) {
+                            let rect = response.rect;
+
+                            // Preview insertion:
+                            let stroke = egui::Stroke::new(1.0, Color32::WHITE);
+                            let insert_row_idx = if *hovered_payload == item_location {
+                                // We are dragged onto ourselves
+                                ui.painter().hline(rect.x_range(), rect.center().y, stroke);
+                                interleaved_pos
+                            } else if pointer.y < rect.center().y {
+                                // Above us
+                                ui.painter().hline(rect.x_range(), rect.top(), stroke);
+                                interleaved_pos
+                            } else {
+                                // Below us
+                                ui.painter().hline(rect.x_range(), rect.bottom(), stroke);
+                                interleaved_pos + 1
+                            };
+
+                            if let Some(dragged_payload) = response.dnd_release_payload::<Location>() {
+                                // The user dropped onto this item.
+                                from = Some(dragged_payload);
+                                to = Some(Location {
+                                    row: insert_row_idx,
+                                });
+                            }
                         }
+                    }
+                });
+
+                if let Some(dragged_payload) = dropped_payload {
+                    // The user dropped onto the column, but not on any one item.
+                    from = Some(dragged_payload);
+                    to = Some(Location {
+                        row: usize::MAX, // Inset last
                     });
                 }
             });
+
+        if let (Some(from), Some(mut to)) = (from, to) {
+            if to.row == usize::MAX {
+                state.place_tab_after(from.row, state.chat_count() - 1);
+            } else {
+                to.row -= (from.row < to.row) as usize;
+                state.place_tab_after(from.row, to.row);
+            }
+        }
 
         for target in chats_to_clear {
             state.clear_chat(&target);
