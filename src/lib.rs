@@ -41,6 +41,7 @@ pub fn run_app(
     app.initialize();
 
     let app_queue = app.app_queue.clone();
+    let settings = app.current_settings().to_owned();
 
     let app_thread = std::thread::spawn(move || {
         app.run();
@@ -61,6 +62,7 @@ pub fn run_app(
                 cc,
                 ui_queue_out,
                 app_queue,
+                settings,
             )))
         }),
     )

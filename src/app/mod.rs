@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
-use steel_core::settings::{Loadable, SETTINGS_FILE_NAME};
+use steel_core::settings::{Loadable, Settings, SETTINGS_FILE_NAME};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -208,6 +208,10 @@ impl Application {
 
         self.handle_chat_moderator_added("BanchoBot".into());
         self.ui_handle_settings_requested();
+    }
+
+    pub fn current_settings(&self) -> &Settings {
+        &self.state.settings
     }
 
     fn enable_chat_logger(&mut self, logging_settings: &settings::LoggingConfig) {
