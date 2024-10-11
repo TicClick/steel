@@ -25,6 +25,7 @@ pub enum AppMessageIn {
     UISettingsRequested,
     UISettingsUpdated(Settings),
     UIUsageWindowRequested,
+    UIFilesystemPathRequested(String),
 
     ChatModeratorAdded(String),
 

@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
-use steel_core::settings::Loadable;
+use steel_core::settings::{Loadable, SETTINGS_FILE_PATH};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -11,13 +11,12 @@ use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
 use crate::core::logging::ChatLoggerHandle;
+use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 pub mod date_announcer;
-
-const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
 
 #[derive(Clone, Default)]
 pub struct ApplicationState {
@@ -119,6 +118,12 @@ impl Application {
                     self.ui_request_usage_window();
                 }
 
+                AppMessageIn::UIFilesystemPathRequested(path) => {
+                    if let Err(e) = open_in_file_explorer(&path) {
+                        log::error!("Failed to open filesystem path: {}", e);
+                    }
+                }
+
                 AppMessageIn::UpdateStateChanged(state) => {
                     self.ui_push_update_state(state);
                 }
@@ -184,9 +189,9 @@ impl Application {
 
     pub fn initialize(&mut self) {
         self.load_settings(true);
-        log::set_max_level(self.state.settings.journal.app_events.level);
+        log::set_max_level(self.state.settings.logging.application.level);
 
-        self.enable_chat_logger(&self.state.settings.journal.clone());
+        self.enable_chat_logger(&self.state.settings.logging.clone());
 
         self.start_updater();
         if self.state.settings.chat.autoconnect {
@@ -195,7 +200,7 @@ impl Application {
     }
 
     pub fn load_settings(&mut self, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(DEFAULT_SETTINGS_PATH, fallback);
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_PATH, fallback);
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -205,21 +210,18 @@ impl Application {
         self.ui_handle_settings_requested();
     }
 
-    fn enable_chat_logger(&mut self, logging_settings: &settings::Journal) {
-        self.chat_logger = Some(ChatLoggerHandle::new(
-            &logging_settings.chat_events.directory,
-            &logging_settings.chat_events.format,
-        ));
+    fn enable_chat_logger(&mut self, logging_settings: &settings::LoggingConfig) {
+        self.chat_logger = Some(ChatLoggerHandle::new(&logging_settings.chat));
     }
 
-    fn handle_logging_settings_change(&mut self, new_settings: &settings::Journal) {
-        let old_settings = self.state.settings.journal.clone();
-        if old_settings.app_events.level != new_settings.app_events.level {
-            log::set_max_level(new_settings.app_events.level);
+    fn handle_logging_settings_change(&mut self, new_settings: &settings::LoggingConfig) {
+        let old_settings = self.state.settings.logging.clone();
+        if old_settings.application.level != new_settings.application.level {
+            log::set_max_level(new_settings.application.level);
         }
 
-        if old_settings.chat_events.enabled != new_settings.chat_events.enabled {
-            match new_settings.chat_events.enabled {
+        if old_settings.chat.enabled != new_settings.chat.enabled {
+            match new_settings.chat.enabled {
                 true => self.enable_chat_logger(new_settings),
                 false => {
                     if let Some(cl) = self.chat_logger.as_ref() {
@@ -230,18 +232,16 @@ impl Application {
         }
 
         if let Some(chat_logger) = &mut self.chat_logger {
-            if old_settings.chat_events.directory != new_settings.chat_events.directory {
-                chat_logger.change_logging_directory(new_settings.chat_events.directory.clone());
+            if old_settings.chat.directory != new_settings.chat.directory {
+                chat_logger.change_directory(new_settings.chat.directory.clone());
             }
 
-            if old_settings.chat_events.format != new_settings.chat_events.format {
-                chat_logger.change_log_format(new_settings.chat_events.format.clone());
+            if old_settings.chat.format != new_settings.chat.format {
+                chat_logger.change_format(&new_settings.chat.format);
             }
 
-            if old_settings.chat_events.log_system_events
-                != new_settings.chat_events.log_system_events
-            {
-                chat_logger.log_system_messages(new_settings.chat_events.log_system_events);
+            if old_settings.chat.log_system_events != new_settings.chat.log_system_events {
+                chat_logger.log_system_messages(new_settings.chat.log_system_events);
             }
         }
     }
@@ -253,10 +253,10 @@ impl Application {
     }
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
-        self.handle_logging_settings_change(&settings.journal);
+        self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
-        self.state.settings.to_file(DEFAULT_SETTINGS_PATH);
+        self.state.settings.to_file(SETTINGS_FILE_PATH);
     }
 
     pub fn ui_request_usage_window(&mut self) {
