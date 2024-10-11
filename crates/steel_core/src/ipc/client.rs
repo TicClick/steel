@@ -85,6 +85,12 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn open_fs_path(&self, target: &str) {
+        self.server
+            .send(AppMessageIn::UIFilesystemPathRequested(target.to_owned()))
+            .unwrap();
+    }
+
     pub fn usage_window_requested(&self) {
         self.server
             .send(AppMessageIn::UIUsageWindowRequested)

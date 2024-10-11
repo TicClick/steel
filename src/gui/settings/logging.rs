@@ -2,10 +2,8 @@ use eframe::egui::{self, RichText};
 use steel_core::{chat, settings::logging::ChatLoggingFormats};
 
 use super::SettingsWindow;
-use crate::{
-    core::{self, logging::format_message_for_logging},
-    gui::state::UIState,
-};
+use crate::core::logging::format_message_for_logging;
+use crate::gui::state::UIState;
 
 impl SettingsWindow {
     pub(super) fn show_logging_tab(&mut self, ui: &mut eframe::egui::Ui, state: &mut UIState) {
@@ -56,7 +54,9 @@ impl SettingsWindow {
                     .clicked()
                     && std::path::Path::new(&state.settings.logging.chat.directory).exists()
                 {
-                    core::os::open_external_directory(&state.settings.logging.chat.directory);
+                    state
+                        .core
+                        .open_fs_path(&state.settings.logging.chat.directory);
                 }
             });
 

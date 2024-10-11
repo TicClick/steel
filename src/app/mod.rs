@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
-use steel_core::settings::Loadable;
+use steel_core::settings::{Loadable, SETTINGS_FILE_PATH};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -11,13 +11,12 @@ use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
 use crate::core::logging::ChatLoggerHandle;
+use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
 
 pub mod date_announcer;
-
-const DEFAULT_SETTINGS_PATH: &str = "settings.yaml";
 
 #[derive(Clone, Default)]
 pub struct ApplicationState {
@@ -119,6 +118,12 @@ impl Application {
                     self.ui_request_usage_window();
                 }
 
+                AppMessageIn::UIFilesystemPathRequested(path) => {
+                    if let Err(e) = open_in_file_explorer(&path) {
+                        log::error!("Failed to open filesystem path: {}", e);
+                    }
+                }
+
                 AppMessageIn::UpdateStateChanged(state) => {
                     self.ui_push_update_state(state);
                 }
@@ -195,7 +200,7 @@ impl Application {
     }
 
     pub fn load_settings(&mut self, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(DEFAULT_SETTINGS_PATH, fallback);
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_PATH, fallback);
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -251,7 +256,7 @@ impl Application {
         self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
-        self.state.settings.to_file(DEFAULT_SETTINGS_PATH);
+        self.state.settings.to_file(SETTINGS_FILE_PATH);
     }
 
     pub fn ui_request_usage_window(&mut self) {

@@ -1,15 +1,11 @@
-use std::path::Path;
+pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
+    let target = match target.starts_with(".") {
+        false => std::path::Path::new(target).to_path_buf(),
+        true => std::env::current_exe()?.parent().unwrap().join(target),
+    };
 
-#[derive(Debug)]
-enum RuntimeDirectoryPath<'opener> {
-    File(&'opener str),
-    RootDirectory,
-    Subdirectory(&'opener str),
-}
-
-fn open_fs_path_in_explorer(path: &Path, target: &str) {
-    if let Some(path) = path.to_str() {
-        let path = path.to_owned();
+    if let Some(p) = target.to_str() {
+        let path = p.to_owned();
         let (executable, args) = if cfg!(target_os = "windows") {
             // let file_arg = format!("/select,{}", log_path);
             ("explorer.exe", vec![path])
@@ -24,42 +20,7 @@ fn open_fs_path_in_explorer(path: &Path, target: &str) {
             );
         }
     }
-}
-
-fn open_app_path(target: RuntimeDirectoryPath) {
-    if let Ok(mut path) = std::env::current_exe() {
-        match target {
-            RuntimeDirectoryPath::File(file_name) => path.set_file_name(file_name),
-            RuntimeDirectoryPath::RootDirectory => {
-                path = path.parent().unwrap().to_path_buf();
-            }
-            RuntimeDirectoryPath::Subdirectory(subdir) => {
-                path = path.parent().unwrap().to_path_buf().join(subdir)
-            }
-        }
-        open_fs_path_in_explorer(&path, &format!("{:?}", target));
-    }
-}
-
-pub fn open_runtime_log() {
-    open_app_path(RuntimeDirectoryPath::File("runtime.log"))
-}
-
-pub fn open_settings_file() {
-    open_app_path(RuntimeDirectoryPath::File("settings.yaml"))
-}
-
-pub fn open_own_directory() {
-    open_app_path(RuntimeDirectoryPath::RootDirectory)
-}
-
-pub fn open_external_directory(path: &str) {
-    let d = std::path::Path::new(path);
-    if d.is_relative() {
-        open_app_path(RuntimeDirectoryPath::Subdirectory(path));
-    } else {
-        open_fs_path_in_explorer(d, path);
-    }
+    Ok(())
 }
 
 pub fn cleanup_after_update() {

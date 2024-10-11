@@ -17,6 +17,8 @@ pub use logging::{AppLoggingConfig, LoggingConfig};
 pub use notifications::{BuiltInSound, Highlights, Notifications, Sound};
 pub use ui::{ChatColours, ThemeMode, UI};
 
+pub const SETTINGS_FILE_PATH: &str = "./settings.yaml";
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
