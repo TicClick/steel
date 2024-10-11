@@ -8,13 +8,13 @@ pub mod gui;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub const LOG_FILE_PATH: &str = "./runtime.log";
+pub const LOG_FILE_NAME: &str = "runtime.log";
 
 pub fn setup_logging() {
     let file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(LOG_FILE_PATH)
+        .open(LOG_FILE_NAME)
         .expect("failed to open the file for logging app events");
 
     let time_format =

@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
-use steel_core::settings::{Loadable, SETTINGS_FILE_PATH};
+use steel_core::settings::{Loadable, SETTINGS_FILE_NAME};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -200,7 +200,7 @@ impl Application {
     }
 
     pub fn load_settings(&mut self, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_PATH, fallback);
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME, fallback);
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -256,7 +256,7 @@ impl Application {
         self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
-        self.state.settings.to_file(SETTINGS_FILE_PATH);
+        self.state.settings.to_file(SETTINGS_FILE_NAME);
     }
 
     pub fn ui_request_usage_window(&mut self) {

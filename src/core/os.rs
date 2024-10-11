@@ -4,6 +4,7 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
         true => std::env::current_exe()?.parent().unwrap().join(target),
     };
 
+    log::debug!("requested to open {:?}", target);
     if let Some(p) = target.to_str() {
         let path = p.to_owned();
         let (executable, args) = if cfg!(target_os = "windows") {

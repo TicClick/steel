@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::DEFAULT_DATETIME_FORMAT;
 
-pub const DEFAULT_LOG_DIRECTORY: &str = "./chat-logs";
+pub const DEFAULT_LOG_DIRECTORY: &str = "chat-logs";
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]

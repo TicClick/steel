@@ -1,7 +1,7 @@
 use eframe::egui;
 
-use crate::{core::settings::ui::ThemeMode, LOG_FILE_PATH};
-use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_PATH};
+use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
+use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
 
 use crate::gui::state::UIState;
 
@@ -172,14 +172,14 @@ impl Menu {
                 if ui.button("runtime log").on_hover_text_at_pointer(
                     "open text journal with debug messages and errors -- may or may not help with debugging"
                 ).clicked() {
-                    state.core.open_fs_path(LOG_FILE_PATH);
+                    state.core.open_fs_path(LOG_FILE_NAME);
                     ui.close_menu();
                 }
 
                 if ui.button("settings file").on_hover_text_at_pointer(
                     "open settings in Notepad"
                 ).clicked() {
-                    state.core.open_fs_path(SETTINGS_FILE_PATH);
+                    state.core.open_fs_path(SETTINGS_FILE_NAME);
                     ui.close_menu();
                 }
             });
