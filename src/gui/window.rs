@@ -153,14 +153,6 @@ impl ApplicationWindow {
         }
     }
 
-    fn set_theme(&mut self, ctx: &egui::Context) {
-        let theme = match self.s.settings.ui.theme {
-            settings::ThemeMode::Dark => egui::Visuals::dark(),
-            settings::ThemeMode::Light => egui::Visuals::light(),
-        };
-        ctx.set_visuals(theme);
-    }
-
     fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
         match event {
             UIMessageIn::NewSystemMessage { target, message } => {
@@ -261,8 +253,6 @@ impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
-
-        self.set_theme(ctx);
 
         self.usage_window
             .show(ctx, &mut self.s, &mut self.menu.show_usage);

@@ -1,7 +1,6 @@
 use super::state::UIState;
-use steel_core::settings::ThemeMode;
 
-use eframe::egui;
+use eframe::egui::{self, global_theme_preference_switch};
 
 #[derive(PartialEq)]
 enum Section {
@@ -42,7 +41,12 @@ impl UsageWindow {
 }
 
 impl UsageWindow {
-    fn show_overview_usage(&mut self, ctx: &egui::Context, ui: &mut egui::Ui, state: &mut UIState) {
+    fn show_overview_usage(
+        &mut self,
+        _ctx: &egui::Context,
+        ui: &mut egui::Ui,
+        _state: &mut UIState,
+    ) {
         ui.vertical(|ui| {
             ui.heading("overview");
             ui.horizontal_wrapped(|ui| {
@@ -51,13 +55,7 @@ impl UsageWindow {
                     "most of the UI elements are self-explanatory -- hover over menu items, buttons, \
                     input fields, and other controls to see what they do. example: "
                 );
-                if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
-                    state.settings.ui.theme = if theme.dark_mode {
-                        ThemeMode::Dark
-                    } else {
-                        ThemeMode::Light
-                    };
-                }
+                global_theme_preference_switch(ui);
             });
 
             ui.label(

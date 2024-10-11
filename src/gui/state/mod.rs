@@ -4,7 +4,8 @@ use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, Mes
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
-use eframe::egui;
+use eframe::egui::{self, Theme};
+use steel_core::settings::ThemeMode;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
@@ -75,6 +76,10 @@ impl UIState {
     pub fn set_settings(&mut self, ctx: &egui::Context, settings: Settings) {
         self.settings = settings;
         ctx.set_pixels_per_point(self.settings.ui.scaling);
+        ctx.set_theme(match self.settings.ui.theme {
+            ThemeMode::Dark => Theme::Dark,
+            ThemeMode::Light => Theme::Light,
+        });
 
         self.highlights
             .set_highlights(&self.settings.notifications.highlights.words);

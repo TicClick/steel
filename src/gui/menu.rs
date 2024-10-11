@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, global_theme_preference_switch};
 
 use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
 use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
@@ -33,16 +33,14 @@ impl Menu {
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
-                    let old_theme = state.settings.ui.theme.clone();
-                    state.settings.ui.theme = if theme.dark_mode {
-                        ThemeMode::Dark
-                    } else {
-                        ThemeMode::Light
-                    };
-                    if state.settings.ui.theme != old_theme {
-                        state.core.settings_updated(&state.settings);
-                    }
+                global_theme_preference_switch(ui);
+                let new_theme = match ui.ctx().theme() {
+                    egui::Theme::Dark => ThemeMode::Dark,
+                    egui::Theme::Light => ThemeMode::Light,
+                };
+                if new_theme != state.settings.ui.theme {
+                    state.settings.ui.theme = new_theme;
+                    state.core.settings_updated(&state.settings);
                 }
 
                 self.show_application_menu(ui, ctx, frame, state);
