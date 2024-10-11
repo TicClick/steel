@@ -107,12 +107,12 @@ impl ApplicationWindow {
     ) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
 
+        let mut state = UIState::new(app_queue_handle);
+        state.set_settings(&cc.egui_ctx, initial_settings);
+
         cc.egui_ctx.style_mut(|style| {
             style.url_in_tooltip = true;
         });
-
-        let mut state = UIState::new(app_queue_handle);
-        state.set_settings(&cc.egui_ctx, initial_settings);
 
         Self {
             menu: gui::menu::Menu::new(),
