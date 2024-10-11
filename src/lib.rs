@@ -57,11 +57,11 @@ pub fn run_app(
         &format!("steel v{}", VERSION),
         native_options,
         Box::new(|cc| {
-            Box::new(gui::window::ApplicationWindow::new(
+            Ok(Box::new(gui::window::ApplicationWindow::new(
                 cc,
                 ui_queue_out,
                 app_queue,
-            ))
+            )))
         }),
     )
     .expect("failed to set up the app window");

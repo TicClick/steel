@@ -253,7 +253,7 @@ impl ChatTabs {
         let tc = self.tab_centers.clone();
 
         egui::ScrollArea::vertical()
-            .id_source(format!("{mode}-tabs"))
+            .id_salt(format!("{mode}-tabs"))
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {

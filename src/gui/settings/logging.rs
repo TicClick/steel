@@ -11,7 +11,7 @@ impl SettingsWindow {
             ui.heading("application logging");
             ui.horizontal(|ui| {
                 ui.label("level");
-                egui::ComboBox::from_id_source("app-logging-level")
+                egui::ComboBox::from_id_salt("app-logging-level")
                     .selected_text(state.settings.logging.application.level.as_str())
                     .show_ui(ui, |ui| {
                         for level in [
