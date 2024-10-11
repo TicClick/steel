@@ -13,7 +13,7 @@ use serde_yaml;
 pub use application::Application;
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
-pub use journal::{AppEvents, Journal};
+pub use journal::{AppLoggingConfig, Journal};
 pub use notifications::{BuiltInSound, Highlights, Notifications, Sound};
 pub use ui::{ChatColours, ThemeMode, UI};
 

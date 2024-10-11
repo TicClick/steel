@@ -5,7 +5,7 @@ use std::io::Write as IOWrite;
 use std::path::{Path, PathBuf};
 
 use steel_core::chat::{Message, MessageType};
-use steel_core::DEFAULT_DATETIME_FORMAT;
+use steel_core::settings::journal::{ChatLoggingConfig, ChatLoggingFormats};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::actor::ActorHandle;
@@ -13,9 +13,9 @@ use crate::actor::ActorHandle;
 pub enum LoggingRequest {
     LogMessage { chat_name: String, message: Message },
     CloseLog { chat_name: String },
-    ChangeLogFormat { log_line_format: String },
-    ChangeLoggingDirectory { logging_directory: String },
-    ShutdownLogger,
+    ChangeFormat { format: ChatLoggingFormats },
+    ChangeDirectory { logging_directory: String },
+    Shutdown,
 }
 
 pub struct ChatLoggerHandle {
@@ -26,9 +26,9 @@ pub struct ChatLoggerHandle {
 impl ActorHandle for ChatLoggerHandle {}
 
 impl ChatLoggerHandle {
-    pub fn new(log_directory: &str, log_line_format: &str) -> Self {
+    pub fn new(config: &ChatLoggingConfig) -> Self {
         let (tx, rx) = unbounded_channel();
-        let mut actor = ChatLoggerBackend::new(log_directory, log_line_format, rx);
+        let mut actor = ChatLoggerBackend::new(config, rx);
         std::thread::spawn(move || {
             actor.run();
         });
@@ -38,8 +38,8 @@ impl ChatLoggerHandle {
         }
     }
 
-    pub fn log_system_messages(&mut self, log: bool) {
-        self.log_system_messages = log;
+    pub fn log_system_messages(&mut self, log_system_messages: bool) {
+        self.log_system_messages = log_system_messages;
     }
 
     pub fn log(&self, chat_name: &str, message: &Message) {
@@ -57,47 +57,35 @@ impl ChatLoggerHandle {
         let _ = self.channel.send(LoggingRequest::CloseLog { chat_name });
     }
 
-    pub fn change_log_format(&self, log_line_format: String) {
-        let _ = self
-            .channel
-            .send(LoggingRequest::ChangeLogFormat { log_line_format });
+    pub fn change_format(&self, format: &ChatLoggingFormats) {
+        let _ = self.channel.send(LoggingRequest::ChangeFormat {
+            format: format.to_owned(),
+        });
     }
 
-    pub fn change_logging_directory(&self, logging_directory: String) {
+    pub fn change_directory(&self, logging_directory: String) {
         let _ = self
             .channel
-            .send(LoggingRequest::ChangeLoggingDirectory { logging_directory });
+            .send(LoggingRequest::ChangeDirectory { logging_directory });
     }
 
     pub fn shutdown(&self) {
-        let _ = self.channel.send(LoggingRequest::ShutdownLogger);
+        let _ = self.channel.send(LoggingRequest::Shutdown);
     }
 }
 
 struct ChatLoggerBackend {
-    log_directory: PathBuf,
-
-    log_line_format: String,
-    log_system_line_format: String,
-    log_action_line_format: String,
-
+    directory: PathBuf,
+    formats: ChatLoggingFormats,
     channel: UnboundedReceiver<LoggingRequest>,
     files: HashMap<PathBuf, File>,
 }
 
 impl ChatLoggerBackend {
-    fn new(
-        log_directory: &str,
-        log_line_format: &str,
-        channel: UnboundedReceiver<LoggingRequest>,
-    ) -> Self {
+    fn new(config: &ChatLoggingConfig, channel: UnboundedReceiver<LoggingRequest>) -> Self {
         Self {
-            log_directory: Path::new(log_directory).to_path_buf(),
-
-            log_line_format: log_line_format.to_owned(),
-            log_system_line_format: to_log_system_line_format(log_line_format),
-            log_action_line_format: to_log_action_line_format(log_line_format),
-
+            directory: Path::new(&config.directory).to_path_buf(),
+            formats: config.format.to_owned(),
             channel,
             files: HashMap::new(),
         }
@@ -111,35 +99,36 @@ impl ChatLoggerBackend {
                         return;
                     }
                 }
-                LoggingRequest::ChangeLogFormat { log_line_format } => {
-                    self.log_system_line_format = to_log_system_line_format(&log_line_format);
-                    self.log_action_line_format = to_log_action_line_format(&log_line_format);
-                    self.log_line_format = log_line_format;
+
+                LoggingRequest::ChangeFormat { format } => {
+                    self.formats = format;
                 }
-                LoggingRequest::ChangeLoggingDirectory { logging_directory } => {
+
+                LoggingRequest::ChangeDirectory { logging_directory } => {
                     log::info!(
                         "Chat logging directory has been changed: {:?} -> {}",
-                        self.log_directory,
+                        self.directory,
                         logging_directory
                     );
-                    self.log_directory = Path::new(&logging_directory).to_path_buf();
+                    self.directory = Path::new(&logging_directory).to_path_buf();
                     self.files.clear();
                 }
+
                 LoggingRequest::CloseLog { chat_name } => self.close(chat_name),
-                LoggingRequest::ShutdownLogger => return,
+                LoggingRequest::Shutdown => return,
             }
         }
     }
 
     fn chat_path(&self, chat_name: &str) -> PathBuf {
-        self.log_directory
+        self.directory
             .join(chat_name.to_lowercase())
             .with_extension("log")
     }
 
     fn log(&mut self, chat_name: String, message: Message) -> std::io::Result<()> {
         if self.files.is_empty() {
-            if let Err(e) = std::fs::create_dir_all(&self.log_directory) {
+            if let Err(e) = std::fs::create_dir_all(&self.directory) {
                 log::error!(
                     "Failed to create the directory for storing chat logs: {}",
                     e
@@ -183,12 +172,13 @@ impl ChatLoggerBackend {
         }
 
         let log_line_format = match message.r#type {
-            MessageType::System => &self.log_system_line_format,
-            MessageType::Text => &self.log_line_format,
-            MessageType::Action => &self.log_action_line_format,
+            MessageType::System => &self.formats.system_message,
+            MessageType::Text => &self.formats.user_message,
+            MessageType::Action => &self.formats.user_action,
         };
 
-        let formatted_message = format_message_for_logging(log_line_format, &message);
+        let formatted_message =
+            format_message_for_logging(&self.formats.date, log_line_format, &message);
         if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
             log::error!("Failed to append a chat log line for {}: {}", chat_name, e);
             return Err(e);
@@ -205,7 +195,11 @@ impl ChatLoggerBackend {
     }
 }
 
-pub fn format_message_for_logging(log_line_format: &str, message: &Message) -> String {
+pub fn format_message_for_logging(
+    date_format: &str,
+    log_line_format: &str,
+    message: &Message,
+) -> String {
     let mut result = String::new();
     let mut placeholder = String::new();
     let mut in_placeholder = false;
@@ -218,7 +212,7 @@ pub fn format_message_for_logging(log_line_format: &str, message: &Message) -> S
             }
             '}' => {
                 if in_placeholder {
-                    result.push_str(&resolve_placeholder(&placeholder, message));
+                    result.push_str(&resolve_placeholder(&placeholder, message, date_format));
                     in_placeholder = false;
                 } else {
                     result.push(c);
@@ -237,40 +231,17 @@ pub fn format_message_for_logging(log_line_format: &str, message: &Message) -> S
     result
 }
 
-fn resolve_placeholder(placeholder: &str, message: &Message) -> String {
-    if let Some(date_format) = placeholder.strip_prefix("date:") {
-        let mut buf = String::new();
-        match write!(&mut buf, "{}", message.time.format(date_format)) {
-            Ok(_) => buf,
-            Err(_) => format!("{{date:{}}}", date_format),
+fn resolve_placeholder(placeholder: &str, message: &Message, date_format: &str) -> String {
+    match placeholder {
+        "username" => message.username.clone(),
+        "text" => message.text.clone(),
+        "date" => {
+            let mut buf = String::new();
+            match write!(&mut buf, "{}", message.time.format(date_format)) {
+                Ok(_) => buf,
+                Err(_) => date_format.to_owned(),
+            }
         }
-    } else {
-        match placeholder {
-            "username" => message.username.clone(),
-            "text" => message.text.clone(),
-            _ => String::from("{unknown}"),
-        }
+        _ => String::from("{unknown}"),
     }
-}
-
-fn get_or_default_date_format(log_line_format: &str) -> String {
-    if let Some(start_pos) = log_line_format.find("{date:") {
-        if let Some(pos) = &log_line_format[start_pos..].find('}') {
-            let end_pos = start_pos + *pos;
-            let date_format = log_line_format[start_pos..end_pos + 1].to_owned();
-            return date_format;
-        }
-    }
-    format!("{{date:{}}}", DEFAULT_DATETIME_FORMAT)
-}
-
-pub fn to_log_system_line_format(log_line_format: &str) -> String {
-    format!("{} * {{text}}", get_or_default_date_format(log_line_format))
-}
-
-pub fn to_log_action_line_format(log_line_format: &str) -> String {
-    format!(
-        "{} * {{username}} {{text}}",
-        get_or_default_date_format(log_line_format)
-    )
 }

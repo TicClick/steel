@@ -184,7 +184,7 @@ impl Application {
 
     pub fn initialize(&mut self) {
         self.load_settings(true);
-        log::set_max_level(self.state.settings.journal.app_events.level);
+        log::set_max_level(self.state.settings.journal.application.level);
 
         self.enable_chat_logger(&self.state.settings.journal.clone());
 
@@ -206,20 +206,17 @@ impl Application {
     }
 
     fn enable_chat_logger(&mut self, logging_settings: &settings::Journal) {
-        self.chat_logger = Some(ChatLoggerHandle::new(
-            &logging_settings.chat_events.directory,
-            &logging_settings.chat_events.format,
-        ));
+        self.chat_logger = Some(ChatLoggerHandle::new(&logging_settings.chat));
     }
 
     fn handle_logging_settings_change(&mut self, new_settings: &settings::Journal) {
         let old_settings = self.state.settings.journal.clone();
-        if old_settings.app_events.level != new_settings.app_events.level {
-            log::set_max_level(new_settings.app_events.level);
+        if old_settings.application.level != new_settings.application.level {
+            log::set_max_level(new_settings.application.level);
         }
 
-        if old_settings.chat_events.enabled != new_settings.chat_events.enabled {
-            match new_settings.chat_events.enabled {
+        if old_settings.chat.enabled != new_settings.chat.enabled {
+            match new_settings.chat.enabled {
                 true => self.enable_chat_logger(new_settings),
                 false => {
                     if let Some(cl) = self.chat_logger.as_ref() {
@@ -230,18 +227,16 @@ impl Application {
         }
 
         if let Some(chat_logger) = &mut self.chat_logger {
-            if old_settings.chat_events.directory != new_settings.chat_events.directory {
-                chat_logger.change_logging_directory(new_settings.chat_events.directory.clone());
+            if old_settings.chat.directory != new_settings.chat.directory {
+                chat_logger.change_directory(new_settings.chat.directory.clone());
             }
 
-            if old_settings.chat_events.format != new_settings.chat_events.format {
-                chat_logger.change_log_format(new_settings.chat_events.format.clone());
+            if old_settings.chat.format != new_settings.chat.format {
+                chat_logger.change_format(&new_settings.chat.format);
             }
 
-            if old_settings.chat_events.log_system_events
-                != new_settings.chat_events.log_system_events
-            {
-                chat_logger.log_system_messages(new_settings.chat_events.log_system_events);
+            if old_settings.chat.log_system_events != new_settings.chat.log_system_events {
+                chat_logger.log_system_messages(new_settings.chat.log_system_events);
             }
         }
     }
