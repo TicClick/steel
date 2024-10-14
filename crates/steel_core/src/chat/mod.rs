@@ -149,6 +149,7 @@ pub enum ChatState {
     Left,
     JoinInProgress,
     Joined,
+    Disconnected,
 }
 
 #[derive(Clone, Debug, Default)]
