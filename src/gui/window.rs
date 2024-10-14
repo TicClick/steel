@@ -4,9 +4,10 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use crate::gui;
 
 use crate::gui::state::UIState;
-use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
-
-use crate::core::settings;
+use steel_core::{
+    ipc::{server::AppMessageIn, ui::UIMessageIn},
+    settings::Settings,
+};
 
 const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
 
@@ -105,8 +106,12 @@ impl ApplicationWindow {
         cc: &eframe::CreationContext,
         ui_queue: UnboundedReceiver<UIMessageIn>,
         app_queue_handle: UnboundedSender<AppMessageIn>,
+        initial_settings: Settings,
     ) -> Self {
         setup_custom_fonts(&cc.egui_ctx);
+
+        let mut state = UIState::new(app_queue_handle);
+        state.set_settings(&cc.egui_ctx, initial_settings);
 
         cc.egui_ctx.style_mut(|style| {
             style.url_in_tooltip = true;
@@ -121,7 +126,7 @@ impl ApplicationWindow {
             update_window: gui::update_window::UpdateWindow::default(),
             usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
-            s: UIState::new(app_queue_handle),
+            s: state,
             filter_ui: gui::filter::FilterWindow::default(),
         }
     }
@@ -151,14 +156,6 @@ impl ApplicationWindow {
                 break;
             }
         }
-    }
-
-    fn set_theme(&mut self, ctx: &egui::Context) {
-        let theme = match self.s.settings.ui.theme {
-            settings::ThemeMode::Dark => egui::Visuals::dark(),
-            settings::ThemeMode::Light => egui::Visuals::light(),
-        };
-        ctx.set_visuals(theme);
     }
 
     fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
@@ -261,8 +258,6 @@ impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
-
-        self.set_theme(ctx);
 
         self.usage_window
             .show(ctx, &mut self.s, &mut self.menu.show_usage);

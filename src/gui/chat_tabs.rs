@@ -21,7 +21,7 @@ pub struct ChatTabs {
 
 impl ChatTabs {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
-        let frame_maker = || Frame::none().inner_margin(Margin::symmetric(0., 2.));
+        let frame_maker = || Frame::none().inner_margin(Margin::symmetric(2., 2.));
 
         egui::SidePanel::left("chats").show(ctx, |ui| {
             egui::TopBottomPanel::top("public-channels-panel")
@@ -253,7 +253,7 @@ impl ChatTabs {
         let tc = self.tab_centers.clone();
 
         egui::ScrollArea::vertical()
-            .id_source(format!("{mode}-tabs"))
+            .id_salt(format!("{mode}-tabs"))
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {

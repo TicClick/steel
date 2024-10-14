@@ -158,8 +158,8 @@ impl ChatWindow {
                     });
             }
 
-            // Default spacing, which is by default zero for table rows.
-            ui.spacing_mut().item_spacing.y = 4.;
+            // Chat row spacing, which is by default zero for table rows.
+            ui.spacing_mut().item_spacing.y = 2.;
             self.widget_width = ui.available_width();
 
             let chat_row_height = *self

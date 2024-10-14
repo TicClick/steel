@@ -51,7 +51,7 @@ impl SettingsWindow {
             );
             ui.horizontal(|ui| {
                 let mut response = ui.radio(builtin_sound_chosen, "built-in");
-                let inner = egui::ComboBox::from_id_source("sound")
+                let inner = egui::ComboBox::from_id_salt("sound")
                     .selected_text(self.notifications_builtin_sound.to_string())
                     .show_ui(ui, |ui| {
                         let mut c = ui

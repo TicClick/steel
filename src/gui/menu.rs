@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, global_theme_preference_switch};
 
 use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
 use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
@@ -33,26 +33,28 @@ impl Menu {
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             egui::menu::bar(ui, |ui| {
-                if let Some(theme) = ctx.style().visuals.light_dark_small_toggle_button(ui) {
-                    let old_theme = state.settings.ui.theme.clone();
-                    state.settings.ui.theme = if theme.dark_mode {
-                        ThemeMode::Dark
-                    } else {
-                        ThemeMode::Light
-                    };
-                    if state.settings.ui.theme != old_theme {
-                        state.core.settings_updated(&state.settings);
-                    }
+                global_theme_preference_switch(ui);
+                let new_theme = match ui.ctx().theme() {
+                    egui::Theme::Dark => ThemeMode::Dark,
+                    egui::Theme::Light => ThemeMode::Light,
+                };
+                if new_theme != state.settings.ui.theme {
+                    state.settings.ui.theme = new_theme;
+                    state.core.settings_updated(&state.settings);
                 }
 
                 self.show_application_menu(ui, ctx, frame, state);
                 self.show_chat_menu(ui, ctx, state, response_widget_id);
                 self.show_help_menu(ui, ctx, state);
 
-                let resp = ui.checkbox(&mut self.pin_window, "📌").on_hover_text(
-                    "- put the window on top of everything and hide its border\n\
-                        - to move the window, click and drag this button",
-                );
+                let ui_spacing = ui.spacing_mut();
+                ui_spacing.item_spacing.x = 0.0;
+                ui_spacing.button_padding.x = 0.0;
+                ui_spacing.icon_spacing = 8.0;
+
+                let resp = ui
+                    .checkbox(&mut self.pin_window, "📌")
+                    .on_hover_text("stay on top of everything else and hide the window border");
 
                 if resp.clicked() {
                     match self.pin_window {
@@ -69,7 +71,18 @@ impl Menu {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
                         }
                     }
-                } else if resp.is_pointer_button_down_on() {
+                }
+
+                if self.pin_window
+                    && ui
+                        .add(
+                            egui::Label::new("↔")
+                                .selectable(false)
+                                .sense(egui::Sense::click_and_drag()),
+                        )
+                        .on_hover_text("drag to move the window")
+                        .dragged()
+                {
                     ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
             });

@@ -41,6 +41,7 @@ pub fn run_app(
     app.initialize();
 
     let app_queue = app.app_queue.clone();
+    let settings = app.current_settings().to_owned();
 
     let app_thread = std::thread::spawn(move || {
         app.run();
@@ -57,11 +58,12 @@ pub fn run_app(
         &format!("steel v{}", VERSION),
         native_options,
         Box::new(|cc| {
-            Box::new(gui::window::ApplicationWindow::new(
+            Ok(Box::new(gui::window::ApplicationWindow::new(
                 cc,
                 ui_queue_out,
                 app_queue,
-            ))
+                settings,
+            )))
         }),
     )
     .expect("failed to set up the app window");
