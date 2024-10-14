@@ -299,7 +299,7 @@ impl Application {
             ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
             ConnectionStatus::Disconnected { by_user } => {
                 for chat in self.state.chats.iter().cloned().collect::<Vec<String>>() {
-                    self.change_chat_state(&chat, ChatState::Left);
+                    self.change_chat_state(&chat, ChatState::Disconnected);
                 }
                 if self.state.settings.chat.reconnect && !by_user {
                     self.queue_reconnect();
@@ -428,13 +428,16 @@ impl Application {
 
         match state {
             ChatState::Left => {
-                self.send_system_message(chat, "You have left the chat (disconnected)")
+                self.send_system_message(chat, "You have left the chat")
             }
             ChatState::JoinInProgress => self.send_system_message(chat, "Joining the chat..."),
             ChatState::Joined => match chat.is_channel() {
                 true => self.send_system_message(chat, "You have joined the chat"),
                 false => self.send_system_message(chat, "You have opened the chat"),
             },
+            ChatState::Disconnected => {
+                self.send_system_message(chat, "You were disconnected from server");
+            }
         }
     }
 
