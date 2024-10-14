@@ -4,7 +4,10 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use crate::gui;
 
 use crate::gui::state::UIState;
-use steel_core::{ipc::{server::AppMessageIn, ui::UIMessageIn}, settings::Settings};
+use steel_core::{
+    ipc::{server::AppMessageIn, ui::UIMessageIn},
+    settings::Settings,
+};
 
 const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
 

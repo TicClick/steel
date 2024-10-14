@@ -47,10 +47,14 @@ impl Menu {
                 self.show_chat_menu(ui, ctx, state, response_widget_id);
                 self.show_help_menu(ui, ctx, state);
 
-                let resp = ui.checkbox(&mut self.pin_window, "📌").on_hover_text(
-                    "- put the window on top of everything and hide its border\n\
-                        - to move the window, click and drag this button",
-                );
+                let ui_spacing = ui.spacing_mut();
+                ui_spacing.item_spacing.x = 0.0;
+                ui_spacing.button_padding.x = 0.0;
+                ui_spacing.icon_spacing = 8.0;
+
+                let resp = ui
+                    .checkbox(&mut self.pin_window, "📌")
+                    .on_hover_text("stay on top of everything else and hide the window border");
 
                 if resp.clicked() {
                     match self.pin_window {
@@ -67,7 +71,18 @@ impl Menu {
                             ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(true));
                         }
                     }
-                } else if resp.is_pointer_button_down_on() {
+                }
+
+                if self.pin_window
+                    && ui
+                        .add(
+                            egui::Label::new("↔")
+                                .selectable(false)
+                                .sense(egui::Sense::click_and_drag()),
+                        )
+                        .on_hover_text("drag to move the window")
+                        .dragged()
+                {
                     ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
                 }
             });
