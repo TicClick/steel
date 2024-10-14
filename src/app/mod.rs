@@ -408,10 +408,10 @@ impl Application {
             content,
         } = e
         {
-            let normalized = chat.to_lowercase();
-            self.state.chats.remove(&normalized);
-            self.change_chat_state(&chat, ChatState::Left);
             self.send_system_message(&chat, &content);
+            if chat.is_channel() {
+                self.change_chat_state(&chat, ChatState::Left);
+            }
         }
         self.ui_queue
             .send(UIMessageIn::NewServerMessageReceived(error_text))
