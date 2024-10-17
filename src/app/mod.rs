@@ -85,6 +85,11 @@ impl Application {
                 AppMessageIn::UIDisconnectRequested => {
                     self.disconnect();
                 }
+
+                AppMessageIn::UIRestartRequested => {
+                    crate::core::os::restart();
+                }
+
                 AppMessageIn::UIExitRequested => {
                     break;
                 }
@@ -431,9 +436,7 @@ impl Application {
             .unwrap();
 
         match state {
-            ChatState::Left => {
-                self.send_system_message(chat, "You have left the chat")
-            }
+            ChatState::Left => self.send_system_message(chat, "You have left the chat"),
             ChatState::JoinInProgress => self.send_system_message(chat, "Joining the chat..."),
             ChatState::Joined => match chat.is_channel() {
                 true => self.send_system_message(chat, "You have joined the chat"),

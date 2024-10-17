@@ -4,8 +4,7 @@ use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, Mes
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 
-use eframe::egui::{self, Theme};
-use steel_core::settings::ThemeMode;
+use eframe::egui;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
@@ -49,10 +48,10 @@ pub struct UIState {
 }
 
 impl UIState {
-    pub fn new(app_queue_handle: UnboundedSender<AppMessageIn>) -> Self {
+    pub fn new(app_queue_handle: UnboundedSender<AppMessageIn>, settings: Settings) -> Self {
         Self {
             connection: ConnectionStatus::default(),
-            settings: Settings::default(),
+            settings,
             chats: Vec::default(),
             name_to_chat: BTreeMap::default(),
             server_messages: Vec::default(),
@@ -73,14 +72,10 @@ impl UIState {
         }
     }
 
-    pub fn set_settings(&mut self, ctx: &egui::Context, settings: Settings) {
-        self.settings = settings;
-        ctx.set_pixels_per_point(self.settings.ui.scaling);
-        ctx.set_theme(match self.settings.ui.theme {
-            ThemeMode::Dark => Theme::Dark,
-            ThemeMode::Light => Theme::Light,
-        });
+    pub fn update_settings(&mut self, settings: &Settings) {
+        self.settings = settings.clone();
 
+        // FIXME: Move this to a separate setter.
         self.highlights
             .set_highlights(&self.settings.notifications.highlights.words);
     }

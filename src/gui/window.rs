@@ -1,4 +1,4 @@
-use eframe::egui;
+use eframe::egui::{self, Theme};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui;
@@ -6,7 +6,7 @@ use crate::gui;
 use crate::gui::state::UIState;
 use steel_core::{
     ipc::{server::AppMessageIn, ui::UIMessageIn},
-    settings::Settings,
+    settings::{Settings, ThemeMode},
 };
 
 const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
@@ -87,6 +87,34 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
+fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
+    setup_custom_fonts(ctx);
+
+    ctx.style_mut(|style| {
+        style.url_in_tooltip = true;
+    });
+
+    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::Pos2 {
+        x: settings.application.window.x as f32,
+        y: settings.application.window.y as f32,
+    }));
+
+    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::Vec2 {
+        x: settings.application.window.width as f32,
+        y: settings.application.window.height as f32,
+    }));
+
+    update_ui_settings(ctx, settings);
+}
+
+fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
+    ctx.set_pixels_per_point(settings.ui.scaling);
+    ctx.set_theme(match settings.ui.theme {
+        ThemeMode::Dark => Theme::Dark,
+        ThemeMode::Light => Theme::Light,
+    });
+}
+
 pub struct ApplicationWindow {
     menu: gui::menu::Menu,
     chat: gui::chat::ChatWindow,
@@ -108,14 +136,8 @@ impl ApplicationWindow {
         app_queue_handle: UnboundedSender<AppMessageIn>,
         initial_settings: Settings,
     ) -> Self {
-        setup_custom_fonts(&cc.egui_ctx);
-
-        let mut state = UIState::new(app_queue_handle);
-        state.set_settings(&cc.egui_ctx, initial_settings);
-
-        cc.egui_ctx.style_mut(|style| {
-            style.url_in_tooltip = true;
-        });
+        let state = UIState::new(app_queue_handle, initial_settings.clone());
+        set_startup_ui_settings(&cc.egui_ctx, &initial_settings);
 
         Self {
             menu: gui::menu::Menu::new(),
@@ -145,6 +167,19 @@ impl ApplicationWindow {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(new_tab_title));
     }
 
+    fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
+        ctx.input(|i| {
+            let window = i.screen_rect();
+            self.s.settings.application.window.width = window.width() as i32;
+            self.s.settings.application.window.height = window.height() as i32;
+
+            if let Some(rect) = i.viewport().inner_rect {
+                self.s.settings.application.window.x = rect.left_top().x as i32;
+                self.s.settings.application.window.y = rect.left_top().y as i32;
+            }
+        });
+    }
+
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
         // If the main window is restored after having being minimized for some time, it still needs to be responsive
         // enough.
@@ -165,7 +200,8 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::SettingsChanged(settings) => {
-                self.s.set_settings(ctx, settings);
+                update_ui_settings(ctx, &settings);
+                self.s.update_settings(&settings);
             }
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
@@ -280,9 +316,11 @@ impl eframe::App for ApplicationWindow {
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);
         }
+
+        self.refresh_window_geometry_settings(ctx);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.s.core.exit_requested();
+        self.s.core.exit_requested(&self.s.settings);
     }
 }

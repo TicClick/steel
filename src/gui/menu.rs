@@ -94,7 +94,7 @@ impl Menu {
         ui: &mut egui::Ui,
         ctx: &egui::Context,
         _frame: &mut eframe::Frame,
-        _state: &mut UIState,
+        state: &UIState,
     ) {
         ui.menu_button("application", |ui| {
             if ui.button("settings").clicked() {
@@ -105,7 +105,7 @@ impl Menu {
             ui.separator();
 
             if ui.button("restart").clicked() {
-                crate::core::os::restart();
+                state.core.restart_requested(&state.settings);
                 ui.close_menu();
             }
             if ui.button("exit").clicked() {

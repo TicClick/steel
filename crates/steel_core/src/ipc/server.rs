@@ -15,6 +15,7 @@ pub enum AppMessageIn {
 
     UIConnectRequested,
     UIDisconnectRequested,
+    UIRestartRequested,
     UIExitRequested,
     UIChatOpened(String),
     UIChatClosed(String),
