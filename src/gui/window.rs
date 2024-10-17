@@ -168,9 +168,16 @@ impl ApplicationWindow {
     }
 
     fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
-        let window = ctx.screen_rect();
-        self.s.settings.application.window.width = window.width() as i32;
-        self.s.settings.application.window.height = window.height() as i32;
+        ctx.input(|i| {
+            let window = i.screen_rect();
+            self.s.settings.application.window.width = window.width() as i32;
+            self.s.settings.application.window.height = window.height() as i32;
+
+            if let Some(rect) = i.viewport().inner_rect {
+                self.s.settings.application.window.x = rect.left_top().x as i32;
+                self.s.settings.application.window.y = rect.left_top().y as i32;
+            }
+        });
     }
 
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
