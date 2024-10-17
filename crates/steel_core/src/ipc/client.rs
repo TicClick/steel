@@ -72,7 +72,17 @@ impl CoreClient {
             .unwrap();
     }
 
-    pub fn exit_requested(&self) {
+    pub fn restart_requested(&self, settings: &Settings) {
+        self.server
+            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .unwrap();
+        self.server.send(AppMessageIn::UIRestartRequested).unwrap();
+    }
+
+    pub fn exit_requested(&self, settings: &Settings) {
+        self.server
+            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .unwrap();
         self.server.send(AppMessageIn::UIExitRequested).unwrap();
     }
 

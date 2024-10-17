@@ -167,6 +167,12 @@ impl ApplicationWindow {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(new_tab_title));
     }
 
+    fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
+        let window = ctx.screen_rect();
+        self.s.settings.application.window.width = window.width() as i32;
+        self.s.settings.application.window.height = window.height() as i32;
+    }
+
     pub fn process_pending_events(&mut self, ctx: &egui::Context) {
         // If the main window is restored after having being minimized for some time, it still needs to be responsive
         // enough.
@@ -303,9 +309,11 @@ impl eframe::App for ApplicationWindow {
         if !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);
         }
+
+        self.refresh_window_geometry_settings(ctx);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.s.core.exit_requested();
+        self.s.core.exit_requested(&self.s.settings);
     }
 }
