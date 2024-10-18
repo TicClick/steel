@@ -171,7 +171,7 @@ impl ApplicationWindow {
         ctx.input(|i| {
             let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
 
-            if let Some(rect) = i.viewport().inner_rect {
+            if let Some(rect) = i.viewport().outer_rect {
                 self.s.settings.application.window.x = (rect.left_top().x / ppi) as i32;
                 self.s.settings.application.window.y = (rect.left_top().y / ppi) as i32;
 
