@@ -169,13 +169,14 @@ impl ApplicationWindow {
 
     fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
         ctx.input(|i| {
-            let window = i.screen_rect();
-            self.s.settings.application.window.width = window.width() as i32;
-            self.s.settings.application.window.height = window.height() as i32;
+            let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
 
             if let Some(rect) = i.viewport().inner_rect {
-                self.s.settings.application.window.x = rect.left_top().x as i32;
-                self.s.settings.application.window.y = rect.left_top().y as i32;
+                self.s.settings.application.window.x = (rect.left_top().x / ppi) as i32;
+                self.s.settings.application.window.y = (rect.left_top().y / ppi) as i32;
+
+                self.s.settings.application.window.width = (rect.width() / ppi) as i32;
+                self.s.settings.application.window.height = (rect.height() / ppi) as i32;
             }
         });
     }
