@@ -118,11 +118,11 @@ impl Message {
         let text = self.text.to_lowercase();
         let text = text.trim();
         let keywords = if let Some(u) = username {
-            let mut kw = keywords.clone();
+            let mut kw: BTreeSet<String> = keywords.into_iter().map(|s| s.to_lowercase()).collect();
             kw.insert(u.to_lowercase());
             kw
         } else {
-            keywords.clone()
+            keywords.into_iter().map(|s| s.to_lowercase()).collect()
         };
 
         for keyword in &keywords {
