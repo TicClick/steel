@@ -116,20 +116,28 @@ impl Message {
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
         let text = self.text.to_lowercase();
-        let text = text.trim();
+        let full_message_text = text.trim();
         let keywords = if let Some(u) = username {
-            let mut kw: BTreeSet<String> = keywords.into_iter().map(|s| s.to_lowercase()).collect();
+            let mut kw: BTreeSet<String> = keywords.iter().map(|s| s.to_lowercase()).collect();
             kw.insert(u.to_lowercase());
             kw
         } else {
-            keywords.into_iter().map(|s| s.to_lowercase()).collect()
+            keywords.iter().map(|s| s.to_lowercase()).collect()
         };
 
-        for keyword in &keywords {
-            if let Some(keyword_start_pos) = text.find(keyword) {
-                if Self::highlight_found(text, keyword, keyword_start_pos) {
-                    self.highlight = true;
-                    break;
+        'iterate_over_keywords: for keyword in &keywords {
+            let mut starting_pos = 0;
+            while starting_pos < full_message_text.len() {
+                let message_substring = &full_message_text[starting_pos..];
+                if let Some(keyword_start_pos) = message_substring.find(keyword) {
+                    if Self::highlight_found(message_substring, keyword, keyword_start_pos) {
+                        self.highlight = true;
+                        break 'iterate_over_keywords;
+                    } else {
+                        starting_pos = keyword_start_pos + 1;
+                    }
+                } else {
+                    continue 'iterate_over_keywords;
                 }
             }
         }
@@ -137,8 +145,7 @@ impl Message {
 
     fn highlight_found(text: &str, keyword: &str, keyword_start_pos: usize) -> bool {
         let is_message_prefix_matched = keyword_start_pos == 0;
-        let is_keyword_prefix_alphanumeric =
-            keyword.starts_with(|ch: char| ch.is_alphanumeric());
+        let is_keyword_prefix_alphanumeric = keyword.starts_with(|ch: char| ch.is_alphanumeric());
         let is_left_end_alphanumeric = keyword_start_pos > 0 && {
             let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
             previous_byte.is_alphanumeric()
@@ -146,16 +153,13 @@ impl Message {
 
         let keyword_end_pos = keyword_start_pos + keyword.len();
         let is_message_suffix_matched = keyword_end_pos == text.len();
-        let is_keyword_suffix_alphanumeric =
-            keyword.ends_with(|ch: char| ch.is_alphanumeric());
+        let is_keyword_suffix_alphanumeric = keyword.ends_with(|ch: char| ch.is_alphanumeric());
         let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
             let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
             next_byte.is_alphanumeric()
         };
 
-        (is_message_prefix_matched
-            || !is_keyword_prefix_alphanumeric
-            || !is_left_end_alphanumeric)
+        (is_message_prefix_matched || !is_keyword_prefix_alphanumeric || !is_left_end_alphanumeric)
             && (is_message_suffix_matched
                 || !is_keyword_suffix_alphanumeric
                 || !is_right_end_alphanumeric)
@@ -308,6 +312,9 @@ mod tests {
 
             // Several highlights, only one matches.
             ("the match has finished!", vec!["no", "one", "has", "lived", "forever"], None),
+
+            // Several occurrences, but only a standalone word should match.
+            ("airlock is sealed against air", vec!["air"], None),
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
