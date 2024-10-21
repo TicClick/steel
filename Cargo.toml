@@ -64,7 +64,7 @@ chrono = { workspace = true }
 irc = { workspace = true }
 irc-proto = { workspace = true }
 futures = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_yaml = { workspace = true }
 tokio = { workspace = true }
 thiserror = { workspace = true }
