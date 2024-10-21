@@ -254,3 +254,79 @@ impl fmt::Display for ConnectionStatus {
         )
     }
 }
+
+#[rustfmt::skip]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hls(words: &[&str]) -> BTreeSet<String> {
+        BTreeSet::from_iter(words.iter().map(|w| w.to_string()))
+    }
+
+    #[test]
+    fn positive_highlights() {
+        for (message_text, keywords, active_username) in [
+
+            // One-word highlight, space delimiters.
+            ("fullmatch", vec!["fullmatch"], None),
+            ("apples and oranges", vec!["apples"], None),
+            ("apples and oranges", vec!["and"], None),
+            ("apples and oranges", vec!["oranges"], None),
+            ("hell upside down is 1134", vec!["1134"], None),
+
+            // One-word highlight, message contains punctuation.
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["apples"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["and"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["oranges"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["are"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["both"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["fruits"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["im"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["telling"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["you"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["so"], None),
+
+            // Username in a message.
+            ("oliver twist, c'mere boy!", vec![], Some(&"Oliver".to_string())),
+
+            // Case-insensitive matching.
+            ("over the rainbow", vec!["OVER"], None),
+
+            // Several words in a highlight.
+            ("jackdaws love my big sphinx of quartz", vec!["jackdaws love"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["love my"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["sphinx of quartz"], None),
+
+            // Punctuation in a highlight.
+            ("Players of.the.world, unite!", vec!["of.the.world"], None),
+            ("?of.the.world!", vec!["of.the.world"], None),
+            ("the match has finished!", vec!["finished!"], None),
+
+            // Several highlights, only one matches.
+            ("the match has finished!", vec!["no", "one", "has", "lived", "forever"], None),
+        ] {
+            let mut message = Message::new_text("Someone", message_text);
+            message.detect_highlights(&hls(&keywords), active_username);
+            assert!(message.highlight, "{:?} did not match {:?}", message_text, keywords);
+        }
+    }
+
+    #[test]
+    fn negative_highlights() {
+        for (message_text, keywords, active_username) in [
+
+            // Substrings of a single word.
+            ("jackdaws love my big sphinx of quartz", vec!["jack"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["aws"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["phi"], None),
+
+            // Punctuation must match.
+            ("clickers(of.the.world)unite", vec![".of.the.world."], None),
+        ] {
+            let mut message = Message::new_text("Someone", message_text);
+            message.detect_highlights(&hls(&keywords), active_username);
+            assert!(!message.highlight, "{:?} matched {:?} (it shouldn't have)", message_text, keywords);
+        }
+    }
+}
