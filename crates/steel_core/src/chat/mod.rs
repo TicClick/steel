@@ -115,30 +115,46 @@ impl Message {
     }
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
-        let separator = "$$";
-        let wrap_with_separators = |v| format!("{separator}{v}{separator}");
+        let text = self.text.to_lowercase();
+        let text = text.trim();
+        let keywords = if let Some(u) = username {
+            let mut kw = keywords.clone();
+            kw.insert(u.to_lowercase());
+            kw
+        } else {
+            keywords.clone()
+        };
 
-        let normalized_text = self
-            .text
-            .to_lowercase()
-            .split(|ch: char| {
-                ch.is_whitespace() || (ch.is_ascii_punctuation() && !matches!(ch, '[' | ']' | '#'))
-            })
-            .collect::<Vec<&str>>()
-            .join(separator);
-        let normalized_text = wrap_with_separators(normalized_text);
+        for keyword in &keywords {
+            if let Some(keyword_start_pos) = text.find(keyword) {
+                let is_message_prefix_matched = keyword_start_pos == 0;
+                let is_keyword_prefix_alphanumeric =
+                    keyword.starts_with(|ch: char| ch.is_alphanumeric());
+                let is_left_end_alphanumeric = keyword_start_pos > 0 && {
+                    let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
+                    previous_byte.is_alphanumeric()
+                };
 
-        for keyword in keywords.iter().filter(|k| !k.is_empty()) {
-            let keyword = wrap_with_separators(keyword.replace(' ', separator));
-            if normalized_text.contains(&keyword) {
-                self.highlight = true;
-                break;
+                let keyword_end_pos = keyword_start_pos + keyword.len();
+                let is_message_suffix_matched = keyword_end_pos == text.len();
+                let is_keyword_suffix_alphanumeric =
+                    keyword.ends_with(|ch: char| ch.is_alphanumeric());
+                let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
+                    let next_byte: char = text.as_bytes()[keyword_end_pos + 1] as char;
+                    next_byte.is_alphanumeric()
+                };
+
+                if (is_message_prefix_matched
+                    || !is_keyword_prefix_alphanumeric
+                    || !is_left_end_alphanumeric)
+                    && (is_message_suffix_matched
+                        || !is_keyword_suffix_alphanumeric
+                        || !is_right_end_alphanumeric)
+                {
+                    self.highlight = true;
+                    break;
+                }
             }
-        }
-
-        if let Some(u) = username {
-            self.highlight =
-                self.highlight || normalized_text.contains(&wrap_with_separators(u.to_lowercase()));
         }
     }
 }
