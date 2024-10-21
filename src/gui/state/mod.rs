@@ -188,7 +188,8 @@ impl UIState {
                 message.detect_highlights(self.highlights.keywords(), current_username);
 
                 let contains_highlight = message.highlight;
-                let requires_attention = contains_highlight || !normalized.is_channel();
+                let requires_attention =
+                    !is_system_message && (contains_highlight || !normalized.is_channel());
 
                 if contains_highlight {
                     self.highlights.add(&normalized, &message);
