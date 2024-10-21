@@ -140,7 +140,7 @@ impl Message {
                 let is_keyword_suffix_alphanumeric =
                     keyword.ends_with(|ch: char| ch.is_alphanumeric());
                 let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
-                    let next_byte: char = text.as_bytes()[keyword_end_pos + 1] as char;
+                    let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
                     next_byte.is_alphanumeric()
                 };
 
