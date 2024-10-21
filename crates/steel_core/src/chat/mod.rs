@@ -127,35 +127,38 @@ impl Message {
 
         for keyword in &keywords {
             if let Some(keyword_start_pos) = text.find(keyword) {
-                let is_message_prefix_matched = keyword_start_pos == 0;
-                let is_keyword_prefix_alphanumeric =
-                    keyword.starts_with(|ch: char| ch.is_alphanumeric());
-                let is_left_end_alphanumeric = keyword_start_pos > 0 && {
-                    let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
-                    previous_byte.is_alphanumeric()
-                };
-
-                let keyword_end_pos = keyword_start_pos + keyword.len();
-                let is_message_suffix_matched = keyword_end_pos == text.len();
-                let is_keyword_suffix_alphanumeric =
-                    keyword.ends_with(|ch: char| ch.is_alphanumeric());
-                let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
-                    let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
-                    next_byte.is_alphanumeric()
-                };
-
-                if (is_message_prefix_matched
-                    || !is_keyword_prefix_alphanumeric
-                    || !is_left_end_alphanumeric)
-                    && (is_message_suffix_matched
-                        || !is_keyword_suffix_alphanumeric
-                        || !is_right_end_alphanumeric)
-                {
+                if Self::highlight_found(text, keyword, keyword_start_pos) {
                     self.highlight = true;
                     break;
                 }
             }
         }
+    }
+
+    fn highlight_found(text: &str, keyword: &str, keyword_start_pos: usize) -> bool {
+        let is_message_prefix_matched = keyword_start_pos == 0;
+        let is_keyword_prefix_alphanumeric =
+            keyword.starts_with(|ch: char| ch.is_alphanumeric());
+        let is_left_end_alphanumeric = keyword_start_pos > 0 && {
+            let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
+            previous_byte.is_alphanumeric()
+        };
+
+        let keyword_end_pos = keyword_start_pos + keyword.len();
+        let is_message_suffix_matched = keyword_end_pos == text.len();
+        let is_keyword_suffix_alphanumeric =
+            keyword.ends_with(|ch: char| ch.is_alphanumeric());
+        let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
+            let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
+            next_byte.is_alphanumeric()
+        };
+
+        (is_message_prefix_matched
+            || !is_keyword_prefix_alphanumeric
+            || !is_left_end_alphanumeric)
+            && (is_message_suffix_matched
+                || !is_keyword_suffix_alphanumeric
+                || !is_right_end_alphanumeric)
     }
 }
 
