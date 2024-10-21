@@ -115,31 +115,54 @@ impl Message {
     }
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
-        let separator = "$$";
-        let wrap_with_separators = |v| format!("{separator}{v}{separator}");
+        let text = self.text.to_lowercase();
+        let full_message_text = text.trim();
+        let keywords = if let Some(u) = username {
+            let mut kw: BTreeSet<String> = keywords.iter().map(|s| s.to_lowercase()).collect();
+            kw.insert(u.to_lowercase());
+            kw
+        } else {
+            keywords.iter().map(|s| s.to_lowercase()).collect()
+        };
 
-        let normalized_text = self
-            .text
-            .to_lowercase()
-            .split(|ch: char| {
-                ch.is_whitespace() || (ch.is_ascii_punctuation() && !matches!(ch, '[' | ']' | '#'))
-            })
-            .collect::<Vec<&str>>()
-            .join(separator);
-        let normalized_text = wrap_with_separators(normalized_text);
-
-        for keyword in keywords.iter().filter(|k| !k.is_empty()) {
-            let keyword = wrap_with_separators(keyword.replace(' ', separator));
-            if normalized_text.contains(&keyword) {
-                self.highlight = true;
-                break;
+        'iterate_over_keywords: for keyword in &keywords {
+            let mut starting_pos = 0;
+            while starting_pos < full_message_text.len() {
+                let message_substring = &full_message_text[starting_pos..];
+                if let Some(keyword_start_pos) = message_substring.find(keyword) {
+                    if Self::highlight_found(message_substring, keyword, keyword_start_pos) {
+                        self.highlight = true;
+                        break 'iterate_over_keywords;
+                    } else {
+                        starting_pos = keyword_start_pos + 1;
+                    }
+                } else {
+                    continue 'iterate_over_keywords;
+                }
             }
         }
+    }
 
-        if let Some(u) = username {
-            self.highlight =
-                self.highlight || normalized_text.contains(&wrap_with_separators(u.to_lowercase()));
-        }
+    fn highlight_found(text: &str, keyword: &str, keyword_start_pos: usize) -> bool {
+        let is_message_prefix_matched = keyword_start_pos == 0;
+        let is_keyword_prefix_alphanumeric = keyword.starts_with(|ch: char| ch.is_alphanumeric());
+        let is_left_end_alphanumeric = keyword_start_pos > 0 && {
+            let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
+            previous_byte.is_alphanumeric()
+        };
+
+        let keyword_end_pos = keyword_start_pos + keyword.len();
+        let is_message_suffix_matched = keyword_end_pos == text.len();
+        let is_keyword_suffix_alphanumeric = keyword.ends_with(|ch: char| ch.is_alphanumeric());
+        let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
+            let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
+            next_byte.is_alphanumeric()
+        };
+
+        (is_message_prefix_matched || !is_keyword_prefix_alphanumeric || !is_left_end_alphanumeric)
+            && (is_message_suffix_matched
+                || !is_keyword_suffix_alphanumeric
+                || !is_right_end_alphanumeric)
     }
 }
 
@@ -236,5 +259,84 @@ impl fmt::Display for ConnectionStatus {
                 Self::Scheduled(when) => format!("connecting in {}s", *when - chrono::Local::now()),
             }
         )
+    }
+}
+
+#[rustfmt::skip]
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn hls(words: &[&str]) -> BTreeSet<String> {
+        BTreeSet::from_iter(words.iter().map(|w| w.to_string()))
+    }
+
+    #[test]
+    fn positive_highlights() {
+        for (message_text, keywords, active_username) in [
+
+            // One-word highlight, space delimiters.
+            ("fullmatch", vec!["fullmatch"], None),
+            ("apples and oranges", vec!["apples"], None),
+            ("apples and oranges", vec!["and"], None),
+            ("apples and oranges", vec!["oranges"], None),
+            ("hell upside down is 1134", vec!["1134"], None),
+
+            // One-word highlight, message contains punctuation.
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["apples"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["and"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["oranges"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["are"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["both"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["fruits"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["im"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["telling"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["you"], None),
+            ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["so"], None),
+
+            // Username in a message.
+            ("oliver twist, c'mere boy!", vec![], Some(&"Oliver".to_string())),
+
+            // Case-insensitive matching.
+            ("over the rainbow", vec!["OVER"], None),
+
+            // Several words in a highlight.
+            ("jackdaws love my big sphinx of quartz", vec!["jackdaws love"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["love my"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["sphinx of quartz"], None),
+
+            // Punctuation in a highlight.
+            ("Players of.the.world, unite!", vec!["of.the.world"], None),
+            ("?of.the.world!", vec!["of.the.world"], None),
+            ("the match has finished!", vec!["finished!"], None),
+
+            // Several highlights, only one matches.
+            ("the match has finished!", vec!["no", "one", "has", "lived", "forever"], None),
+
+            // Several occurrences, but only a standalone word should match.
+            ("airlock is sealed against air", vec!["air"], None),
+        ] {
+            let mut message = Message::new_text("Someone", message_text);
+            message.detect_highlights(&hls(&keywords), active_username);
+            assert!(message.highlight, "{:?} did not match {:?}", message_text, keywords);
+        }
+    }
+
+    #[test]
+    fn negative_highlights() {
+        for (message_text, keywords, active_username) in [
+
+            // Substrings of a single word.
+            ("jackdaws love my big sphinx of quartz", vec!["jack"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["aws"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["phi"], None),
+
+            // Punctuation must match.
+            ("clickers(of.the.world)unite", vec![".of.the.world."], None),
+        ] {
+            let mut message = Message::new_text("Someone", message_text);
+            message.detect_highlights(&hls(&keywords), active_username);
+            assert!(!message.highlight, "{:?} matched {:?} (it shouldn't have)", message_text, keywords);
+        }
     }
 }
