@@ -130,11 +130,18 @@ impl Message {
             while starting_pos < full_message_text.len() {
                 let message_substring = &full_message_text[starting_pos..];
                 if let Some(keyword_start_pos) = message_substring.find(keyword) {
-                    if Self::highlight_found(message_substring, keyword, keyword_start_pos) {
+                    if Self::highlight_found(
+                        full_message_text,
+                        keyword,
+                        keyword_start_pos + starting_pos,
+                    ) {
                         self.highlight = true;
                         break 'iterate_over_keywords;
                     } else {
-                        starting_pos = keyword_start_pos + 1;
+                        starting_pos += keyword_start_pos + 1;
+                        while !full_message_text.is_char_boundary(starting_pos) {
+                            starting_pos += 1;
+                        }
                     }
                 } else {
                     continue 'iterate_over_keywords;
@@ -146,18 +153,14 @@ impl Message {
     fn highlight_found(text: &str, keyword: &str, keyword_start_pos: usize) -> bool {
         let is_message_prefix_matched = keyword_start_pos == 0;
         let is_keyword_prefix_alphanumeric = keyword.starts_with(|ch: char| ch.is_alphanumeric());
-        let is_left_end_alphanumeric = keyword_start_pos > 0 && {
-            let previous_byte: char = text.as_bytes()[keyword_start_pos - 1] as char;
-            previous_byte.is_alphanumeric()
-        };
+        let is_left_end_alphanumeric = keyword_start_pos > 0
+            && text[..keyword_start_pos].ends_with(|ch: char| ch.is_alphanumeric());
 
         let keyword_end_pos = keyword_start_pos + keyword.len();
         let is_message_suffix_matched = keyword_end_pos == text.len();
         let is_keyword_suffix_alphanumeric = keyword.ends_with(|ch: char| ch.is_alphanumeric());
-        let is_right_end_alphanumeric = keyword_end_pos < text.len() && {
-            let next_byte: char = text.as_bytes()[keyword_end_pos] as char;
-            next_byte.is_alphanumeric()
-        };
+        let is_right_end_alphanumeric =
+            text[keyword_end_pos..].starts_with(|ch: char| ch.is_alphanumeric());
 
         (is_message_prefix_matched || !is_keyword_prefix_alphanumeric || !is_left_end_alphanumeric)
             && (is_message_suffix_matched
@@ -281,6 +284,7 @@ mod tests {
             ("apples and oranges", vec!["and"], None),
             ("apples and oranges", vec!["oranges"], None),
             ("hell upside down is 1134", vec!["1134"], None),
+            ("what do ты have to offer?", vec!["ты"], None),
 
             // One-word highlight, message contains punctuation.
             ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["apples"], None),
@@ -293,17 +297,20 @@ mod tests {
             ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["telling"], None),
             ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["you"], None),
             ("apples,and!oranges#are[both]fruits??im_telling(you)so..", vec!["so"], None),
+            ("раз,два,три!четыре", vec!["три"], None),
 
             // Username in a message.
             ("oliver twist, c'mere boy!", vec![], Some(&"Oliver".to_string())),
 
             // Case-insensitive matching.
             ("over the rainbow", vec!["OVER"], None),
+            ("ЗАПРЕЩЕНО ЗАПРЕЩАТЬ", vec!["запрещено"], None),
 
             // Several words in a highlight.
             ("jackdaws love my big sphinx of quartz", vec!["jackdaws love"], None),
             ("jackdaws love my big sphinx of quartz", vec!["love my"], None),
             ("jackdaws love my big sphinx of quartz", vec!["sphinx of quartz"], None),
+            ("Белая гвардия, белый снег, белая музыка революций", vec!["белый снег"], None),
 
             // Punctuation in a highlight.
             ("Players of.the.world, unite!", vec!["of.the.world"], None),
@@ -315,6 +322,7 @@ mod tests {
 
             // Several occurrences, but only a standalone word should match.
             ("airlock is sealed against air", vec!["air"], None),
+            ("одна сорока, да ещё сорок сороко̀в соро̀к", vec!["сорок"], None),
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
@@ -330,6 +338,11 @@ mod tests {
             ("jackdaws love my big sphinx of quartz", vec!["jack"], None),
             ("jackdaws love my big sphinx of quartz", vec!["aws"], None),
             ("jackdaws love my big sphinx of quartz", vec!["phi"], None),
+            ("jackdaws love my big sphinx of quartz", vec!["artz"], None),
+
+            // Unicode.
+            ("он посмотрел видео", vec!["вид"], None),
+            ("я не курю", vec!["рю"], None),
 
             // Punctuation must match.
             ("clickers(of.the.world)unite", vec![".of.the.world."], None),
