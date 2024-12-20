@@ -7,9 +7,9 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = "0.29"
-egui_extras = "0.29"
-ecolor = "0.29"
+eframe = "0.30"
+egui_extras = "0.30"
+ecolor = "0.30"
 
 # Supporting library for rodio's "alsa-sys" dependency: librust-alsa-sys-dev
 # TODO(TicClick): The fork is a workaround for Windows not respecting default audio device change.
@@ -18,27 +18,27 @@ rodio = { git = "https://github.com/TicClick/rodio.git", branch = "master" } # v
 
 # other dependencies
 
-chrono = { version = "0.4.38", features = ["serde"] }
+chrono = { version = "0.4.39", features = ["serde"] }
 irc = "1.0.0"
 irc-proto = "1.0.0"
 futures = "0.3.31"
-serde = "1.0.210"
+serde = "1.0.216"
 serde_yaml = "0.9.34"
-serde_json = "1.0.128"
-tokio = { version = "1.40.0", features = ["rt"] }
-thiserror = "1.0.64"
+serde_json = "1.0.133"
+tokio = { version = "1.42.0", features = ["rt"] }
+thiserror = "2.0.8"
 simplelog = "0.12.2"
 log = "0.4.22"
 log-panics = { version = "2.1.0", features = ["with-backtrace"] }
-time = { version = "0.3.36", features = ["macros"] }
+time = { version = "0.3.37", features = ["macros"] }
 percent-encoding = "2.3.1"
-ureq = { version = "2.10.1", features = ["json", "native-tls"] }
-flate2 = "1.0.34"
-tar = "0.4.42"
-zip = "2.2.0"
+ureq = { version = "2.12.1", features = ["json", "native-tls"] }
+flate2 = "1.0.35"
+tar = "0.4.43"
+zip = "2.2.2"
 md5 = "0.7.0"
-png = "0.17.14"
-winresource = "0.1.17"
+png = "0.17.16"
+winresource = "0.1.19"
 winit-test = "0.2.0"
 
 

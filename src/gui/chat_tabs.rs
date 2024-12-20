@@ -146,7 +146,9 @@ fn drag_source(
     } else {
         ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
         let layer_id = egui::LayerId::new(egui::Order::Tooltip, id);
-        let response = ui.with_layer_id(layer_id, body).response;
+        let response = ui
+            .scope_builder(egui::UiBuilder::new().layer_id(layer_id), body)
+            .response;
 
         if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
             let delta = pointer_pos - response.rect.center();

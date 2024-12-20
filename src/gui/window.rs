@@ -26,7 +26,7 @@ fn add_font(fonts: &mut egui::FontDefinitions, name: &str, payload: &'static [u8
     // .ttf and .otf files supported.
     fonts
         .font_data
-        .insert(name.to_owned(), egui::FontData::from_static(payload));
+        .insert(name.to_owned(), egui::FontData::from_static(payload).into());
     // Put my font first (highest priority) for proportional text:
     fonts
         .families
