@@ -509,11 +509,10 @@ fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, messa
         ui.close_menu();
     }
 
-    // TODO: the link should contain ID instead
     if ui.button("🔎 View profile").clicked() {
         ui.ctx().output_mut(|o| {
             o.open_url = Some(egui::output::OpenUrl {
-                url: format!("https://osu.ppy.sh/users/{}", message.username),
+                url: format!("https://osu.ppy.sh/users/@{}", message.username),
                 new_tab: true,
             });
         });
