@@ -429,6 +429,7 @@ impl UpdaterBackend {
         // The original executable has already been renamed during the previous update round, and now we have fetched
         // a binary from another release stream.
         if target.exists() {
+            let _ = std::fs::remove_file(&backup);
             std::fs::rename(&target, &backup)?;
         }
 

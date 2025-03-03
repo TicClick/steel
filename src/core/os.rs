@@ -31,28 +31,60 @@ pub fn cleanup_after_update() {
             "{}.old",
             executable.file_name().unwrap().to_str().unwrap()
         ));
+
         if !old_backup.exists() {
             return;
         }
-        if let Err(e) = std::fs::remove_file(&old_backup) {
-            log::warn!(
-                "failed to remove old executable ({:?}) which was left after SUCCESSFUL update: {:?}",
-                old_backup,
-                e
-            );
-        } else {
-            log::debug!(
-                "removed old executable ({:?}) which was left after SUCCESSFUL update",
-                old_backup
-            );
+
+        let max_retries = 5;
+        let mut attempts = 0;
+
+        while attempts < max_retries {
+            match std::fs::remove_file(&old_backup) {
+                Ok(_) => {
+                    log::debug!("Removed old executable successfully");
+                    return;
+                }
+                Err(e) => {
+                    if (cfg!(windows) || e.kind() == std::io::ErrorKind::PermissionDenied)
+                        && attempts < max_retries - 1
+                    {
+                        log::warn!(
+                            "Failed to remove old executable (attempt {}/{}): {:?}",
+                            attempts + 1,
+                            max_retries,
+                            e
+                        );
+                        attempts += 1;
+                        std::thread::sleep(std::time::Duration::from_millis(
+                            500 * (attempts as u64),
+                        ));
+                    } else {
+                        log::error!("Permanent failure to remove old executable: {:?}", e);
+                        return;
+                    }
+                }
+            }
         }
     }
 }
 
 pub fn restart() {
-    if let Ok(image) = std::env::current_exe() {
-        log::debug!("restart: going to launch another copy of myself and then exit");
-        if let Err(e) = std::process::Command::new(&image).arg(&image).spawn() {
+    if let Ok(mut image) = std::env::current_exe() {
+        let old_suffix = ".old";
+        if image.to_string_lossy().ends_with(old_suffix) {
+            image.set_file_name(
+                image
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap()
+                    .trim_end_matches(old_suffix),
+            );
+        }
+
+        log::debug!("restart: going to launch new copy at {:?} and exit", image);
+        if let Err(e) = std::process::Command::new(&image).spawn() {
             log::error!("failed to restart myself: {:?}", e);
         } else {
             std::process::exit(0);
