@@ -8,6 +8,10 @@ use crate::core::chat::{ChatLike, ChatState, ChatType};
 use crate::gui::highlights::UnreadType;
 use crate::gui::state::UIState;
 
+use super::context_menu::chat::{
+    menu_item_add_to_favourites, menu_item_clear_chat_tab, menu_item_close_chat,
+    menu_item_remove_from_favourites,
+};
 use super::context_menu::shared::menu_item_open_chat_log;
 
 const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
@@ -78,51 +82,24 @@ fn tab_context_menu(
     mode: &ChatType,
     chats_to_clear: &mut BTreeSet<String>,
 ) {
-    if state
+    let is_favourite_chat = state
         .settings
         .chat
         .autojoin
         .iter()
-        .any(|s| s == normalized_chat_name)
-    {
-        if ui.button("Remove from favourites").clicked() {
-            state
-                .settings
-                .chat
-                .autojoin
-                .retain(|s| s != normalized_chat_name);
-            // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
-            state.core.settings_updated(&state.settings);
-            ui.close_menu();
-        }
-    } else if ui.button("Add to favourites").clicked() {
-        state
-            .settings
-            .chat
-            .autojoin
-            .push(normalized_chat_name.to_owned());
-        // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
-        state.core.settings_updated(&state.settings);
-        ui.close_menu();
+        .any(|s| s == normalized_chat_name);
+
+    match is_favourite_chat {
+        true => menu_item_remove_from_favourites(ui, state, false, normalized_chat_name),
+        false => menu_item_add_to_favourites(ui, state, false, normalized_chat_name),
     }
 
     menu_item_open_chat_log(ui, state, false, normalized_chat_name);
-
-    if ui.button("Clear messages").clicked() {
-        chats_to_clear.insert(normalized_chat_name.to_owned());
-        ui.close_menu();
-    }
+    menu_item_clear_chat_tab(ui, false, normalized_chat_name, chats_to_clear);
 
     ui.separator();
 
-    let close_title = match mode {
-        ChatType::Channel => "Leave",
-        ChatType::Person => "Close",
-    };
-    if ui.button(close_title).clicked() {
-        state.core.chat_tab_closed(normalized_chat_name);
-        ui.close_menu();
-    }
+    menu_item_close_chat(ui, state, false, normalized_chat_name, mode);
 }
 
 fn drag_source(

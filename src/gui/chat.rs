@@ -11,7 +11,12 @@ use crate::gui::DecoratedText;
 
 use crate::gui::command;
 
+use super::context_menu::chat_user::{
+    menu_item_copy_message, menu_item_copy_username, menu_item_open_chat,
+    menu_item_open_chat_user_profile, menu_item_translate_message,
+};
 use super::context_menu::shared::menu_item_open_chat_log;
+use super::context_menu::url::menu_item_copy_url;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
@@ -504,54 +509,18 @@ fn show_datetime(
 
 #[allow(unused_variables)] // glass
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
-    if state.is_connected() && ui.button("💬 Open chat").clicked() {
-        state.core.chat_opened(&message.username);
-        ui.close_menu();
+    if state.is_connected() {
+        menu_item_open_chat(ui, state, true, &message.username);
     }
 
-    if ui.button("🔎 View profile").clicked() {
-        ui.ctx().output_mut(|o| {
-            o.open_url = Some(egui::output::OpenUrl {
-                url: format!("https://osu.ppy.sh/users/@{}", message.username),
-                new_tab: true,
-            });
-        });
-        ui.close_menu();
-    }
-
-    if ui.button("🌐 Translate message").clicked() {
-        ui.ctx().output_mut(|o| {
-            o.open_url = Some(egui::output::OpenUrl {
-                url: format!(
-                    "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
-                    percent_encoding::utf8_percent_encode(
-                        &message.text,
-                        percent_encoding::NON_ALPHANUMERIC
-                    )
-                ),
-                new_tab: true,
-            });
-        });
-        ui.close_menu();
-    }
-
+    menu_item_open_chat_user_profile(ui, true, &message.username);
+    menu_item_translate_message(ui, true, &message.text);
     menu_item_open_chat_log(ui, state, true, &message.username);
 
     ui.separator();
 
-    if ui.button("Copy message").clicked() {
-        ui.ctx().output_mut(|o| {
-            o.copied_text = message.to_string();
-        });
-        ui.close_menu();
-    }
-
-    if ui.button("Copy username").clicked() {
-        ui.ctx().output_mut(|o| {
-            o.copied_text = message.username.clone();
-        });
-        ui.close_menu();
-    }
+    menu_item_copy_message(ui, false, message);
+    menu_item_copy_username(ui, false, message);
 
     #[cfg(feature = "glass")]
     state
@@ -620,12 +589,7 @@ fn format_chat_message_text(
                             |ui: &mut egui::Ui, text: &egui::RichText, loc: &str| {
                                 ui.hyperlink_to(text.to_owned(), loc.to_owned())
                                     .context_menu(|ui| {
-                                        if ui.button("Copy URL").clicked() {
-                                            ui.ctx().output_mut(|o| {
-                                                o.copied_text = loc.to_owned();
-                                            });
-                                            ui.close_menu();
-                                        }
+                                        menu_item_copy_url(ui, loc);
                                     });
                             };
                         match link_type {
@@ -675,12 +639,7 @@ fn format_chat_message_text(
                                                     ));
 
                                                 resp.context_menu(|ui| {
-                                                    if ui.button("Copy URL").clicked() {
-                                                        ui.ctx().output_mut(|o| {
-                                                            o.copied_text = location.to_owned();
-                                                        });
-                                                        ui.close_menu();
-                                                    }
+                                                    menu_item_copy_url(ui, &location);
                                                 });
 
                                                 if resp.clicked() {
@@ -709,12 +668,7 @@ fn format_chat_message_text(
                                                     ));
 
                                                 resp.context_menu(|ui| {
-                                                    if ui.button("Copy URL").clicked() {
-                                                        ui.ctx().output_mut(|o| {
-                                                            o.copied_text = location.to_owned();
-                                                        });
-                                                        ui.close_menu();
-                                                    }
+                                                    menu_item_copy_url(ui, &location);
                                                 });
 
                                                 if resp.clicked() {
