@@ -554,7 +554,6 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
     }
 }
 
-// FIXME: this needs to be handled better, with less code repetition.
 fn format_chat_message_text(
     ui: &mut egui::Ui,
     state: &UIState,
@@ -585,120 +584,56 @@ fn format_chat_message_text(
                     } => {
                         let display_text =
                             egui::RichText::new(title).with_styles(styles, &state.settings);
-                        let make_regular_link =
-                            |ui: &mut egui::Ui, text: &egui::RichText, loc: &str| {
-                                ui.hyperlink_to(text.to_owned(), loc.to_owned())
-                                    .context_menu(|ui| {
-                                        menu_item_copy_url(ui, loc);
-                                    });
-                            };
                         match link_type {
                             LinkType::HTTP | LinkType::HTTPS => {
-                                make_regular_link(ui, &display_text, location);
+                                make_regular_link(ui, &display_text, location)
                             }
                             LinkType::OSU(osu_action) => {
                                 match osu_action {
                                     Action::Chat(chat) => {
-                                        match state.settings.chat.behaviour.handle_osu_chat_links {
-                                            true => {
-                                                if ui
-                                                    .link(display_text)
-                                                    .on_hover_text_at_pointer(
-                                                        match chat.is_channel() {
-                                                            true => format!("Open {}", chat),
-                                                            false => format!("Chat with {}", chat),
-                                                        },
-                                                    )
-                                                    .clicked()
-                                                {
-                                                    if state.has_chat(chat) {
-                                                        state
-                                                            .core
-                                                            .chat_switch_requested(chat, None);
-                                                    } else {
-                                                        state.core.chat_opened(chat)
-                                                    }
-                                                }
-                                            }
-                                            false => make_regular_link(ui, &display_text, location),
-                                        }
+                                        make_chat_link(ui, state, chat, display_text, location)
                                     }
                                     Action::OpenBeatmap(beatmap_id) => {
-                                        match state.settings.chat.behaviour.handle_osu_beatmap_links
-                                        {
-                                            true => {
-                                                let location = format!(
-                                                    "https://osu.ppy.sh/beatmapsets/{}",
-                                                    beatmap_id
-                                                );
-                                                let resp = ui
-                                                    .link(display_text)
-                                                    .on_hover_text_at_pointer(format!(
-                                                        "Beatmap #{} (open in browser)",
-                                                        beatmap_id
-                                                    ));
-
-                                                resp.context_menu(|ui| {
-                                                    menu_item_copy_url(ui, &location);
-                                                });
-
-                                                if resp.clicked() {
-                                                    ui.output_mut(|o| {
-                                                        o.open_url =
-                                                            Some(egui::OpenUrl::new_tab(location));
-                                                    });
-                                                }
-                                            }
-                                            false => make_regular_link(ui, &display_text, location),
-                                        }
+                                        let location = format!(
+                                            "https://osu.ppy.sh/beatmapsets/{}",
+                                            beatmap_id
+                                        );
+                                        let on_hover_text =
+                                            format!("Beatmap #{} (open in browser)", beatmap_id);
+                                        make_beatmap_link(
+                                            ui,
+                                            state,
+                                            display_text,
+                                            &location,
+                                            &on_hover_text,
+                                        );
                                     }
+
                                     Action::OpenDifficulty(difficulty_id) => {
-                                        match state.settings.chat.behaviour.handle_osu_beatmap_links
-                                        {
-                                            true => {
-                                                let location = format!(
-                                                    "https://osu.ppy.sh/beatmaps/{}",
-                                                    difficulty_id
-                                                );
-                                                let resp = ui
-                                                    .link(display_text)
-                                                    .on_hover_text_at_pointer(format!(
-                                                        "Beatmap difficulty #{} (open in browser)",
-                                                        difficulty_id
-                                                    ));
-
-                                                resp.context_menu(|ui| {
-                                                    menu_item_copy_url(ui, &location);
-                                                });
-
-                                                if resp.clicked() {
-                                                    ui.output_mut(|o| {
-                                                        o.open_url =
-                                                            Some(egui::OpenUrl::new_tab(location));
-                                                    });
-                                                }
-                                            }
-                                            false => make_regular_link(ui, &display_text, location),
-                                        }
+                                        let location = format!(
+                                            "https://osu.ppy.sh/beatmaps/{}",
+                                            difficulty_id
+                                        );
+                                        let on_hover_text = format!(
+                                            "Beatmap difficulty #{} (open in browser)",
+                                            difficulty_id
+                                        );
+                                        make_beatmap_link(
+                                            ui,
+                                            state,
+                                            display_text,
+                                            &location,
+                                            &on_hover_text,
+                                        );
                                     }
-                                    // TODO: find a use for this
+
                                     Action::Multiplayer(_lobby_id) => {
-                                        make_regular_link(ui, &display_text, location);
+                                        make_regular_link(ui, &display_text, location)
                                     }
                                 }
                             }
                             LinkType::Channel => {
-                                if ui
-                                    .link(display_text)
-                                    .on_hover_text_at_pointer(format!("Open {}", location))
-                                    .clicked()
-                                {
-                                    if state.has_chat(location) {
-                                        state.core.chat_switch_requested(location, None);
-                                    } else {
-                                        state.core.chat_opened(location);
-                                    }
-                                }
+                                make_channel_link(ui, state, display_text, location)
                             }
                         }
                     }
@@ -707,4 +642,85 @@ fn format_chat_message_text(
         }
     });
     resp.response.rect.height()
+}
+
+fn make_regular_link(ui: &mut egui::Ui, text: &egui::RichText, loc: &str) {
+    ui.hyperlink_to(text.to_owned(), loc.to_owned())
+        .context_menu(|ui| {
+            menu_item_copy_url(ui, loc);
+        });
+}
+
+fn make_chat_link(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    chat: &str,
+    display_text: egui::RichText,
+    location: &str,
+) {
+    match state.settings.chat.behaviour.handle_osu_chat_links {
+        true => {
+            if ui
+                .link(display_text)
+                .on_hover_text_at_pointer(match chat.is_channel() {
+                    true => format!("Open {}", chat),
+                    false => format!("Chat with {}", chat),
+                })
+                .clicked()
+            {
+                if state.has_chat(chat) {
+                    state.core.chat_switch_requested(chat, None);
+                } else {
+                    state.core.chat_opened(chat)
+                }
+            }
+        }
+        false => make_regular_link(ui, &display_text, location),
+    }
+}
+
+fn make_beatmap_link(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    display_text: egui::RichText,
+    location: &str,
+    on_hover_text: &str,
+) {
+    match state.settings.chat.behaviour.handle_osu_beatmap_links {
+        true => {
+            let resp = ui
+                .link(display_text)
+                .on_hover_text_at_pointer(on_hover_text);
+
+            resp.context_menu(|ui| {
+                menu_item_copy_url(ui, location);
+            });
+
+            if resp.clicked() {
+                ui.output_mut(|o| {
+                    o.open_url = Some(egui::OpenUrl::new_tab(location));
+                });
+            }
+        }
+        false => make_regular_link(ui, &display_text, location),
+    }
+}
+
+fn make_channel_link(
+    ui: &mut egui::Ui,
+    state: &UIState,
+    display_text: egui::RichText,
+    location: &str,
+) {
+    if ui
+        .link(display_text)
+        .on_hover_text_at_pointer(format!("Open {}", location))
+        .clicked()
+    {
+        if state.has_chat(location) {
+            state.core.chat_switch_requested(location, None);
+        } else {
+            state.core.chat_opened(location);
+        }
+    }
 }
