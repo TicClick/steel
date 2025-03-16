@@ -7,7 +7,7 @@ use std::fmt;
 use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
 pub use links::MessageChunk;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub enum MessageType {
     Text,
     Action,
@@ -20,7 +20,7 @@ pub struct User {
     pub name: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Hash)]
 pub struct Message {
     pub time: chrono::DateTime<chrono::Local>,
     pub r#type: MessageType,
@@ -169,7 +169,7 @@ impl Message {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq, Hash)]
 pub enum ChatState {
     #[default]
     Left,
@@ -178,10 +178,11 @@ pub enum ChatState {
     Disconnected,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Hash)]
 pub struct Chat {
     pub name: String,
-    pub messages: Vec<Message>,
+    pub normalized_name: String,
+    pub messages: Box<Vec<Message>>,
     pub state: ChatState,
 }
 
@@ -189,7 +190,8 @@ impl Chat {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_owned(),
-            messages: Vec::new(),
+            normalized_name: name.to_lowercase(),
+            messages: Box::new(Vec::new()),
             state: ChatState::Left,
         }
     }

@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use eframe::egui::{self, Frame, Margin, Ui};
 use steel_core::settings::Colour;
 
@@ -20,7 +18,6 @@ const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
 pub struct ChatTabs {
     pub new_channel_input: String,
     pub new_chat_input: String,
-    tab_centers: Vec<(usize, f32)>,
 }
 
 impl ChatTabs {
@@ -37,20 +34,20 @@ impl ChatTabs {
                     if state.is_connected() {
                         self.show_new_chat_input(state, ui, ChatType::Channel);
                     }
-                    self.show_chats(state, ctx, ui, ChatType::Channel);
+                    self.show_chats(state, ui, ChatType::Channel);
                 });
 
-            egui::TopBottomPanel::top("private-chats-panel")
-                .resizable(true)
-                .show_separator_line(false)
-                .frame(frame_maker())
-                .show_inside(ui, |ui| {
-                    ui.heading("private messages");
-                    if state.is_connected() {
-                        self.show_new_chat_input(state, ui, ChatType::Person);
-                    }
-                    self.show_chats(state, ctx, ui, ChatType::Person);
-                });
+            // egui::TopBottomPanel::top("private-chats-panel")
+            //     .resizable(true)
+            //     .show_separator_line(false)
+            //     .frame(frame_maker())
+            //     .show_inside(ui, |ui| {
+            //         ui.heading("private messages");
+            //         if state.is_connected() {
+            //             self.show_new_chat_input(state, ui, ChatType::Person);
+            //         }
+            //         self.show_chats(state, ui, ChatType::Person);
+            //     });
 
             egui::TopBottomPanel::top("system-chats-panel")
                 .resizable(false)
@@ -75,13 +72,7 @@ fn pick_tab_colour(state: &UIState, normalized_chat_name: &str) -> Colour {
     colour.clone()
 }
 
-fn tab_context_menu(
-    ui: &mut Ui,
-    state: &mut UIState,
-    normalized_chat_name: &str,
-    mode: &ChatType,
-    chats_to_clear: &mut BTreeSet<String>,
-) {
+fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str, mode: &ChatType) {
     let is_favourite_chat = state
         .settings
         .chat
@@ -95,58 +86,11 @@ fn tab_context_menu(
     }
 
     menu_item_open_chat_log(ui, state, false, normalized_chat_name);
-    menu_item_clear_chat_tab(ui, false, normalized_chat_name, chats_to_clear);
+    menu_item_clear_chat_tab(ui, state, false, normalized_chat_name);
 
     ui.separator();
 
     menu_item_close_chat(ui, state, false, normalized_chat_name, mode);
-}
-
-fn drag_source(
-    ui: &mut Ui,
-    ctx: &egui::Context,
-    id: egui::Id,
-    own_interleaved_pos: usize,
-    tab_centers: &Vec<(usize, f32)>,
-    body: impl FnOnce(&mut egui::Ui),
-) -> Option<usize> {
-    let is_being_dragged = ctx.is_being_dragged(id);
-    if !is_being_dragged {
-        // TODO: Shift is used as a workaround to prevent drag events from suppressing clicks:
-        // - https://github.com/emilk/egui/issues/2471
-        // - https://github.com/emilk/egui/issues/2730
-        let response = ui.scope(body).response;
-        if ui.input(|i| i.modifiers.shift) {
-            ui.interact(response.rect, id, egui::Sense::drag());
-        }
-        None
-    } else {
-        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-        let layer_id = egui::LayerId::new(egui::Order::Tooltip, id);
-        let response = ui
-            .scope_builder(egui::UiBuilder::new().layer_id(layer_id), body)
-            .response;
-
-        if let Some(pointer_pos) = ui.ctx().pointer_interact_pos() {
-            let delta = pointer_pos - response.rect.center();
-            ui.ctx().transform_layer_shapes(
-                layer_id,
-                egui::emath::TSTransform {
-                    scaling: 1.,
-                    translation: delta,
-                },
-            );
-            if ui.input(|i| i.pointer.primary_released()) {
-                for (interleaved_pos, center) in tab_centers {
-                    if center >= &pointer_pos.y && own_interleaved_pos != *interleaved_pos {
-                        return Some(*interleaved_pos);
-                    }
-                }
-                return Some(tab_centers.len() - 1);
-            }
-        }
-        None
-    }
 }
 
 impl ChatTabs {
@@ -165,7 +109,6 @@ impl ChatTabs {
             ui.horizontal(|ui| {
                 let add_chat = ui.button("+").on_hover_text_at_pointer(
                     "<Enter> = add\n\
-                    <Shift> + drag = reorder\n\
                     Middle click = close",
                 );
                 let hint = match mode {
@@ -205,87 +148,59 @@ impl ChatTabs {
         });
     }
 
-    fn show_chats(
-        &mut self,
-        state: &mut UIState,
-        ctx: &egui::Context,
-        ui: &mut Ui,
-        mode: ChatType,
-    ) {
-        let it: Vec<(usize, String, String, ChatState)> = state
-            .filter_chats(|(_, ch)| match mode {
-                ChatType::Channel => ch.name.is_channel(),
-                ChatType::Person => !ch.name.is_channel(),
-            })
-            .map(|(i, ch)| {
-                (
-                    i,
-                    ch.name.to_lowercase(),
-                    ch.name.to_owned(),
-                    ch.state.to_owned(),
-                )
-            })
-            .collect();
+    fn show_chats(&mut self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
+        let channel = state.core.clone();
+        let active_chat_name = state.active_chat_tab_name.to_lowercase();
 
-        let mut chats_to_clear = BTreeSet::new();
-        self.tab_centers.resize(state.chat_count(), (0, 0.));
-        let tc = self.tab_centers.clone();
+        let mut chats = state.chats();
+        let active_element_bg = ui.style().visuals.selection.bg_fill;
 
         egui::ScrollArea::vertical()
             .id_salt(format!("{mode}-tabs"))
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
-                for (interleaved_pos, normalized_chat_name, chat_name, chat_state) in it {
-                    ui.horizontal(|ui| {
-                        let item_id = egui::Id::new(&normalized_chat_name);
-                        let drawer = |ui: &mut egui::Ui| {
-                            let mut label = egui::RichText::new(chat_name);
-                            label = label.color(pick_tab_colour(state, &normalized_chat_name));
+                let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show_vec(
+                    &mut chats,
+                    |ui, item, handle, _drag_state| {
+                        handle.ui(ui, |ui| {
+                            let normalized_chat_name = item.name.to_lowercase();
 
-                            let chat_tab = ui.selectable_value(
-                                &mut state.active_chat_tab_name,
-                                normalized_chat_name.to_owned(),
-                                label,
-                            );
-                            self.tab_centers[interleaved_pos] =
-                                (interleaved_pos, chat_tab.rect.center().y);
+                            let background_colour = match normalized_chat_name == active_chat_name {
+                                true => active_element_bg,
+                                false => egui::Color32::TRANSPARENT,
+                            };
+                            let label = egui::RichText::new(item.name.clone())
+                                .color(pick_tab_colour(state, &normalized_chat_name));
+
+                            let chat_tab = ui
+                                .horizontal(|ui| {
+                                    let button =
+                                        ui.add(egui::Button::new(label).fill(background_colour));
+                                    if matches!(item.state, ChatState::JoinInProgress) {
+                                        ui.spinner();
+                                    }
+                                    button
+                                })
+                                .inner;
 
                             if chat_tab.clicked() {
-                                state
-                                    .core
-                                    .chat_switch_requested(&state.active_chat_tab_name, None);
-                            }
-                            if matches!(chat_state, ChatState::JoinInProgress) {
-                                ui.spinner();
+                                channel.chat_switch_requested(&normalized_chat_name, None);
                             }
                             if chat_tab.middle_clicked() {
-                                state.core.chat_tab_closed(&normalized_chat_name);
+                                channel.chat_tab_closed(&normalized_chat_name);
                             }
-
                             chat_tab.context_menu(|ui| {
-                                tab_context_menu(
-                                    ui,
-                                    state,
-                                    &normalized_chat_name,
-                                    &mode,
-                                    &mut chats_to_clear,
-                                )
+                                tab_context_menu(ui, state, &normalized_chat_name, &mode)
                             });
-                        };
+                        });
+                    },
+                );
 
-                        if let Some(place_after) =
-                            drag_source(ui, ctx, item_id, interleaved_pos, &tc, drawer)
-                        {
-                            state.place_tab_after(interleaved_pos, place_after);
-                        }
-                    });
+                if response.is_drag_finished() {
+                    state.update_chats(chats);
                 }
             });
-
-        for target in chats_to_clear {
-            state.clear_chat(&target);
-        }
     }
 
     fn show_system_tabs(&self, state: &mut UIState, ui: &mut Ui) {

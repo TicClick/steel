@@ -14,12 +14,14 @@ pub fn main() {
         ))
         .unwrap();
 
-    ui_queue_in
-        .send(UIMessageIn::NewChatRequested {
-            target: "#test".to_owned(),
-            switch: true,
-        })
-        .unwrap();
+    for i in 0..10 {
+        ui_queue_in
+            .send(UIMessageIn::NewChatRequested {
+                target: format!("#test-{}", i),
+                switch: true,
+            })
+            .unwrap();
+    }
 
     for i in 0..25 {
         let len = thread_rng().gen_range(1..40);
@@ -31,7 +33,7 @@ pub fn main() {
 
         ui_queue_in
             .send(UIMessageIn::NewMessageReceived {
-                target: "#test".to_owned(),
+                target: "#test-0".to_owned(),
                 message: Message::new_text(format!("{}", i).as_str(), msg.as_str()),
             })
             .unwrap();
