@@ -1,4 +1,5 @@
 use eframe::egui::{self, Frame, Margin, Ui};
+use steel_core::chat::Chat;
 use steel_core::settings::Colour;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
@@ -37,17 +38,17 @@ impl ChatTabs {
                     self.show_chats(state, ui, ChatType::Channel);
                 });
 
-            // egui::TopBottomPanel::top("private-chats-panel")
-            //     .resizable(true)
-            //     .show_separator_line(false)
-            //     .frame(frame_maker())
-            //     .show_inside(ui, |ui| {
-            //         ui.heading("private messages");
-            //         if state.is_connected() {
-            //             self.show_new_chat_input(state, ui, ChatType::Person);
-            //         }
-            //         self.show_chats(state, ui, ChatType::Person);
-            //     });
+            egui::TopBottomPanel::top("private-chats-panel")
+                .resizable(true)
+                .show_separator_line(false)
+                .frame(frame_maker())
+                .show_inside(ui, |ui| {
+                    ui.heading("private messages");
+                    if state.is_connected() {
+                        self.show_new_chat_input(state, ui, ChatType::Person);
+                    }
+                    self.show_chats(state, ui, ChatType::Person);
+                });
 
             egui::TopBottomPanel::top("system-chats-panel")
                 .resizable(false)
@@ -152,26 +153,36 @@ impl ChatTabs {
         let channel = state.core.clone();
         let active_chat_name = state.active_chat_tab_name.to_lowercase();
 
-        let mut chats = state.chats();
+        // Use `relevant_chats` for reordering, and then shift all chats based on the shift within `relevant_chats`.
+        let mut all_chats = state.chats();
+        let relevant_chats = all_chats
+            .iter()
+            .enumerate()
+            .filter(|ch| match mode {
+                ChatType::Channel => ch.1.name.is_channel(),
+                ChatType::Person => !ch.1.name.is_channel(),
+            })
+            .collect::<Vec<(usize, &Chat)>>();
         let active_element_bg = ui.style().visuals.selection.bg_fill;
 
-        egui::ScrollArea::vertical()
+        let result = egui::ScrollArea::vertical()
             .id_salt(format!("{mode}-tabs"))
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
-                let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show_vec(
-                    &mut chats,
-                    |ui, item, handle, _drag_state| {
+                let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show(
+                    relevant_chats.iter(),
+                    |ui, (_, item), handle, _drag_state| {
                         handle.ui(ui, |ui| {
-                            let normalized_chat_name = item.name.to_lowercase();
+                            let normalized_chat_name = &item.normalized_name;
 
-                            let background_colour = match normalized_chat_name == active_chat_name {
+                            let background_colour = match *normalized_chat_name == active_chat_name
+                            {
                                 true => active_element_bg,
                                 false => egui::Color32::TRANSPARENT,
                             };
                             let label = egui::RichText::new(item.name.clone())
-                                .color(pick_tab_colour(state, &normalized_chat_name));
+                                .color(pick_tab_colour(state, normalized_chat_name));
 
                             let chat_tab = ui
                                 .horizontal(|ui| {
@@ -185,22 +196,27 @@ impl ChatTabs {
                                 .inner;
 
                             if chat_tab.clicked() {
-                                channel.chat_switch_requested(&normalized_chat_name, None);
+                                channel.chat_switch_requested(normalized_chat_name, None);
                             }
                             if chat_tab.middle_clicked() {
-                                channel.chat_tab_closed(&normalized_chat_name);
+                                channel.chat_tab_closed(normalized_chat_name);
                             }
                             chat_tab.context_menu(|ui| {
-                                tab_context_menu(ui, state, &normalized_chat_name, &mode)
+                                tab_context_menu(ui, state, normalized_chat_name, &mode)
                             });
                         });
                     },
                 );
 
-                if response.is_drag_finished() {
-                    state.update_chats(chats);
-                }
+                response.final_update()
             });
+
+        if let Some(res) = result.inner {
+            let original_idx_from = relevant_chats[res.from].0;
+            let original_idx_to = relevant_chats[res.to].0;
+            egui_dnd::utils::shift_vec(original_idx_from, original_idx_to, &mut all_chats);
+            state.update_chats(all_chats);
+        }
     }
 
     fn show_system_tabs(&self, state: &mut UIState, ui: &mut Ui) {

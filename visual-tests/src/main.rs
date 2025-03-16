@@ -23,6 +23,22 @@ pub fn main() {
             .unwrap();
     }
 
+    for name in [
+        "African clawed frog",
+        "Bass",
+        "Crane",
+        "Dragonfish",
+        "Eel",
+        "Feral hog",
+    ] {
+        ui_queue_in
+            .send(UIMessageIn::NewChatRequested {
+                target: name.to_owned(),
+                switch: true,
+            })
+            .unwrap();
+    }
+
     for i in 0..25 {
         let len = thread_rng().gen_range(1..40);
         let msg: String = thread_rng()
