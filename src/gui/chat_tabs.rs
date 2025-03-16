@@ -213,7 +213,10 @@ impl ChatTabs {
 
         if let Some(res) = result.inner {
             let original_idx_from = relevant_chats[res.from].0;
-            let original_idx_to = relevant_chats[res.to].0;
+            let original_idx_to = match res.to == relevant_chats.len() {
+                true => all_chats.len(),
+                false => relevant_chats[res.to].0,
+            };
             egui_dnd::utils::shift_vec(original_idx_from, original_idx_to, &mut all_chats);
             state.update_chats(all_chats);
         }
