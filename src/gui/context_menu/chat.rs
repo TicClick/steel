@@ -1,5 +1,3 @@
-use std::collections::BTreeSet;
-
 use eframe::egui;
 use steel_core::chat::ChatType;
 
@@ -58,19 +56,14 @@ pub fn menu_item_remove_from_favourites(
     }
 }
 
-pub fn menu_item_clear_chat_tab(
-    ui: &mut egui::Ui,
-    show_icon: bool,
-    target: &str,
-    chats_to_clear: &mut BTreeSet<String>,
-) {
+pub fn menu_item_clear_chat_tab(ui: &mut egui::Ui, state: &UIState, show_icon: bool, target: &str) {
     let text = match show_icon {
         true => ICON_CLEAR_CHAT_TAB,
         false => CLEAR_CHAT_TAB,
     };
 
     if ui.button(text).clicked() {
-        chats_to_clear.insert(target.to_owned());
+        state.core.chat_tab_cleared(target);
         ui.close_menu();
     }
 }

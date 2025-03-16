@@ -1,5 +1,3 @@
-use std::collections::BTreeMap;
-
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
@@ -31,7 +29,6 @@ pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
     chats: Vec<Chat>,
-    name_to_chat: BTreeMap<String, usize>,
     pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
@@ -53,7 +50,6 @@ impl UIState {
             connection: ConnectionStatus::default(),
             settings,
             chats: Vec::default(),
-            name_to_chat: BTreeMap::default(),
             server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
@@ -70,6 +66,23 @@ impl UIState {
 
             filter: FilterCollection::default(),
         }
+    }
+
+    pub fn chats(&self) -> Vec<Chat> {
+        self.chats.clone()
+    }
+
+    pub fn update_chats(&mut self, chats: Vec<Chat>) {
+        self.chats = chats;
+    }
+
+    pub fn name_to_chat(&self, name: &str) -> Option<usize> {
+        for (idx, chat) in self.chats.iter().enumerate() {
+            if chat.normalized_name == name {
+                return Some(idx);
+            }
+        }
+        None
     }
 
     pub fn update_settings(&mut self, settings: &Settings) {
@@ -105,8 +118,8 @@ impl UIState {
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
-        if let Some(pos) = self.name_to_chat.get(&self.active_chat_tab_name) {
-            self.chats.get(*pos)
+        if let Some(pos) = self.name_to_chat(&self.active_chat_tab_name) {
+            self.chats.get(pos)
         } else {
             None
         }
@@ -118,8 +131,6 @@ impl UIState {
 
     pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) {
         let chat = Chat::new(&name);
-        let normalized = chat.name.to_lowercase();
-        self.name_to_chat.insert(normalized, self.chats.len());
         self.chats.push(chat);
         if switch_to_chat {
             self.active_chat_tab_name = name;
@@ -130,22 +141,14 @@ impl UIState {
         self.chats.len()
     }
 
-    pub fn place_tab_after(&mut self, original_tab_idx: usize, place_after_idx: usize) {
-        let ch = self.chats.remove(original_tab_idx);
-        self.chats.insert(place_after_idx, ch);
-        for (pos, ch) in self.chats.iter().enumerate() {
-            self.name_to_chat.insert(ch.name.to_lowercase(), pos);
-        }
-    }
-
     pub fn is_active_tab(&self, target: &str) -> bool {
         self.active_chat_tab_name == target
     }
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState) {
         let normalized = target.to_lowercase();
-        if let Some(pos) = self.name_to_chat.get(&normalized) {
-            if let Some(ch) = self.chats.get_mut(*pos) {
+        if let Some(pos) = self.name_to_chat(&normalized) {
+            if let Some(ch) = self.chats.get_mut(pos) {
                 if ch.state != state {
                     ch.set_state(state);
                 }
@@ -164,8 +167,8 @@ impl UIState {
         let is_system_message = matches!(message.r#type, MessageType::System);
         let mut name_updated = false;
 
-        if let Some(pos) = self.name_to_chat.get(&normalized) {
-            if let Some(ch) = self.chats.get_mut(*pos) {
+        if let Some(pos) = self.name_to_chat(&normalized) {
+            if let Some(ch) = self.chats.get_mut(pos) {
                 message.id = Some(ch.messages.len());
                 message.parse_for_links();
 
@@ -223,9 +226,9 @@ impl UIState {
     pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
         match highlight.id {
             None => false,
-            Some(id) => match self.name_to_chat.get(chat_name) {
+            Some(id) => match self.name_to_chat(chat_name) {
                 None => false,
-                Some(pos) => match self.chats.get(*pos) {
+                Some(pos) => match self.chats.get(pos) {
                     None => false,
                     Some(ch) => match ch.messages.get(id) {
                         None => false,
@@ -247,20 +250,15 @@ impl UIState {
 
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
-        if let Some(pos) = self.name_to_chat.remove(&normalized) {
+        if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
-            for ch in &self.chats[pos..] {
-                if let Some(ch) = self.name_to_chat.get_mut(&ch.name.to_lowercase()) {
-                    *ch -= 1;
-                }
-            }
         }
         self.highlights.drop(&normalized);
     }
 
     pub fn clear_chat(&mut self, target: &str) {
-        if let Some(pos) = self.name_to_chat.get(target) {
-            if let Some(chat) = self.chats.get_mut(*pos) {
+        if let Some(pos) = self.name_to_chat(target) {
+            if let Some(chat) = self.chats.get_mut(pos) {
                 chat.messages.clear();
             }
         }
@@ -278,6 +276,6 @@ impl UIState {
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.name_to_chat.contains_key(&target.to_lowercase())
+        self.name_to_chat(&target.to_lowercase()).is_some()
     }
 }

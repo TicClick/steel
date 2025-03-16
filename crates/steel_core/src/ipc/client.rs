@@ -4,7 +4,7 @@ use crate::ipc::server::AppMessageIn;
 use crate::settings::application::AutoUpdate;
 use crate::settings::Settings;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CoreClient {
     server: UnboundedSender<AppMessageIn>,
 }

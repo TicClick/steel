@@ -73,7 +73,7 @@ impl UsageWindow {
             ui.heading("chat tabs");
             ui.label(
                 "tabs can be closed by middle clicking them. right click brings up a context menu with extra actions. \
-                to reorder the tabs, drag them around while holding shift."
+                to reorder the tabs, simply drag them around."
             );
 
             ui.heading("system tabs");

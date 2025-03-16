@@ -1,6 +1,6 @@
 use crate::chat::Message;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum LinkType {
     HTTP,
     HTTPS,
@@ -42,7 +42,7 @@ pub const PROTOCOL_OSUMP: &str = "osump://";
 pub const KNOWN_PROTOCOLS: [&str; 4] =
     [PROTOCOL_HTTP, PROTOCOL_HTTPS, PROTOCOL_OSU, PROTOCOL_OSUMP];
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Hash)]
 pub enum Action {
     Chat(String),
     OpenBeatmap(u64), // Let's be optimistic
@@ -166,7 +166,7 @@ impl LinkLocation {
     }
 }
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Hash)]
 pub enum MessageChunk {
     Text(String),
     Link {

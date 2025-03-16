@@ -588,50 +588,44 @@ fn format_chat_message_text(
                             LinkType::HTTP | LinkType::HTTPS => {
                                 make_regular_link(ui, &display_text, location)
                             }
-                            LinkType::OSU(osu_action) => {
-                                match osu_action {
-                                    Action::Chat(chat) => {
-                                        make_chat_link(ui, state, chat, display_text, location)
-                                    }
-                                    Action::OpenBeatmap(beatmap_id) => {
-                                        let location = format!(
-                                            "https://osu.ppy.sh/beatmapsets/{}",
-                                            beatmap_id
-                                        );
-                                        let on_hover_text =
-                                            format!("Beatmap #{} (open in browser)", beatmap_id);
-                                        make_beatmap_link(
-                                            ui,
-                                            state,
-                                            display_text,
-                                            &location,
-                                            &on_hover_text,
-                                        );
-                                    }
-
-                                    Action::OpenDifficulty(difficulty_id) => {
-                                        let location = format!(
-                                            "https://osu.ppy.sh/beatmaps/{}",
-                                            difficulty_id
-                                        );
-                                        let on_hover_text = format!(
-                                            "Beatmap difficulty #{} (open in browser)",
-                                            difficulty_id
-                                        );
-                                        make_beatmap_link(
-                                            ui,
-                                            state,
-                                            display_text,
-                                            &location,
-                                            &on_hover_text,
-                                        );
-                                    }
-
-                                    Action::Multiplayer(_lobby_id) => {
-                                        make_regular_link(ui, &display_text, location)
-                                    }
+                            LinkType::OSU(osu_action) => match osu_action {
+                                Action::Chat(chat) => {
+                                    make_chat_link(ui, state, chat, display_text, location)
                                 }
-                            }
+                                Action::OpenBeatmap(beatmap_id) => {
+                                    let location =
+                                        format!("https://osu.ppy.sh/beatmapsets/{}", beatmap_id);
+                                    let on_hover_text =
+                                        format!("Beatmap #{} (open in browser)", beatmap_id);
+                                    make_beatmap_link(
+                                        ui,
+                                        state,
+                                        display_text,
+                                        &location,
+                                        &on_hover_text,
+                                    );
+                                }
+
+                                Action::OpenDifficulty(difficulty_id) => {
+                                    let location =
+                                        format!("https://osu.ppy.sh/beatmaps/{}", difficulty_id);
+                                    let on_hover_text = format!(
+                                        "Beatmap difficulty #{} (open in browser)",
+                                        difficulty_id
+                                    );
+                                    make_beatmap_link(
+                                        ui,
+                                        state,
+                                        display_text,
+                                        &location,
+                                        &on_hover_text,
+                                    );
+                                }
+
+                                Action::Multiplayer(_lobby_id) => {
+                                    make_regular_link(ui, &display_text, location)
+                                }
+                            },
                             LinkType::Channel => {
                                 make_channel_link(ui, state, display_text, location)
                             }
