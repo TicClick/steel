@@ -11,6 +11,7 @@ use super::context_menu::chat::{
     menu_item_add_to_favourites, menu_item_clear_chat_tab, menu_item_close_chat,
     menu_item_remove_from_favourites,
 };
+use super::context_menu::chat_user::menu_item_open_chat_user_profile;
 use super::context_menu::shared::menu_item_open_chat_log;
 
 const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
@@ -86,7 +87,13 @@ fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str
         false => menu_item_add_to_favourites(ui, state, false, normalized_chat_name),
     }
 
+    if !normalized_chat_name.is_channel() {
+        menu_item_open_chat_user_profile(ui, false, normalized_chat_name);
+    }
     menu_item_open_chat_log(ui, state, false, normalized_chat_name);
+
+    ui.separator();
+
     menu_item_clear_chat_tab(ui, state, false, normalized_chat_name);
 
     ui.separator();
