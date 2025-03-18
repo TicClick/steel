@@ -55,6 +55,16 @@ pub fn main() {
             .unwrap();
     }
 
+    let mq = ui_queue_in.clone();
+    std::thread::spawn(move || loop {
+        mq.send(UIMessageIn::NewMessageReceived {
+            target: "#test-0".to_owned(),
+            message: Message::new_text("test", "testy"),
+        })
+        .unwrap();
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    });
+
     let app_thread = run_app(ui_queue_in, ui_queue_out);
     app_thread.join().unwrap();
 }
