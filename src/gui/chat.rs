@@ -62,10 +62,6 @@ pub struct ChatWindow {
     chat_row_height: Option<f32>,
     cached_row_heights: BTreeMap<String, Vec<f32>>,
 
-    // FIXME: This is a hack to prevent the context menu from re-sticking to other chat buttons (and therefore messages)
-    // when the chat keeps scrolling to bottom. The menu seems to not care about that and stick to whichever is beneath, which is changing.
-    context_menu_target: Option<Message>,
-
     // Draw the hinting shadow at the bottom of the chat in the next frame.
     shadow_next_frame: bool,
 
@@ -453,22 +449,11 @@ impl ChatWindow {
             resp = resp.on_hover_text_at_pointer(tt);
         }
 
-        if resp.is_pointer_button_down_on() {
-            self.context_menu_target = Some(msg.clone());
-        }
-
         if resp.clicked() {
             self.handle_username_click(ui, msg);
         }
 
-        resp.context_menu(|ui| {
-            show_username_menu(
-                ui,
-                state,
-                chat_name,
-                self.context_menu_target.as_ref().unwrap_or(msg),
-            )
-        });
+        resp.context_menu(|ui| show_username_menu(ui, state, chat_name, msg));
         resp
     }
 
