@@ -70,7 +70,7 @@ pub struct ChatWindow {
 
     command_helper: command::CommandHelper,
 
-    // If the context menu was open during the previous frame, we need to disable autoscrolling.
+    // Whether the context menu was open during the previous frame.
     user_context_menu_open: bool,
 }
 
@@ -162,6 +162,10 @@ impl ChatWindow {
                     });
             }
 
+            // Disable scrolling to avoid resetting context menu.
+            let stick_chat_to_bottom = !self.user_context_menu_open;
+            self.user_context_menu_open = false;
+
             // Chat row spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 2.;
             self.widget_width = ui.available_width();
@@ -182,8 +186,7 @@ impl ChatWindow {
                     builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
                     self.scroll_to = None;
                 } else {
-                    builder = builder.stick_to_bottom(!self.user_context_menu_open);
-                    self.user_context_menu_open = false;
+                    builder = builder.stick_to_bottom(stick_chat_to_bottom);
                 }
 
                 let heights = self.cached_row_heights[&state.active_chat_tab_name]
