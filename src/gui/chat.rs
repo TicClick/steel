@@ -62,10 +62,6 @@ pub struct ChatWindow {
     chat_row_height: Option<f32>,
     cached_row_heights: BTreeMap<String, Vec<f32>>,
 
-    // FIXME: This is a hack to prevent the context menu from re-sticking to other chat buttons (and therefore messages)
-    // when the chat keeps scrolling to bottom. The menu seems to not care about that and stick to whichever is beneath, which is changing.
-    context_menu_target: Option<Message>,
-
     // Draw the hinting shadow at the bottom of the chat in the next frame.
     shadow_next_frame: bool,
 
@@ -73,6 +69,9 @@ pub struct ChatWindow {
     widget_width: f32,
 
     command_helper: command::CommandHelper,
+
+    // Whether the context menu was open during the previous frame.
+    user_context_menu_open: bool,
 }
 
 impl ChatWindow {
@@ -163,6 +162,10 @@ impl ChatWindow {
                     });
             }
 
+            // Disable scrolling to avoid resetting context menu.
+            let stick_chat_to_bottom = !self.user_context_menu_open;
+            self.user_context_menu_open = false;
+
             // Chat row spacing, which is by default zero for table rows.
             ui.spacing_mut().item_spacing.y = 2.;
             self.widget_width = ui.available_width();
@@ -183,7 +186,7 @@ impl ChatWindow {
                     builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
                     self.scroll_to = None;
                 } else {
-                    builder = builder.stick_to_bottom(true);
+                    builder = builder.stick_to_bottom(stick_chat_to_bottom);
                 }
 
                 let heights = self.cached_row_heights[&state.active_chat_tab_name]
@@ -224,14 +227,15 @@ impl ChatWindow {
                                     let row_index = row.index();
                                     last_visible_row = row_index;
                                     row.col(|ui| {
-                                        self.show_regular_chat_single_message(
-                                            ui,
-                                            state,
-                                            ch,
-                                            &ch.messages[original_indices[row_index]],
-                                            row_index,
-                                            false,
-                                        );
+                                        self.user_context_menu_open |= self
+                                            .show_regular_chat_single_message(
+                                                ui,
+                                                state,
+                                                ch,
+                                                &ch.messages[original_indices[row_index]],
+                                                row_index,
+                                                false,
+                                            );
                                     });
                                 });
                             } else {
@@ -239,14 +243,15 @@ impl ChatWindow {
                                     let row_index = row.index();
                                     last_visible_row = row_index;
                                     row.col(|ui| {
-                                        self.show_regular_chat_single_message(
-                                            ui,
-                                            state,
-                                            ch,
-                                            &ch.messages[row_index],
-                                            row_index,
-                                            true,
-                                        );
+                                        self.user_context_menu_open |= self
+                                            .show_regular_chat_single_message(
+                                                ui,
+                                                state,
+                                                ch,
+                                                &ch.messages[row_index],
+                                                row_index,
+                                                true,
+                                            );
                                     });
                                 });
                             }
@@ -305,7 +310,7 @@ impl ChatWindow {
         msg: &Message,
         message_index: usize,
         cache_heights: bool,
-    ) {
+    ) -> bool {
         // let msg = &ch.messages[message_index];
         #[allow(unused_mut)] // glass
         let mut username_styles = Vec::new();
@@ -331,6 +336,7 @@ impl ChatWindow {
             message_styles.push(TextStyle::Italics);
         }
 
+        let mut context_menu_active = false;
         let updated_height = ui
             .push_id(format!("{}_row_{}", ch.name, message_index), |ui| {
                 ui.horizontal_wrapped(|ui| {
@@ -339,7 +345,15 @@ impl ChatWindow {
                     show_datetime(ui, state, msg, &None);
                     match msg.r#type {
                         MessageType::Action | MessageType::Text => {
-                            self.format_username(ui, state, &ch.name, msg, &Some(username_styles));
+                            let response = self.format_username(
+                                ui,
+                                state,
+                                &ch.name,
+                                msg,
+                                &Some(username_styles),
+                            );
+                            context_menu_active |= response.context_menu_opened();
+
                             format_chat_message_text(ui, state, msg, &Some(message_styles))
                         }
                         MessageType::System => format_system_message(ui, msg),
@@ -353,6 +367,8 @@ impl ChatWindow {
                 .get_mut(&state.active_chat_tab_name)
                 .unwrap()[message_index] = updated_height;
         }
+
+        context_menu_active
     }
 
     fn show_highlights_tab_single_message(
@@ -415,7 +431,7 @@ impl ChatWindow {
         chat_name: &str,
         msg: &Message,
         styles: &Option<Vec<TextStyle>>,
-    ) {
+    ) -> egui::Response {
         let username_text = if msg.username == state.settings.chat.irc.username {
             egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
         } else {
@@ -436,22 +452,12 @@ impl ChatWindow {
             resp = resp.on_hover_text_at_pointer(tt);
         }
 
-        if resp.is_pointer_button_down_on() {
-            self.context_menu_target = Some(msg.clone());
-        }
-
         if resp.clicked() {
             self.handle_username_click(ui, msg);
         }
 
-        resp.context_menu(|ui| {
-            show_username_menu(
-                ui,
-                state,
-                chat_name,
-                self.context_menu_target.as_ref().unwrap_or(msg),
-            )
-        });
+        resp.context_menu(|ui| show_username_menu(ui, state, chat_name, msg));
+        resp
     }
 
     fn handle_username_click(&mut self, ui: &mut egui::Ui, msg: &Message) {
