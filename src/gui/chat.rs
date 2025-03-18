@@ -62,9 +62,6 @@ pub struct ChatWindow {
     chat_row_height: Option<f32>,
     cached_row_heights: BTreeMap<String, Vec<f32>>,
 
-    // Draw the hinting shadow at the bottom of the chat in the next frame.
-    shadow_next_frame: bool,
-
     // Chat space width -- longer lines will wrap around the window.
     widget_width: f32,
 
@@ -192,14 +189,8 @@ impl ChatWindow {
                 let heights = self.cached_row_heights[&state.active_chat_tab_name]
                     .clone()
                     .into_iter();
-                let mut last_visible_row = 0;
-                let mut max_rows = self
-                    .cached_row_heights
-                    .get_mut(&state.active_chat_tab_name)
-                    .unwrap()
-                    .len();
 
-                builder
+                let scroll_area_output = builder
                     .max_scroll_height(view_height)
                     .column(Column::remainder())
                     .auto_shrink([false; 2])
@@ -221,11 +212,9 @@ impl ChatWindow {
                                         original_indices.push(idx);
                                     }
                                 }
-                                max_rows = heights.len();
 
                                 body.heterogeneous_rows(filtered_heights.into_iter(), |mut row| {
                                     let row_index = row.index();
-                                    last_visible_row = row_index;
                                     row.col(|ui| {
                                         self.user_context_menu_open |= self
                                             .show_regular_chat_single_message(
@@ -241,7 +230,6 @@ impl ChatWindow {
                             } else {
                                 body.heterogeneous_rows(heights, |mut row| {
                                     let row_index = row.index();
-                                    last_visible_row = row_index;
                                     row.col(|ui| {
                                         self.user_context_menu_open |= self
                                             .show_regular_chat_single_message(
@@ -261,7 +249,6 @@ impl ChatWindow {
                                     let server_tab_styles = Some(vec![TextStyle::Monospace]);
                                     body.heterogeneous_rows(heights, |mut row| {
                                         let row_index = row.index();
-                                        last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_server_tab_single_message(
                                                 ui,
@@ -275,7 +262,6 @@ impl ChatWindow {
                                 super::HIGHLIGHTS_TAB_NAME => {
                                     body.heterogeneous_rows(heights, |mut row| {
                                         let row_index = row.index();
-                                        last_visible_row = row_index;
                                         row.col(|ui| {
                                             self.show_highlights_tab_single_message(
                                                 ui, state, row_index,
@@ -288,15 +274,15 @@ impl ChatWindow {
                         }
                     });
 
-                // FIXME: the shadow is removed as soon as the last row becomes PARTIALLY, NOT FULLY visible.
-                if last_visible_row + 1 < max_rows {
-                    if self.shadow_next_frame {
-                        ui.inner_shadow_bottom(20);
-                    } else {
-                        self.shadow_next_frame = true;
-                    }
-                } else {
-                    self.shadow_next_frame = false;
+                // Decide if a shadow should be drawn.
+                let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
+                let offscreen_area_height =
+                    scroll_area_output.content_size.y - scroll_view_bottom_y;
+
+                // Side comment: it would be nice to get the scroll view position rounded down, so that sub-pixel jitters
+                //   don't disable autoscrolling (apparently this happens when offscreen_area_height >= eps).
+                if offscreen_area_height > 1. {
+                    ui.inner_shadow_bottom(20);
                 }
             });
         });
