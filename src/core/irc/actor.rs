@@ -16,12 +16,7 @@ use steel_core::ipc::server::AppMessageIn;
 
 use super::IRCMessageIn;
 
-static IRC_EVENT_WAIT_TIMEOUT: Duration = Duration::from_millis(5);
-
-struct ExitCheckResult {
-    pub should_exit: bool,
-    pub requested_by_user: bool,
-}
+static IRC_MESSAGE_POLLING_TIMEOUT: Duration = Duration::from_millis(10);
 
 pub struct IRCActor {
     input: UnboundedReceiver<IRCMessageIn>,
@@ -183,21 +178,23 @@ fn irc_thread_main(
             let mut disconnected_by_user = false;
             let mut stream = clt.stream().unwrap();
             loop {
-                let ExitCheckResult {
-                    should_exit,
-                    requested_by_user,
-                } = check_irc_exit_requested(&arc);
-                if should_exit {
+                let must_exit = check_irc_exit_requested(&arc);
+                if must_exit {
                     if let Err(e) = clt.send_quit("") {
                         log::error!("Error sending quit command: {:?}", e);
                     }
-                    disconnected_by_user = requested_by_user;
+                    disconnected_by_user = true;
                     break;
                 }
 
-                match rt.block_on(stream.next()) {
-                    Some(result) => match result {
-                        Err(reason) => {
+                if let Ok(result) = rt.block_on(async {
+                    tokio::time::timeout(IRC_MESSAGE_POLLING_TIMEOUT, stream.next()).await
+                }) {
+                    match result {
+                        Some(Ok(msg)) => {
+                            event_handler::dispatch_message(&tx, msg, &own_username);
+                        }
+                        Some(Err(reason)) => {
                             tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
                                 "connection broken: {}",
                                 reason
@@ -205,16 +202,13 @@ fn irc_thread_main(
                             .unwrap();
                             break;
                         }
-                        Ok(msg) => {
-                            event_handler::dispatch_message(&tx, msg, &own_username);
+                        None => {
+                            tx.send(AppMessageIn::ChatError(IRCError::FatalError(
+                                "remote server has closed the connection, probably because it went offline".to_owned(),
+                            )))
+                            .unwrap();
+                            break;
                         }
-                    },
-                    None => {
-                        tx.send(AppMessageIn::ChatError(IRCError::FatalError(
-                            "remote server has closed the connection, probably because it went offline".to_owned(),
-                        )))
-                        .unwrap();
-                        break;
                     }
                 }
             }
@@ -229,8 +223,8 @@ fn irc_thread_main(
     }
 }
 
-fn check_irc_exit_requested(arc: &Arc<(Mutex<bool>, Condvar)>) -> ExitCheckResult {
-    let (lock, cv) = &**arc;
+fn check_irc_exit_requested(arc: &Arc<(Mutex<bool>, Condvar)>) -> bool {
+    let (lock, _) = &**arc;
 
     let guard = match lock.lock() {
         Ok(guard) => guard,
@@ -240,21 +234,5 @@ fn check_irc_exit_requested(arc: &Arc<(Mutex<bool>, Condvar)>) -> ExitCheckResul
         }
     };
 
-    let (mut flag_guard, _) = match cv.wait_timeout(guard, IRC_EVENT_WAIT_TIMEOUT) {
-        Ok(result) => result,
-        Err(e) => {
-            log::error!("Error waiting on condition variable: {:?}", e);
-            return ExitCheckResult {
-                should_exit: true,
-                requested_by_user: false,
-            };
-        }
-    };
-
-    let ret = ExitCheckResult {
-        should_exit: *flag_guard,
-        requested_by_user: *flag_guard,
-    };
-    *flag_guard = false;
-    ret
+    *guard
 }
