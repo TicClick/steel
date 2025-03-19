@@ -304,6 +304,35 @@ fn create_message_channels() -> (
     (input_tx, input_rx, output_tx, output_rx)
 }
 
+/*
+This must be run against an IRC server. Example configuration for ngIRCd:
+
+[Global]
+    Listen=127.0.0.1
+    MotdPhrase = "Hello world!"
+    Password = password
+
+[Limits]
+    MaxConnectionsIP = 0
+    MaxJoins = 0
+    MaxNickLength = 100
+    PongTimeout = 120
+    MaxConnections = 0
+
+[Options]
+    Ident = no
+    Debug = yes
+    DNS = no
+    StrictUtf8 = no
+
+[Channel]
+    Name = #test
+    Modes = tn
+
+Run as:
+
+    ngircd --config ngircd.conf --nodaemon
+*/
 #[test]
 #[ignore = "heavyweight; must be run manually"]
 fn test_deadlock_detection() {
