@@ -18,6 +18,11 @@ use super::IRCMessageIn;
 
 static IRC_EVENT_WAIT_TIMEOUT: Duration = Duration::from_millis(5);
 
+struct ExitCheckResult {
+    pub should_exit: bool,
+    pub requested_by_user: bool,
+}
+
 pub struct IRCActor {
     input: UnboundedReceiver<IRCMessageIn>,
     output: UnboundedSender<AppMessageIn>,
@@ -98,88 +103,13 @@ impl IRCActor {
                 ConnectionStatus::InProgress,
             ))
             .unwrap();
-        self.start_irc_watcher(config, self.output.clone());
-    }
 
-    fn start_irc_watcher(
-        &mut self,
-        config: irc::client::data::Config,
-        tx: UnboundedSender<AppMessageIn>,
-    ) {
-        let own_username = config.username.clone().unwrap();
+        let tx = self.output.clone();
         let arc = Arc::clone(&self.irc_sync);
         let irc_stream_sender = Arc::clone(&self.irc_stream_sender);
 
         self.irc_thread = Some(std::thread::spawn(move || {
-            let rt = runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-            match rt.block_on(irc::client::Client::from_config(config)) {
-                Err(e) => {
-                    tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
-                        "failed to start the IRC client: {}",
-                        e
-                    ))))
-                    .unwrap();
-                    tx.send(AppMessageIn::ConnectionChanged(
-                        ConnectionStatus::Disconnected { by_user: false },
-                    ))
-                    .unwrap();
-                }
-                Ok(mut clt) => {
-                    clt.identify().unwrap();
-                    tx.send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
-                        .unwrap();
-                    *irc_stream_sender.lock().unwrap() = Some(clt.sender());
-
-                    let mut disconnected_by_user = false;
-                    let mut stream = clt.stream().unwrap();
-                    loop {
-                        let (lock, cv) = &*arc;
-                        {
-                            let guard = lock.lock().unwrap();
-                            let (mut g, _) =
-                                cv.wait_timeout(guard, IRC_EVENT_WAIT_TIMEOUT).unwrap();
-                            if *g {
-                                *g = false;
-                                clt.send_quit("").unwrap();
-                                disconnected_by_user = true;
-                                break;
-                            }
-                        }
-
-                        match rt.block_on(stream.next()) {
-                            Some(result) => match result {
-                                Err(reason) => {
-                                    tx.send(AppMessageIn::ChatError(IRCError::FatalError(
-                                        format!("connection broken: {}", reason),
-                                    )))
-                                    .unwrap();
-                                    break;
-                                }
-                                Ok(msg) => {
-                                    event_handler::dispatch_message(&tx, msg, &own_username);
-                                }
-                            },
-                            None => {
-                                tx.send(AppMessageIn::ChatError(IRCError::FatalError(
-                                    "remote server has closed the connection, probably because it went offline".to_owned(),
-                                )))
-                                .unwrap();
-                                break;
-                            }
-                        }
-                    }
-
-                    tx.send(AppMessageIn::ConnectionChanged(
-                        ConnectionStatus::Disconnected {
-                            by_user: disconnected_by_user,
-                        },
-                    ))
-                    .unwrap();
-                }
-            }
+            irc_thread_main(irc_stream_sender, tx, arc, config)
         }));
     }
 
@@ -219,4 +149,112 @@ impl IRCActor {
             sender.send_part(channel).unwrap();
         }
     }
+}
+
+fn irc_thread_main(
+    irc_stream_sender: Arc<Mutex<Option<irc::client::Sender>>>,
+    tx: UnboundedSender<AppMessageIn>,
+    arc: Arc<(Mutex<bool>, Condvar)>,
+    config: irc::client::data::Config,
+) {
+    let own_username = config.username.clone().unwrap();
+    let rt = runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    match rt.block_on(irc::client::Client::from_config(config)) {
+        Err(e) => {
+            tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+                "failed to start the IRC client: {}",
+                e
+            ))))
+            .unwrap();
+            tx.send(AppMessageIn::ConnectionChanged(
+                ConnectionStatus::Disconnected { by_user: false },
+            ))
+            .unwrap();
+        }
+        Ok(mut clt) => {
+            clt.identify().unwrap();
+            tx.send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
+                .unwrap();
+            *irc_stream_sender.lock().unwrap() = Some(clt.sender());
+
+            let mut disconnected_by_user = false;
+            let mut stream = clt.stream().unwrap();
+            loop {
+                let ExitCheckResult {
+                    should_exit,
+                    requested_by_user,
+                } = check_irc_exit_requested(&arc);
+                if should_exit {
+                    if let Err(e) = clt.send_quit("") {
+                        log::error!("Error sending quit command: {:?}", e);
+                    }
+                    disconnected_by_user = requested_by_user;
+                    break;
+                }
+
+                match rt.block_on(stream.next()) {
+                    Some(result) => match result {
+                        Err(reason) => {
+                            tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+                                "connection broken: {}",
+                                reason
+                            ))))
+                            .unwrap();
+                            break;
+                        }
+                        Ok(msg) => {
+                            event_handler::dispatch_message(&tx, msg, &own_username);
+                        }
+                    },
+                    None => {
+                        tx.send(AppMessageIn::ChatError(IRCError::FatalError(
+                            "remote server has closed the connection, probably because it went offline".to_owned(),
+                        )))
+                        .unwrap();
+                        break;
+                    }
+                }
+            }
+
+            tx.send(AppMessageIn::ConnectionChanged(
+                ConnectionStatus::Disconnected {
+                    by_user: disconnected_by_user,
+                },
+            ))
+            .unwrap();
+        }
+    }
+}
+
+fn check_irc_exit_requested(arc: &Arc<(Mutex<bool>, Condvar)>) -> ExitCheckResult {
+    let (lock, cv) = &**arc;
+
+    let guard = match lock.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            log::error!("IRC sync mutex was poisoned");
+            poisoned.into_inner()
+        }
+    };
+
+    let (mut flag_guard, _) = match cv.wait_timeout(guard, IRC_EVENT_WAIT_TIMEOUT) {
+        Ok(result) => result,
+        Err(e) => {
+            log::error!("Error waiting on condition variable: {:?}", e);
+            return ExitCheckResult {
+                should_exit: true,
+                requested_by_user: false,
+            };
+        }
+    };
+
+    let ret = ExitCheckResult {
+        should_exit: *flag_guard,
+        requested_by_user: *flag_guard,
+    };
+    *flag_guard = false;
+    ret
 }
