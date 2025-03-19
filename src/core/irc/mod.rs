@@ -1,6 +1,9 @@
 mod actor;
 mod event_handler;
 
+#[cfg(test)]
+mod actor_test;
+
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use crate::actor::{Actor, ActorHandle};
