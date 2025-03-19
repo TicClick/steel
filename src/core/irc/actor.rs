@@ -69,13 +69,22 @@ impl IRCActor {
             return;
         }
 
-        let (mutex, cv) = &*self.irc_sync;
-        *mutex.lock().unwrap() = true;
-        cv.notify_one();
+        // Signal and release the lock, and only then join the thread to avoid deadlocking at the beginning of the loop
+        //  in start_irc_watcher().
+        {
+            let (mutex, cv) = &*self.irc_sync;
+            *mutex.lock().unwrap() = true;
+            cv.notify_one();
+        }
+
         if let Some(th) = self.irc_thread.take() {
             th.join().unwrap();
         }
-        *mutex.lock().unwrap() = false;
+
+        {
+            let (mutex, _) = &*self.irc_sync;
+            *mutex.lock().unwrap() = false;
+        }
         *self.irc_stream_sender.lock().unwrap() = None;
     }
 
