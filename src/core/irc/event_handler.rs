@@ -10,6 +10,14 @@ use steel_core::ipc::server::AppMessageIn;
 static ACTION_PREFIX: &str = "\x01ACTION";
 static ACTION_SUFFIX: &str = "\x01";
 
+fn skip_and_join(v: &Vec<String>, n: usize) -> String {
+    if v.len() > n {
+        v[n..].join(" ")
+    } else {
+        String::new()
+    }
+}
+
 pub fn empty_handler(_sender: &UnboundedSender<AppMessageIn>, _msg: irc::proto::Message) {}
 
 pub fn privmsg_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
@@ -46,7 +54,7 @@ pub fn motd_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Mes
     if let irc::proto::Command::Response(_, args) = msg.command {
         sender
             .send(AppMessageIn::ServerMessageReceived {
-                content: args[1..].join(" "),
+                content: skip_and_join(&args, 1),
             })
             .unwrap();
     }
@@ -63,14 +71,14 @@ pub fn default_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::
                     IRCError::ServerError {
                         code: r,
                         chat: Some(args[1].to_owned()),
-                        content: args[2..].join(" "),
+                        content: skip_and_join(args, 2),
                     }
                 }
                 _ => {
                     IRCError::ServerError {
                         code: r,
                         chat: None,
-                        content: args[1..].join(" "),
+                        content: skip_and_join(args, 1),
                     }
                 }
             };
