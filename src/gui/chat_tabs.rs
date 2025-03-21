@@ -235,7 +235,7 @@ impl ChatTabs {
             super::SERVER_TAB_NAME.to_owned(),
         ] {
             let coloured_label =
-                egui::RichText::new(label[1..].to_string()).color(pick_tab_colour(state, &label));
+                egui::RichText::new(&label[1..]).color(pick_tab_colour(state, &label));
             let chat_tab = ui.selectable_value(
                 &mut state.active_chat_tab_name,
                 label.to_owned(),
