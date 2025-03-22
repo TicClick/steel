@@ -113,6 +113,9 @@ fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
         ThemeMode::Dark => Theme::Dark,
         ThemeMode::Light => Theme::Light,
     });
+    ctx.style_mut(|style| {
+        style.url_in_tooltip = true;
+    });
 }
 
 pub struct ApplicationWindow {
