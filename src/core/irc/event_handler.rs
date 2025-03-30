@@ -10,7 +10,7 @@ use steel_core::ipc::server::AppMessageIn;
 static ACTION_PREFIX: &str = "\x01ACTION";
 static ACTION_SUFFIX: &str = "\x01";
 
-fn skip_and_join(v: &Vec<String>, n: usize) -> String {
+fn skip_and_join(v: &[String], n: usize) -> String {
     if v.len() > n {
         v[n..].join(" ")
     } else {

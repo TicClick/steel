@@ -6,7 +6,7 @@ use crate::gui;
 use crate::gui::state::UIState;
 use steel_core::{
     ipc::{server::AppMessageIn, ui::UIMessageIn},
-    settings::{Settings, ThemeMode},
+    settings::{chat::ChatPosition, Settings, ThemeMode},
 };
 
 const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
@@ -229,7 +229,10 @@ impl ApplicationWindow {
                 if self.s.has_chat(&name) {
                     self.s.active_chat_tab_name = lowercase_name;
                     if message_id.is_some() {
-                        self.chat.scroll_to = message_id;
+                        self.chat.scroll_to = match self.s.settings.chat.behaviour.chat_position {
+                            ChatPosition::Bottom => Some(message_id.unwrap() + 1),
+                            ChatPosition::Top => message_id,
+                        };
                     }
                 }
                 self.refresh_window_title(ctx);

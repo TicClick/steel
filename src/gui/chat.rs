@@ -2,6 +2,7 @@ use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeMap;
 use steel_core::chat::links::{Action, LinkType};
+use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
 
@@ -171,13 +172,26 @@ impl ChatWindow {
                 .chat_row_height
                 .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
 
+            // Add a fake row, the side of the chat view, to the scroll view hosting the table with chat messages.
+            let add_fake_row = state.active_chat().is_some()
+                && matches!(
+                    state.settings.chat.behaviour.chat_position,
+                    ChatPosition::Bottom
+                );
+            let chat_row_count = match add_fake_row {
+                true => state.chat_message_count() + 1,
+                false => state.chat_message_count(),
+            };
+
             self.cached_row_heights
                 .entry(state.active_chat_tab_name.clone())
                 .or_default()
-                .resize(state.chat_message_count(), chat_row_height);
+                .resize(chat_row_count, chat_row_height);
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
+                let view_width = ui.available_width();
+
                 let mut builder = TableBuilder::new(ui);
                 if let Some(message_id) = self.scroll_to {
                     builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
@@ -199,6 +213,10 @@ impl ChatWindow {
                             // Filter the messages. I can probably only pass the references around instead of copying
                             // the whole object, and avoid code duplication, but input types don't match, and I don't
                             // have enough vigor to rewrite `Chat` in a way that `ch.messages` only stores their references.
+
+                            // Note: I have decided to always keep direction of the filtered messages top-to-bottom,
+                            // as opposed to the regular chat view (may be both). May change it later, but not today.
+
                             if state.filter.active {
                                 let mut filtered_payload = Vec::new();
                                 let mut filtered_heights = Vec::new();
@@ -230,17 +248,30 @@ impl ChatWindow {
                             } else {
                                 body.heterogeneous_rows(heights, |mut row| {
                                     let row_index = row.index();
-                                    row.col(|ui| {
-                                        self.user_context_menu_open |= self
-                                            .show_regular_chat_single_message(
-                                                ui,
-                                                state,
-                                                ch,
-                                                &ch.messages[row_index],
-                                                row_index,
-                                                true,
-                                            );
-                                    });
+                                    if row.index() == 0 && add_fake_row {
+                                        let sz = view_height - chat_row_height - 4.0;
+                                        row.col(|ui| {
+                                            ui.allocate_space(egui::Vec2 {
+                                                x: view_width,
+                                                y: sz,
+                                            });
+                                        });
+                                        self.cached_row_heights
+                                            .get_mut(&state.active_chat_tab_name)
+                                            .unwrap()[0] = sz;
+                                    } else {
+                                        let message = match add_fake_row {
+                                            true => &ch.messages[row_index - 1],
+                                            false => &ch.messages[row_index],
+                                        };
+
+                                        row.col(|ui| {
+                                            self.user_context_menu_open |= self
+                                                .show_regular_chat_single_message(
+                                                    ui, state, ch, message, row_index, true,
+                                                );
+                                        });
+                                    }
                                 });
                             }
                         } else {
