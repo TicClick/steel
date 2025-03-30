@@ -1,5 +1,6 @@
 use eframe::egui;
 use std::collections::BTreeSet;
+use steel_core::settings::chat::ChatPosition;
 
 use super::SettingsWindow;
 use crate::gui::state::UIState;
@@ -224,6 +225,26 @@ impl SettingsWindow {
                     "open beatmap links in the browser instead of doing it in osu!.\n\
                     affected links: osu://dl/, osu://dl/b/, osu://dl/s/, osu://b/",
                 );
+
+                ui.horizontal(|ui| {
+                    ui.label("chat position:");
+                    let chat_position_label =
+                        state.settings.chat.behaviour.chat_position.to_string();
+                    egui::ComboBox::from_id_salt("chat-position")
+                        .selected_text(chat_position_label)
+                        .show_ui(ui, |ui| {
+                            ui.selectable_value(
+                                &mut state.settings.chat.behaviour.chat_position,
+                                ChatPosition::Top,
+                                ChatPosition::Top.to_string(),
+                            );
+                            ui.selectable_value(
+                                &mut state.settings.chat.behaviour.chat_position,
+                                ChatPosition::Bottom,
+                                ChatPosition::Bottom.to_string(),
+                            );
+                        })
+                });
             });
 
             self.autojoin.show(&mut state.settings, ui);

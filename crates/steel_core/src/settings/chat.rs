@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,6 +25,7 @@ impl Default for Chat {
             autojoin: Vec::default(),
             irc: IRCChatSettings::default(),
             api: HTTPChatSettings::default(),
+
             behaviour: ChatBehaviour::default(),
         }
     }
@@ -51,6 +54,9 @@ pub struct ChatBehaviour {
 
     #[serde(default)]
     pub handle_osu_beatmap_links: bool,
+
+    #[serde(default)]
+    pub chat_position: ChatPosition,
 }
 
 impl Default for ChatBehaviour {
@@ -58,6 +64,28 @@ impl Default for ChatBehaviour {
         Self {
             handle_osu_chat_links: true,
             handle_osu_beatmap_links: true,
+            chat_position: ChatPosition::Bottom,
         }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Default)]
+pub enum ChatPosition {
+    Top,
+
+    #[default]
+    Bottom,
+}
+
+impl Display for ChatPosition {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ChatPosition::Top => "top",
+                ChatPosition::Bottom => "bottom (osu! style)",
+            }
+        )
     }
 }
