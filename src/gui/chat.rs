@@ -174,7 +174,7 @@ impl ChatWindow {
             self.cached_row_heights
                 .entry(state.active_chat_tab_name.clone())
                 .or_default()
-                .resize(state.chat_message_count(), chat_row_height);
+                .resize(state.chat_message_count() + 1, chat_row_height);
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
@@ -247,6 +247,7 @@ impl ChatWindow {
                                                     ui,
                                                     state,
                                                     ch,
+                                                    &ch.messages[row_index - 1],
                                                     row_index,
                                                     true,
                                                 );
