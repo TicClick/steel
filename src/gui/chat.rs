@@ -178,6 +178,8 @@ impl ChatWindow {
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
+                let view_width = ui.available_width();
+
                 let mut builder = TableBuilder::new(ui);
                 if let Some(message_id) = self.scroll_to {
                     builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
@@ -230,17 +232,26 @@ impl ChatWindow {
                             } else {
                                 body.heterogeneous_rows(heights, |mut row| {
                                     let row_index = row.index();
-                                    row.col(|ui| {
-                                        self.user_context_menu_open |= self
-                                            .show_regular_chat_single_message(
-                                                ui,
-                                                state,
-                                                ch,
-                                                &ch.messages[row_index],
-                                                row_index,
-                                                true,
-                                            );
-                                    });
+                                    if row.index() == 0 {
+                                        let sz = view_height - chat_row_height - 4.0;
+                                        row.col(|ui| {
+                                            ui.allocate_space(egui::Vec2 { x: view_width, y: sz });
+                                        });
+                                        self.cached_row_heights
+                                            .get_mut(&state.active_chat_tab_name)
+                                            .unwrap()[0] = sz;
+                                    } else {
+                                        row.col(|ui| {
+                                            self.user_context_menu_open |= self
+                                                .show_regular_chat_single_message(
+                                                    ui,
+                                                    state,
+                                                    ch,
+                                                    row_index,
+                                                    true,
+                                                );
+                                        });
+                                    }
                                 });
                             }
                         } else {
