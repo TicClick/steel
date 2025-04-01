@@ -2,6 +2,8 @@ use std::fmt::Display;
 
 use serde::{Deserialize, Serialize};
 
+fn default_true() -> bool { true }
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chat {
     pub backend: ChatBackend,
@@ -57,6 +59,9 @@ pub struct ChatBehaviour {
 
     #[serde(default)]
     pub chat_position: ChatPosition,
+
+    #[serde(default = "default_true")]
+    pub track_unread_messages: bool,
 }
 
 impl Default for ChatBehaviour {
@@ -65,6 +70,7 @@ impl Default for ChatBehaviour {
             handle_osu_chat_links: true,
             handle_osu_beatmap_links: true,
             chat_position: ChatPosition::Bottom,
+            track_unread_messages: true,
         }
     }
 }
