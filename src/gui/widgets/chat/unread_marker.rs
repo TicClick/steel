@@ -1,7 +1,7 @@
 use eframe::{
     egui::{
-        pos2, vec2, Label, Rangef, Response, RichText, Sense, Shape, Stroke, TextStyle, Vec2,
-        Widget,
+        pos2, vec2, Color32, Label, Rangef, Response, RichText, Sense, Shape, Stroke, TextStyle,
+        Vec2, Widget,
     },
     epaint,
 };
@@ -11,6 +11,7 @@ pub struct UnreadMarker {
     pub line_width: f32,
     pub arrowhead_size: Vec2,
     pub text: String,
+    pub color: Color32,
 }
 
 impl Default for UnreadMarker {
@@ -20,6 +21,7 @@ impl Default for UnreadMarker {
             line_width: 50.0,
             arrowhead_size: vec2(4.0, 7.0),
             text: "new".to_string(),
+            color: Color32::DARK_RED,
         }
     }
 }
@@ -48,6 +50,11 @@ impl UnreadMarker {
         self.text = value;
         self
     }
+
+    pub fn color(mut self, value: Color32) -> Self {
+        self.color = value;
+        self
+    }
 }
 
 impl Widget for UnreadMarker {
@@ -68,13 +75,11 @@ impl Widget for UnreadMarker {
                     arrowhead_tip.y + self.arrowhead_size.y / 2.0,
                 );
 
-                let text_color = ui.visuals().error_fg_color;
-                let arrow_color = ui.visuals().error_fg_color;
-                let arrow_stroke = Stroke::new(1., arrow_color);
+                let arrow_stroke = Stroke::new(1., self.color);
 
                 p.add(Shape::Path(epaint::PathShape::convex_polygon(
                     vec![arrowhead_left_top, arrowhead_tip, arrowhead_left_bottom],
-                    arrow_color,
+                    self.color,
                     arrow_stroke,
                 )));
 
@@ -88,7 +93,7 @@ impl Widget for UnreadMarker {
                     Label::new(
                         RichText::new(self.text)
                             .text_style(TextStyle::Small)
-                            .color(text_color),
+                            .color(self.color),
                     )
                     .selectable(false),
                 );

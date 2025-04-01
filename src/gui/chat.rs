@@ -103,7 +103,11 @@ impl ChatWindow {
         if state.active_chat_tab_name == channel_name {
             if let Some(unread_idx) = self.last_read_message_cached.1 {
                 if unread_idx == message_index {
-                    ui.add(UnreadMarker::new().ui_height(chat_row_height));
+                    ui.add(
+                        UnreadMarker::new()
+                            .ui_height(chat_row_height)
+                            .color(state.settings.ui.colours().highlight.clone().into()),
+                    );
                 }
             }
         }
