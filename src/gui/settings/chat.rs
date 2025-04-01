@@ -226,6 +226,14 @@ impl SettingsWindow {
                     affected links: osu://dl/, osu://dl/b/, osu://dl/s/, osu://b/",
                 );
 
+                ui.checkbox(
+                    &mut state.settings.chat.behaviour.track_unread_messages,
+                    "mark new messages",
+                )
+                .on_hover_text_at_pointer(
+                    "mark the end of read messages in inactive tabs, so that you know what's new",
+                );
+
                 ui.horizontal(|ui| {
                     ui.label("chat position:");
                     let chat_position_label =
