@@ -59,7 +59,7 @@ impl UnreadMarker {
 
 impl Widget for UnreadMarker {
     fn ui(self, ui: &mut eframe::egui::Ui) -> Response {
-        let response = ui.horizontal_centered(|ui| {
+        let response = ui.horizontal(|ui| {
             let (rect, _) =
                 ui.allocate_at_least(vec2(self.line_width, self.ui_height), Sense::hover());
             if ui.is_rect_visible(rect) {
