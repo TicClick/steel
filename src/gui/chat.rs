@@ -8,6 +8,7 @@ use steel_core::TextStyle;
 
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
+use crate::gui::widgets::chat::unread_marker::UnreadMarker;
 use crate::gui::DecoratedText;
 
 use crate::gui::command;
@@ -70,11 +71,42 @@ pub struct ChatWindow {
 
     // Whether the context menu was open during the previous frame.
     user_context_menu_open: bool,
+
+    pub last_read_messages: BTreeMap<String, usize>,
+    last_read_message_cached: (String, Option<usize>),
 }
 
 impl ChatWindow {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn refresn_cached_unread_marker_position(&mut self, state: &UIState) {
+        if self.last_read_message_cached.0 != state.active_chat_tab_name {
+            self.last_read_message_cached = (
+                state.active_chat_tab_name.clone(),
+                self.last_read_messages
+                    .get(&state.active_chat_tab_name)
+                    .copied(),
+            );
+        }
+    }
+
+    fn maybe_show_unread_marker(
+        &mut self,
+        ui: &mut egui::Ui,
+        state: &UIState,
+        channel_name: &str,
+        message_index: usize,
+        chat_row_height: f32,
+    ) {
+        if state.active_chat_tab_name == channel_name {
+            if let Some(unread_idx) = self.last_read_message_cached.1 {
+                if unread_idx == message_index {
+                    ui.add(UnreadMarker::new().ui_height(chat_row_height));
+                }
+            }
+        }
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
@@ -188,6 +220,8 @@ impl ChatWindow {
                 .or_default()
                 .resize(chat_row_count, chat_row_height);
 
+            self.refresn_cached_unread_marker_position(state);
+
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
                 let view_width = ui.available_width();
@@ -260,12 +294,20 @@ impl ChatWindow {
                                             .get_mut(&state.active_chat_tab_name)
                                             .unwrap()[0] = sz;
                                     } else {
-                                        let message = match add_fake_row {
-                                            true => &ch.messages[row_index - 1],
-                                            false => &ch.messages[row_index],
+                                        let message_idx = match add_fake_row {
+                                            true => row_index - 1,
+                                            false => row_index,
                                         };
+                                        let message = &ch.messages[message_idx];
 
                                         row.col(|ui| {
+                                            self.maybe_show_unread_marker(
+                                                ui,
+                                                state,
+                                                &state.active_chat_tab_name,
+                                                message_idx,
+                                                chat_row_height,
+                                            );
                                             self.user_context_menu_open |= self
                                                 .show_regular_chat_single_message(
                                                     ui, state, ch, message, row_index, true,
