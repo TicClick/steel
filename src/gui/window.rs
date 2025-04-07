@@ -225,27 +225,20 @@ impl ApplicationWindow {
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
                 let lowercase_name = name.to_lowercase();
-                self.s.highlights.mark_as_read(&lowercase_name);
+                self.s.read_tracker.mark_as_read(&lowercase_name);
                 if self.s.has_chat(&name) {
-                    // Push the new messages marker.
-                    self.chat.last_read_messages.insert(
-                        self.s.active_chat_tab_name.clone(),
-                        self.s.chat_message_count(),
+                    // Update chat tracking in ReadTracker
+                    let message_count = self.s.chat_message_count();
+                    let previous_chat = self.s.active_chat_tab_name.clone();
+
+                    // Update chat tracking and unread marker positions
+                    self.s.read_tracker.update_chat_tracking(
+                        &previous_chat,
+                        &lowercase_name,
+                        message_count,
                     );
 
                     self.s.active_chat_tab_name = lowercase_name;
-
-                    if let Some(last_idx) = self
-                        .chat
-                        .last_read_messages
-                        .get(&self.s.active_chat_tab_name)
-                    {
-                        if *last_idx == self.s.chat_message_count() {
-                            self.chat
-                                .last_read_messages
-                                .remove(&self.s.active_chat_tab_name);
-                        }
-                    }
 
                     if message_id.is_some() {
                         self.chat.scroll_to = match self.s.settings.chat.behaviour.chat_position {
