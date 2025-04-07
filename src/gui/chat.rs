@@ -85,7 +85,7 @@ impl ChatWindow {
         channel_name: &str,
         message_index: usize,
         chat_row_height: f32,
-    ) {
+    ) -> bool {
         if state.active_chat_tab_name == channel_name {
             if let Some(unread_idx) = state.read_tracker.get_last_read_position(channel_name) {
                 if unread_idx == message_index {
@@ -94,9 +94,11 @@ impl ChatWindow {
                             .ui_height(chat_row_height)
                             .color(state.settings.ui.colours().highlight.clone().into()),
                     );
+                    return true;
                 }
             }
         }
+        false
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
@@ -264,6 +266,7 @@ impl ChatWindow {
                                                 &ch.messages[original_indices[row_index]],
                                                 row_index,
                                                 false,
+                                                0.0,
                                             );
                                     });
                                 });
@@ -289,16 +292,28 @@ impl ChatWindow {
                                         let message = &ch.messages[message_idx];
 
                                         row.col(|ui| {
-                                            self.maybe_show_unread_marker(
+                                            let marker_shown = self.maybe_show_unread_marker(
                                                 ui,
                                                 state,
                                                 &state.active_chat_tab_name,
                                                 message_idx,
                                                 chat_row_height,
                                             );
+
+                                            let marker_height = match marker_shown {
+                                                true => chat_row_height,
+                                                false => 0.0,
+                                            };
+
                                             self.user_context_menu_open |= self
                                                 .show_regular_chat_single_message(
-                                                    ui, state, ch, message, row_index, true,
+                                                    ui,
+                                                    state,
+                                                    ch,
+                                                    message,
+                                                    row_index,
+                                                    true,
+                                                    marker_height,
                                                 );
                                         });
                                     }
@@ -349,6 +364,7 @@ impl ChatWindow {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn show_regular_chat_single_message(
         &mut self,
         ui: &mut egui::Ui,
@@ -357,6 +373,7 @@ impl ChatWindow {
         msg: &Message,
         message_index: usize,
         cache_heights: bool,
+        extra_height: f32,
     ) -> bool {
         // let msg = &ch.messages[message_index];
         #[allow(unused_mut)] // glass
@@ -412,7 +429,7 @@ impl ChatWindow {
         if cache_heights {
             self.cached_row_heights
                 .get_mut(&state.active_chat_tab_name)
-                .unwrap()[message_index] = updated_height;
+                .unwrap()[message_index] = updated_height + extra_height;
         }
 
         context_menu_active
