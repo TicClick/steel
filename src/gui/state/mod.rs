@@ -7,7 +7,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
 
-use crate::gui::highlights;
+use crate::gui::read_tracker;
 
 use super::filter::FilterCollection;
 use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
@@ -33,7 +33,7 @@ pub struct UIState {
     pub active_chat_tab_name: String,
 
     pub core: CoreClient,
-    pub highlights: highlights::HighlightTracker,
+    pub read_tracker: read_tracker::ReadTracker,
 
     pub update_state: UpdateState,
     pub sound_player: crate::core::sound::SoundPlayer,
@@ -53,7 +53,7 @@ impl UIState {
             server_messages: Vec::default(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
-            highlights: highlights::HighlightTracker::new(),
+            read_tracker: read_tracker::ReadTracker::new(),
             update_state: UpdateState::default(),
             sound_player: crate::core::sound::SoundPlayer::new(),
 
@@ -89,7 +89,7 @@ impl UIState {
         self.settings = settings.clone();
 
         // FIXME: Move this to a separate setter.
-        self.highlights
+        self.read_tracker
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
@@ -101,7 +101,7 @@ impl UIState {
             .map(|el| el.to_lowercase())
             .collect();
         self.settings.notifications.highlights.words.sort();
-        self.highlights
+        self.read_tracker
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
@@ -111,7 +111,7 @@ impl UIState {
         } else {
             match self.active_chat_tab_name.as_str() {
                 super::SERVER_TAB_NAME => self.server_messages.len(),
-                super::HIGHLIGHTS_TAB_NAME => self.highlights.ordered().len(),
+                super::HIGHLIGHTS_TAB_NAME => self.read_tracker.ordered_highlights().len(),
                 _ => 0,
             }
         }
@@ -133,7 +133,11 @@ impl UIState {
         let chat = Chat::new(&name);
         self.chats.push(chat);
         if switch_to_chat {
-            self.active_chat_tab_name = name;
+            self.active_chat_tab_name = name.to_lowercase();
+
+            // When reopening a chat, remove the unread marker position
+            self.read_tracker
+                .remove_last_read_position(&self.active_chat_tab_name);
         }
     }
 
@@ -188,25 +192,25 @@ impl UIState {
                     name_updated = true;
                 }
 
-                message.detect_highlights(self.highlights.keywords(), current_username);
+                message.detect_highlights(self.read_tracker.keywords(), current_username);
 
                 let contains_highlight = message.highlight;
                 let requires_attention =
                     !is_system_message && (contains_highlight || !normalized.is_channel());
 
                 if contains_highlight {
-                    self.highlights.add(&normalized, &message);
+                    self.read_tracker.add_highlight(&normalized, &message);
                     if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
-                        self.highlights.mark_as_unread(HIGHLIGHTS_TAB_NAME);
+                        self.read_tracker.mark_as_unread(HIGHLIGHTS_TAB_NAME);
                     }
                 }
                 ch.push(message);
 
                 if is_tab_inactive && !is_system_message {
                     if requires_attention {
-                        self.highlights.mark_as_highlighted(&normalized);
+                        self.read_tracker.mark_as_highlighted(&normalized);
                     } else {
-                        self.highlights.mark_as_unread(&normalized);
+                        self.read_tracker.mark_as_unread(&normalized);
                     }
                 }
 
@@ -244,7 +248,7 @@ impl UIState {
         msg.parse_for_links();
         self.server_messages.push(msg);
         if self.active_chat_tab_name != SERVER_TAB_NAME {
-            self.highlights.mark_as_unread(SERVER_TAB_NAME);
+            self.read_tracker.mark_as_unread(SERVER_TAB_NAME);
         }
     }
 
@@ -253,7 +257,7 @@ impl UIState {
         if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
         }
-        self.highlights.drop(&normalized);
+        self.read_tracker.drop(&normalized);
     }
 
     pub fn clear_chat(&mut self, target: &str) {
@@ -262,7 +266,7 @@ impl UIState {
                 chat.messages.clear();
             }
         }
-        self.highlights.drop(target);
+        self.read_tracker.drop(target);
     }
 
     pub fn filter_chats<F>(

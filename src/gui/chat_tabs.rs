@@ -4,7 +4,7 @@ use steel_core::settings::Colour;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
-use crate::gui::highlights::UnreadType;
+use crate::gui::read_tracker::UnreadType;
 use crate::gui::state::UIState;
 
 use super::context_menu::chat::{
@@ -64,7 +64,7 @@ impl ChatTabs {
 }
 
 fn pick_tab_colour(state: &UIState, normalized_chat_name: &str) -> Colour {
-    let colour = match state.highlights.unread_type(normalized_chat_name) {
+    let colour = match state.read_tracker.unread_type(normalized_chat_name) {
         None => &state.settings.ui.colours().read_tabs,
         Some(unread) => match unread {
             UnreadType::Highlight => &state.settings.ui.colours().highlight,

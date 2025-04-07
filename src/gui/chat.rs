@@ -71,25 +71,11 @@ pub struct ChatWindow {
 
     // Whether the context menu was open during the previous frame.
     user_context_menu_open: bool,
-
-    pub last_read_messages: BTreeMap<String, usize>,
-    last_read_message_cached: (String, Option<usize>),
 }
 
 impl ChatWindow {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    fn refresn_cached_unread_marker_position(&mut self, state: &UIState) {
-        if self.last_read_message_cached.0 != state.active_chat_tab_name {
-            self.last_read_message_cached = (
-                state.active_chat_tab_name.clone(),
-                self.last_read_messages
-                    .get(&state.active_chat_tab_name)
-                    .copied(),
-            );
-        }
     }
 
     fn maybe_show_unread_marker(
@@ -101,7 +87,7 @@ impl ChatWindow {
         chat_row_height: f32,
     ) {
         if state.active_chat_tab_name == channel_name {
-            if let Some(unread_idx) = self.last_read_message_cached.1 {
+            if let Some(unread_idx) = state.read_tracker.get_last_read_position(channel_name) {
                 if unread_idx == message_index {
                     ui.add(
                         UnreadMarker::new()
@@ -223,8 +209,6 @@ impl ChatWindow {
                 .entry(state.active_chat_tab_name.clone())
                 .or_default()
                 .resize(chat_row_count, chat_row_height);
-
-            self.refresn_cached_unread_marker_position(state);
 
             ui.push_id(&state.active_chat_tab_name, |ui| {
                 let view_height = ui.available_height();
@@ -440,7 +424,7 @@ impl ChatWindow {
         state: &UIState,
         message_index: usize,
     ) {
-        let (chat_name, msg) = &state.highlights.ordered()[message_index];
+        let (chat_name, msg) = &state.read_tracker.ordered_highlights()[message_index];
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
