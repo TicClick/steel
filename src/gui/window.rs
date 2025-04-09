@@ -311,6 +311,10 @@ const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_milli
 
 impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        puffin::set_scopes_on(true);
+        puffin::GlobalProfiler::lock().new_frame();
+        puffin_egui::profiler_window(ctx);
+
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
 

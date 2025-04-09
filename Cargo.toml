@@ -42,6 +42,9 @@ png = "0.17.16"
 winresource = "0.1.19"
 winit-test = "0.2.0"
 
+# Dev dependencies
+puffin = { path = "../puffin/puffin" }
+puffin_egui = { path = "../puffin/puffin_egui" }
 
 [package]
 name = "steel"
@@ -87,6 +90,9 @@ png = { workspace = true }
 winresource = { workspace = true }
 serde_json = { workspace = true }
 winit-test = { workspace = true }
+
+puffin = { workspace = true }
+puffin_egui = { workspace = true }
 
 [features]
 default = []
