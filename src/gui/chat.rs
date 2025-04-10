@@ -22,41 +22,9 @@ use super::widgets::chat::links::beatmap_link::{BeatmapDifficultyLink, BeatmapLi
 use super::widgets::chat::links::channel_link::ChannelLink;
 use super::widgets::chat::links::chat_link::ChatLink;
 use super::widgets::chat::links::regular_link::RegularLink;
+use super::widgets::chat::shadow::InnerShadow;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
-
-trait WithInnerShadow {
-    fn inner_shadow_bottom(&self, pixels: usize);
-}
-
-// (Almost) as seen at https://gist.github.com/juancampa/d8dcf7cdab813062f082eac7415abcfc
-impl WithInnerShadow for egui::Ui {
-    fn inner_shadow_bottom(&self, pixels: usize) {
-        let mut shadow_rect = self.available_rect_before_wrap();
-
-        let central_frame_margin = 8.; // egui::Frame::central_panel().inner_margin
-        shadow_rect.set_left(shadow_rect.left() - central_frame_margin);
-        shadow_rect.set_width(
-            shadow_rect.width() + self.spacing().scroll.bar_inner_margin + central_frame_margin,
-        );
-        shadow_rect.set_bottom(shadow_rect.bottom() + self.spacing().item_spacing.y);
-
-        let colour_ctor = match self.visuals().dark_mode {
-            true => |a: u8| egui::Color32::from_rgba_unmultiplied(120, 120, 120, a),
-            false => egui::Color32::from_black_alpha,
-        };
-
-        let painter = self.painter();
-        let mut avail_rect = shadow_rect.translate((0.0, shadow_rect.height() - 1.0).into());
-        avail_rect.set_height(1.0);
-        for i in 0..pixels {
-            let alpha = 1.0 - (i as f32 / pixels as f32);
-            let shift = -avail_rect.height() * i as f32;
-            let rect = avail_rect.translate((0.0, shift).into());
-            painter.rect_filled(rect, 0.0, colour_ctor((alpha * alpha * 80.0).floor() as u8));
-        }
-    }
-}
 
 #[derive(Default)]
 pub struct ChatWindow {
@@ -361,7 +329,7 @@ impl ChatWindow {
                 // Side comment: it would be nice to get the scroll view position rounded down, so that sub-pixel jitters
                 //   don't disable autoscrolling (apparently this happens when offscreen_area_height >= eps).
                 if offscreen_area_height > 1. {
-                    ui.inner_shadow_bottom(20);
+                    ui.add(InnerShadow::new(20));
                 }
             });
         });
