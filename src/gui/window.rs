@@ -180,12 +180,14 @@ impl ApplicationWindow {
 
             self.s.settings.application.window.maximized = i.viewport().maximized.unwrap_or(false);
 
-            if let Some(rect) = i.viewport().outer_rect {
-                self.s.settings.application.window.x = (rect.left_top().x / ppi) as i32;
-                self.s.settings.application.window.y = (rect.left_top().y / ppi) as i32;
+            if let Some(outer_rect) = i.viewport().outer_rect {
+                self.s.settings.application.window.x = (outer_rect.left_top().x / ppi) as i32;
+                self.s.settings.application.window.y = (outer_rect.left_top().y / ppi) as i32;
+            }
 
-                self.s.settings.application.window.width = (rect.width() / ppi) as i32;
-                self.s.settings.application.window.height = (rect.height() / ppi) as i32;
+            if let Some(inner_rect) = i.viewport().inner_rect {
+                self.s.settings.application.window.width = (inner_rect.width() / ppi) as i32;
+                self.s.settings.application.window.height = (inner_rect.height() / ppi) as i32;
             }
         });
     }
