@@ -21,6 +21,8 @@ pub struct WindowGeometry {
     pub y: i32,
     pub width: i32,
     pub height: i32,
+    #[serde(default)]
+    pub maximized: bool,
 }
 
 impl Default for WindowGeometry {
@@ -30,6 +32,7 @@ impl Default for WindowGeometry {
             y: 400,
             height: 600,
             width: 800,
+            maximized: false,
         }
     }
 }

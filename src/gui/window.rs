@@ -94,15 +94,19 @@ fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
         style.url_in_tooltip = true;
     });
 
-    ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::Pos2 {
-        x: settings.application.window.x as f32,
-        y: settings.application.window.y as f32,
-    }));
-
-    ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::Vec2 {
-        x: settings.application.window.width as f32,
-        y: settings.application.window.height as f32,
-    }));
+    if settings.application.window.maximized {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+    } else {
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::Pos2 {
+            x: settings.application.window.x as f32,
+            y: settings.application.window.y as f32,
+        }));
+    
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::Vec2 {
+            x: settings.application.window.width as f32,
+            y: settings.application.window.height as f32,
+        }));
+    }
 
     update_ui_settings(ctx, settings);
 }
@@ -173,6 +177,8 @@ impl ApplicationWindow {
     fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
         ctx.input(|i| {
             let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
+
+            self.s.settings.application.window.maximized = i.viewport().maximized.unwrap_or(false);
 
             if let Some(rect) = i.viewport().outer_rect {
                 self.s.settings.application.window.x = (rect.left_top().x / ppi) as i32;
