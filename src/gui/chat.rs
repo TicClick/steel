@@ -18,42 +18,13 @@ use super::context_menu::chat_user::{
     menu_item_open_chat_user_profile, menu_item_translate_message,
 };
 use super::context_menu::shared::menu_item_open_chat_log;
-use super::context_menu::url::menu_item_copy_url;
+use super::widgets::chat::links::beatmap_link::{BeatmapDifficultyLink, BeatmapLink};
+use super::widgets::chat::links::channel_link::ChannelLink;
+use super::widgets::chat::links::chat_link::ChatLink;
+use super::widgets::chat::links::regular_link::RegularLink;
+use super::widgets::chat::shadow::InnerShadow;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
-
-trait WithInnerShadow {
-    fn inner_shadow_bottom(&self, pixels: usize);
-}
-
-// (Almost) as seen at https://gist.github.com/juancampa/d8dcf7cdab813062f082eac7415abcfc
-impl WithInnerShadow for egui::Ui {
-    fn inner_shadow_bottom(&self, pixels: usize) {
-        let mut shadow_rect = self.available_rect_before_wrap();
-
-        let central_frame_margin = 8.; // egui::Frame::central_panel().inner_margin
-        shadow_rect.set_left(shadow_rect.left() - central_frame_margin);
-        shadow_rect.set_width(
-            shadow_rect.width() + self.spacing().scroll.bar_inner_margin + central_frame_margin,
-        );
-        shadow_rect.set_bottom(shadow_rect.bottom() + self.spacing().item_spacing.y);
-
-        let colour_ctor = match self.visuals().dark_mode {
-            true => |a: u8| egui::Color32::from_rgba_unmultiplied(120, 120, 120, a),
-            false => egui::Color32::from_black_alpha,
-        };
-
-        let painter = self.painter();
-        let mut avail_rect = shadow_rect.translate((0.0, shadow_rect.height() - 1.0).into());
-        avail_rect.set_height(1.0);
-        for i in 0..pixels {
-            let alpha = 1.0 - (i as f32 / pixels as f32);
-            let shift = -avail_rect.height() * i as f32;
-            let rect = avail_rect.translate((0.0, shift).into());
-            painter.rect_filled(rect, 0.0, colour_ctor((alpha * alpha * 80.0).floor() as u8));
-        }
-    }
-}
 
 #[derive(Default)]
 pub struct ChatWindow {
@@ -358,7 +329,7 @@ impl ChatWindow {
                 // Side comment: it would be nice to get the scroll view position rounded down, so that sub-pixel jitters
                 //   don't disable autoscrolling (apparently this happens when offscreen_area_height >= eps).
                 if offscreen_area_height > 1. {
-                    ui.inner_shadow_bottom(20);
+                    ui.add(InnerShadow::new(20));
                 }
             });
         });
@@ -656,48 +627,35 @@ fn format_chat_message_text(
                             egui::RichText::new(title).with_styles(styles, &state.settings);
                         match link_type {
                             LinkType::HTTP | LinkType::HTTPS => {
-                                make_regular_link(ui, &display_text, location)
+                                ui.add(RegularLink::new(&display_text, location));
                             }
                             LinkType::OSU(osu_action) => match osu_action {
-                                Action::Chat(chat) => {
-                                    make_chat_link(ui, state, chat, display_text, location)
+                                Action::Chat(chat_name) => {
+                                    ui.add(ChatLink::new(
+                                        chat_name,
+                                        &display_text,
+                                        location,
+                                        state,
+                                    ));
                                 }
                                 Action::OpenBeatmap(beatmap_id) => {
-                                    let location =
-                                        format!("https://osu.ppy.sh/beatmapsets/{}", beatmap_id);
-                                    let on_hover_text =
-                                        format!("Beatmap #{} (open in browser)", beatmap_id);
-                                    make_beatmap_link(
-                                        ui,
-                                        state,
-                                        display_text,
-                                        &location,
-                                        &on_hover_text,
-                                    );
+                                    ui.add(BeatmapLink::new(*beatmap_id, &display_text, state));
                                 }
 
                                 Action::OpenDifficulty(difficulty_id) => {
-                                    let location =
-                                        format!("https://osu.ppy.sh/beatmaps/{}", difficulty_id);
-                                    let on_hover_text = format!(
-                                        "Beatmap difficulty #{} (open in browser)",
-                                        difficulty_id
-                                    );
-                                    make_beatmap_link(
-                                        ui,
+                                    ui.add(BeatmapDifficultyLink::new(
+                                        *difficulty_id,
+                                        &display_text,
                                         state,
-                                        display_text,
-                                        &location,
-                                        &on_hover_text,
-                                    );
+                                    ));
                                 }
 
                                 Action::Multiplayer(_lobby_id) => {
-                                    make_regular_link(ui, &display_text, location)
+                                    ui.add(RegularLink::new(&display_text, location));
                                 }
                             },
                             LinkType::Channel => {
-                                make_channel_link(ui, state, display_text, location)
+                                ui.add(ChannelLink::new(&display_text, location, state));
                             }
                         }
                     }
@@ -706,85 +664,4 @@ fn format_chat_message_text(
         }
     });
     resp.response.rect.height()
-}
-
-fn make_regular_link(ui: &mut egui::Ui, text: &egui::RichText, loc: &str) {
-    ui.hyperlink_to(text.to_owned(), loc.to_owned())
-        .context_menu(|ui| {
-            menu_item_copy_url(ui, loc);
-        });
-}
-
-fn make_chat_link(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    chat: &str,
-    display_text: egui::RichText,
-    location: &str,
-) {
-    match state.settings.chat.behaviour.handle_osu_chat_links {
-        true => {
-            if ui
-                .link(display_text)
-                .on_hover_text_at_pointer(match chat.is_channel() {
-                    true => format!("Open {}", chat),
-                    false => format!("Chat with {}", chat),
-                })
-                .clicked()
-            {
-                if state.has_chat(chat) {
-                    state.core.chat_switch_requested(chat, None);
-                } else {
-                    state.core.chat_opened(chat)
-                }
-            }
-        }
-        false => make_regular_link(ui, &display_text, location),
-    }
-}
-
-fn make_beatmap_link(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    display_text: egui::RichText,
-    location: &str,
-    on_hover_text: &str,
-) {
-    match state.settings.chat.behaviour.handle_osu_beatmap_links {
-        true => {
-            let resp = ui
-                .link(display_text)
-                .on_hover_text_at_pointer(on_hover_text);
-
-            resp.context_menu(|ui| {
-                menu_item_copy_url(ui, location);
-            });
-
-            if resp.clicked() {
-                ui.output_mut(|o| {
-                    o.open_url = Some(egui::OpenUrl::new_tab(location));
-                });
-            }
-        }
-        false => make_regular_link(ui, &display_text, location),
-    }
-}
-
-fn make_channel_link(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    display_text: egui::RichText,
-    location: &str,
-) {
-    if ui
-        .link(display_text)
-        .on_hover_text_at_pointer(format!("Open {}", location))
-        .clicked()
-    {
-        if state.has_chat(location) {
-            state.core.chat_switch_requested(location, None);
-        } else {
-            state.core.chat_opened(location);
-        }
-    }
 }
