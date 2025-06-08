@@ -17,12 +17,14 @@ pub trait FilterCondition: Sized {
 #[derive(Debug, Default)]
 pub struct UsernameFilter {
     pub input: String,
+    pub input_lowercase: String,
 }
 
 impl From<&str> for UsernameFilter {
     fn from(value: &str) -> Self {
         Self {
-            input: value.to_lowercase().to_owned(),
+            input: value.to_owned(),
+            input_lowercase: value.to_lowercase(),
         }
     }
 }
@@ -32,23 +34,26 @@ impl FilterCondition for UsernameFilter {
         if self.input.is_empty() {
             return true;
         }
-        message.username.to_lowercase().contains(&self.input)
+        message.username_lowercase.contains(&self.input_lowercase)
     }
 
     fn reset(&mut self) {
         self.input.clear();
+        self.input_lowercase.clear();
     }
 }
 
 #[derive(Debug, Default)]
 pub struct TextFilter {
     pub input: String,
+    pub input_lowercase: String,
 }
 
 impl From<&str> for TextFilter {
     fn from(value: &str) -> Self {
         Self {
-            input: value.to_lowercase().to_owned(),
+            input: value.to_owned(),
+            input_lowercase: value.to_lowercase(),
         }
     }
 }
@@ -58,11 +63,12 @@ impl FilterCondition for TextFilter {
         if self.input.is_empty() {
             return true;
         }
-        message.text.to_lowercase().contains(&self.input)
+        message.text_lowercase.contains(&self.input_lowercase)
     }
 
     fn reset(&mut self) {
         self.input.clear();
+        self.input_lowercase.clear();
     }
 }
 
@@ -119,16 +125,22 @@ impl FilterWindow {
                             egui::TextEdit::singleline(&mut state.filter.text.input)
                                 .desired_width(150.),
                         );
+                        if resp.changed() {
+                            state.filter.text.input_lowercase = state.filter.text.input.to_lowercase();
+                        }
                         if activated_now {
                             resp.request_focus();
                         }
                     });
                     ui.horizontal(|ui| {
                         ui.label("username");
-                        ui.add(
+                        let resp = ui.add(
                             egui::TextEdit::singleline(&mut state.filter.username.input)
                                 .desired_width(150.),
                         );
+                        if resp.changed() {
+                            state.filter.username.input_lowercase = state.filter.username.input.to_lowercase();
+                        }
                     });
                     if ui.button("reset").clicked() {
                         state.filter.reset();

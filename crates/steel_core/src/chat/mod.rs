@@ -27,6 +27,10 @@ pub struct Message {
     pub username: String,
     pub text: String,
 
+    // Cached lowercase versions for performance
+    pub username_lowercase: String,
+    pub text_lowercase: String,
+
     // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
     pub id: Option<usize>,
@@ -75,6 +79,8 @@ impl Message {
             r#type,
             username: username.to_string(),
             text: text.to_string(),
+            username_lowercase: username.to_lowercase(),
+            text_lowercase: text.to_lowercase(),
 
             chunks: None,
             id: None,
@@ -115,8 +121,7 @@ impl Message {
     }
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
-        let text = self.text.to_lowercase();
-        let full_message_text = text.trim();
+        let full_message_text = self.text_lowercase.trim();
         let keywords = if let Some(u) = username {
             let mut kw: BTreeSet<String> = keywords.iter().map(|s| s.to_lowercase()).collect();
             kw.insert(u.to_lowercase());
