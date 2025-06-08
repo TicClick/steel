@@ -30,6 +30,11 @@ impl SettingsWindow {
                 }
             });
 
+            ui.horizontal(|ui| {
+                ui.checkbox(&mut state.settings.application.window.auto_scale_with_ppi, "auto-adjust scaling for different monitors")
+                    .on_hover_text_at_pointer("automatically adjust interface scaling when moving between monitors with different pixel densities (e.g., Retina vs standard displays)");
+            });
+
             ui.heading(format!("chat colours ({suffix})"));
 
             ui.horizontal(|ui| {
