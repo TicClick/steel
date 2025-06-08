@@ -101,7 +101,7 @@ fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
             x: settings.application.window.x as f32,
             y: settings.application.window.y as f32,
         }));
-    
+
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::Vec2 {
             x: settings.application.window.width as f32,
             y: settings.application.window.height as f32,

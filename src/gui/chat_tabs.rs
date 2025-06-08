@@ -1,4 +1,5 @@
-use eframe::egui::{self, Frame, Margin, Ui};
+use eframe::egui::{self, Frame, Id, Margin, Ui};
+use egui_dnd::DragDropItem;
 use steel_core::chat::Chat;
 use steel_core::settings::Colour;
 
@@ -15,6 +16,19 @@ use super::context_menu::chat_user::menu_item_open_chat_user_profile;
 use super::context_menu::shared::menu_item_open_chat_log;
 
 const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
+
+// Stabilize indices of the elements in the drag-and-drop zone with channels.
+// Courtesy of lucasmerlin @ https://github.com/lucasmerlin/hello_egui/blob/main/crates/egui_dnd/examples/index_as_id.rs
+struct EnumeratedItem<T> {
+    item: T,
+    index: usize,
+}
+
+impl<T> DragDropItem for EnumeratedItem<T> {
+    fn id(&self) -> Id {
+        Id::new(self.index)
+    }
+}
 
 #[derive(Default)]
 pub struct ChatTabs {
@@ -178,24 +192,26 @@ impl ChatTabs {
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
                 let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show(
-                    relevant_chats.iter(),
-                    |ui, (_, item), handle, _drag_state| {
+                    relevant_chats
+                        .iter()
+                        .map(|(i, item)| EnumeratedItem { index: *i, item }),
+                    |ui, item, handle, _drag_state| {
                         handle.ui(ui, |ui| {
-                            let normalized_chat_name = &item.normalized_name;
+                            let normalized_chat_name = &item.item.normalized_name;
 
                             let background_colour = match *normalized_chat_name == active_chat_name
                             {
                                 true => active_element_bg,
                                 false => egui::Color32::TRANSPARENT,
                             };
-                            let label = egui::RichText::new(item.name.clone())
+                            let label = egui::RichText::new(item.item.name.clone())
                                 .color(pick_tab_colour(state, normalized_chat_name));
 
                             let chat_tab = ui
                                 .horizontal(|ui| {
                                     let button =
                                         ui.add(egui::Button::new(label).fill(background_colour));
-                                    if matches!(item.state, ChatState::JoinInProgress) {
+                                    if matches!(item.item.state, ChatState::JoinInProgress) {
                                         ui.spinner();
                                     }
                                     button
