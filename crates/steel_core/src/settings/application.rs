@@ -23,6 +23,10 @@ pub struct WindowGeometry {
     pub height: i32,
     #[serde(default)]
     pub maximized: bool,
+    #[serde(default)]
+    pub last_ppi: Option<f32>,
+    #[serde(default)]
+    pub auto_scale_with_ppi: bool,
 }
 
 impl Default for WindowGeometry {
@@ -33,6 +37,8 @@ impl Default for WindowGeometry {
             height: 600,
             width: 800,
             maximized: false,
+            last_ppi: None,
+            auto_scale_with_ppi: true, // Enable by default
         }
     }
 }

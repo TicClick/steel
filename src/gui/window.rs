@@ -87,12 +87,23 @@ fn setup_custom_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
+fn set_startup_ui_settings(ctx: &egui::Context, mut settings: Settings) -> Settings {
     setup_custom_fonts(ctx);
 
     ctx.style_mut(|style| {
         style.url_in_tooltip = true;
     });
+
+    // Auto-adjust scaling on startup if enabled
+    if settings.application.window.auto_scale_with_ppi {
+        let current_ppi = ctx.input(|i| i.viewport().native_pixels_per_point.unwrap_or(1.0));
+        if let Some(new_scaling) =
+            should_auto_adjust_scaling(current_ppi, settings.application.window.last_ppi)
+        {
+            settings.ui.scaling = new_scaling;
+            settings.application.window.last_ppi = Some(current_ppi);
+        }
+    }
 
     if settings.application.window.maximized {
         ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
@@ -108,7 +119,8 @@ fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
         }));
     }
 
-    update_ui_settings(ctx, settings);
+    update_ui_settings(ctx, &settings);
+    settings
 }
 
 fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
@@ -120,6 +132,21 @@ fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
     ctx.style_mut(|style| {
         style.url_in_tooltip = true;
     });
+}
+
+fn should_auto_adjust_scaling(current_ppi: f32, last_ppi: Option<f32>) -> Option<f32> {
+    if let Some(last_ppi) = last_ppi {
+        // Check if PPI changed significantly (more than 10% difference)
+        let ppi_change = (current_ppi - last_ppi).abs() / last_ppi;
+        if ppi_change > 0.1 {
+            Some(current_ppi)
+        } else {
+            None
+        }
+    } else {
+        // First time: use current PPI as initial scaling
+        Some(current_ppi)
+    }
 }
 
 pub struct ApplicationWindow {
@@ -143,8 +170,8 @@ impl ApplicationWindow {
         app_queue_handle: UnboundedSender<AppMessageIn>,
         initial_settings: Settings,
     ) -> Self {
-        let state = UIState::new(app_queue_handle, initial_settings.clone());
-        set_startup_ui_settings(&cc.egui_ctx, &initial_settings);
+        let updated_settings = set_startup_ui_settings(&cc.egui_ctx, initial_settings);
+        let state = UIState::new(app_queue_handle, updated_settings);
 
         Self {
             menu: gui::menu::Menu::new(),
@@ -189,6 +216,19 @@ impl ApplicationWindow {
                 self.s.settings.application.window.width = (inner_rect.width() / ppi) as i32;
                 self.s.settings.application.window.height = (inner_rect.height() / ppi) as i32;
             }
+
+            // Auto-adjust scaling based on PPI changes
+            if self.s.settings.application.window.auto_scale_with_ppi {
+                if let Some(new_scaling) =
+                    should_auto_adjust_scaling(ppi, self.s.settings.application.window.last_ppi)
+                {
+                    self.s.settings.ui.scaling = new_scaling;
+                    ctx.set_pixels_per_point(new_scaling);
+                }
+            }
+
+            // Always update the last known PPI
+            self.s.settings.application.window.last_ppi = Some(ppi);
         });
     }
 
