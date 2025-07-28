@@ -254,10 +254,26 @@ impl UIState {
 
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
+        let was_active = self.active_chat_tab_name == normalized;
+
         if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
         }
         self.read_tracker.drop(&normalized);
+
+        if was_active {
+            self.switch_to_first_chat();
+        }
+    }
+
+    pub fn switch_to_first_chat(&mut self) {
+        if let Some(first_chat) = self.chats.first() {
+            self.active_chat_tab_name = first_chat.normalized_name.clone();
+            self.read_tracker
+                .remove_last_read_position(&self.active_chat_tab_name);
+        } else {
+            self.active_chat_tab_name.clear();
+        }
     }
 
     pub fn clear_chat(&mut self, target: &str) {
