@@ -69,7 +69,7 @@ impl SettingsWindow {
                                     egui::RichText::new("FAIL").color(egui::Color32::DARK_RED),
                                 );
                             });
-                            ui.label(format!("{why}"));
+                            ui.label(why.to_string());
                         });
                     }
                 }

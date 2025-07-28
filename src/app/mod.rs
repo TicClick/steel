@@ -285,6 +285,8 @@ impl Application {
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {
+        let cold_start =
+            self.state.chats.is_empty() && matches!(status, ConnectionStatus::Connected);
         self.state.connection = status;
         self.ui_queue
             .send(UIMessageIn::ConnectionStatusChanged(status))
@@ -303,10 +305,16 @@ impl Application {
                     .autojoin
                     .iter()
                     .filter(|ch| !self.state.chats.contains(&ch.to_lowercase()));
-                for chat in wanted_chats.cloned().collect::<Vec<String>>() {
-                    self.save_chat(&chat);
-                    self.ui_add_chat(&chat, false);
-                    self.rejoin_chat(&chat);
+                for (idx, chat) in wanted_chats
+                    .cloned()
+                    .collect::<Vec<String>>()
+                    .iter()
+                    .enumerate()
+                {
+                    let switch_to_chat = cold_start && idx == 0;
+                    self.save_chat(chat);
+                    self.ui_add_chat(chat, switch_to_chat);
+                    self.rejoin_chat(chat);
                 }
             }
             ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
