@@ -25,30 +25,52 @@ impl SettingsWindow {
             .on_hover_text_at_pointer(hint);
 
             ui.label("update URL");
-            let url = egui::TextEdit::multiline(&mut state.settings.application.autoupdate.url)
-                .hint_text("should point to release metadata");
-            ui.add(url);
+            let url_response = ui.add(
+                egui::TextEdit::multiline(&mut state.settings.application.autoupdate.url)
+                    .hint_text("should point to release metadata"),
+            );
+
+            // Apply URL changes automatically when the text field loses focus
+            if url_response.lost_focus() {
+                state
+                    .core
+                    .update_settings_changed(&state.settings.application.autoupdate);
+            }
+
             ui.horizontal(|ui| {
-                if ui.button("apply").on_hover_text_at_pointer(
-                    "test and set the URL -- it will be used for the next update cycle if it contains correctly structured data"
-                ).clicked() {
-                    state.core.update_settings_changed(&state.settings.application.autoupdate);
-                }
-                if ui.button("revert").on_hover_text_at_pointer(
-                    "roll back the URL to its default value"
-                ).clicked() {
+                if ui
+                    .button("revert")
+                    .on_hover_text_at_pointer("roll back the URL to its default value")
+                    .clicked()
+                {
                     state.settings.application.autoupdate.url = updater::default_update_url();
-                    state.core.update_settings_changed(&state.settings.application.autoupdate);
+                    state
+                        .core
+                        .update_settings_changed(&state.settings.application.autoupdate);
                 }
             });
 
             if let Some(test_result) = &state.update_state.url_test_result {
                 match test_result {
                     Ok(_) => {
-                        ui.label("apply result: OK");
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x = 0.0;
+
+                            ui.label("URL validation: ");
+                            ui.label(egui::RichText::new("OK").color(egui::Color32::DARK_GREEN));
+                        });
                     }
                     Err(why) => {
-                        ui.label(format!("apply result: FAIL ({})", why));
+                        ui.vertical(|ui| {
+                            ui.horizontal(|ui| {
+                                ui.spacing_mut().item_spacing.x = 0.0;
+                                ui.label("URL validation: ");
+                                ui.label(
+                                    egui::RichText::new("FAIL").color(egui::Color32::DARK_RED),
+                                );
+                            });
+                            ui.label(format!("{why}"));
+                        });
                     }
                 }
             }

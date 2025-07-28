@@ -170,7 +170,11 @@ impl Application {
 
     pub fn change_updater_settings(&mut self, s: AutoUpdate) {
         if let Some(u) = &mut self.updater {
+            let url_changed = u.settings.url != s.url;
             u.change_settings(s);
+            if url_changed {
+                u.force_check_after_url_change();
+            }
         }
     }
 

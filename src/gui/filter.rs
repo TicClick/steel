@@ -126,7 +126,8 @@ impl FilterWindow {
                                 .desired_width(150.),
                         );
                         if resp.changed() {
-                            state.filter.text.input_lowercase = state.filter.text.input.to_lowercase();
+                            state.filter.text.input_lowercase =
+                                state.filter.text.input.to_lowercase();
                         }
                         if activated_now {
                             resp.request_focus();
@@ -139,7 +140,8 @@ impl FilterWindow {
                                 .desired_width(150.),
                         );
                         if resp.changed() {
-                            state.filter.username.input_lowercase = state.filter.username.input.to_lowercase();
+                            state.filter.username.input_lowercase =
+                                state.filter.username.input.to_lowercase();
                         }
                     });
                     if ui.button("reset").clicked() {
