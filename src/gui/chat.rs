@@ -9,7 +9,7 @@ use steel_core::TextStyle;
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
-use crate::gui::DecoratedText;
+use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN};
 
 use crate::gui::command;
 
@@ -135,204 +135,211 @@ impl ChatWindow {
         // The values are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
         // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
-        egui::CentralPanel::default().show(ctx, |ui| {
-            if self
-                .command_helper
-                .has_applicable_commands(&self.chat_input)
-            {
-                egui::Window::new("chat-command-hint-layer")
-                    .title_bar(false)
-                    .resizable(false)
-                    .pivot(egui::Align2::LEFT_BOTTOM)
-                    .fixed_pos(ui.available_rect_before_wrap().left_bottom())
-                    .show(ctx, |ui| {
-                        self.command_helper.show(
-                            ui,
-                            state,
-                            &mut self.chat_input,
-                            &self.response_widget_id,
-                        );
-                    });
-            }
-
-            // Disable scrolling to avoid resetting context menu.
-            let stick_chat_to_bottom = !self.user_context_menu_open;
-            self.user_context_menu_open = false;
-
-            // Chat row spacing, which is by default zero for table rows.
-            ui.spacing_mut().item_spacing.y = 2.;
-            self.widget_width = ui.available_width();
-
-            let chat_row_height = *self
-                .chat_row_height
-                .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
-
-            // Add a fake row, the side of the chat view, to the scroll view hosting the table with chat messages.
-            let add_fake_row = state.active_chat().is_some()
-                && matches!(
-                    state.settings.chat.behaviour.chat_position,
-                    ChatPosition::Bottom
-                );
-            let chat_row_count = match add_fake_row {
-                true => state.chat_message_count() + 1,
-                false => state.chat_message_count(),
-            };
-
-            self.cached_row_heights
-                .entry(state.active_chat_tab_name.clone())
-                .or_default()
-                .resize(chat_row_count, chat_row_height);
-
-            ui.push_id(&state.active_chat_tab_name, |ui| {
-                let view_height = ui.available_height();
-                let view_width = ui.available_width();
-
-                let mut builder = TableBuilder::new(ui);
-                if let Some(message_id) = self.scroll_to {
-                    builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
-                    self.scroll_to = None;
-                } else {
-                    builder = builder.stick_to_bottom(stick_chat_to_bottom);
+        egui::CentralPanel::default()
+            .frame(
+                egui::Frame::central_panel(&ctx.style()).inner_margin(CENTRAL_PANEL_INNER_MARGIN),
+            )
+            .show(ctx, |ui| {
+                if self
+                    .command_helper
+                    .has_applicable_commands(&self.chat_input)
+                {
+                    egui::Window::new("chat-command-hint-layer")
+                        .title_bar(false)
+                        .resizable(false)
+                        .pivot(egui::Align2::LEFT_BOTTOM)
+                        .fixed_pos(ui.available_rect_before_wrap().left_bottom())
+                        .show(ctx, |ui| {
+                            self.command_helper.show(
+                                ui,
+                                state,
+                                &mut self.chat_input,
+                                &self.response_widget_id,
+                            );
+                        });
                 }
 
-                let heights = self.cached_row_heights[&state.active_chat_tab_name]
-                    .clone()
-                    .into_iter();
+                // Disable scrolling to avoid resetting context menu.
+                let stick_chat_to_bottom = !self.user_context_menu_open;
+                self.user_context_menu_open = false;
 
-                let scroll_area_output = builder
-                    .max_scroll_height(view_height)
-                    .column(Column::remainder())
-                    .auto_shrink([false; 2])
-                    .body(|body| {
-                        if let Some(ch) = state.active_chat() {
-                            // Filter the messages. I can probably only pass the references around instead of copying
-                            // the whole object, and avoid code duplication, but input types don't match, and I don't
-                            // have enough vigor to rewrite `Chat` in a way that `ch.messages` only stores their references.
+                // Chat row spacing, which is by default zero for table rows.
+                ui.spacing_mut().item_spacing.y = 2.;
+                self.widget_width = ui.available_width();
 
-                            // Note: I have decided to always keep direction of the filtered messages top-to-bottom,
-                            // as opposed to the regular chat view (may be both). May change it later, but not today.
+                let chat_row_height = *self
+                    .chat_row_height
+                    .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
 
-                            if state.filter.active {
-                                let mut filtered_payload = Vec::new();
-                                let mut filtered_heights = Vec::new();
-                                let mut original_indices = Vec::new();
+                // Add a fake row, the side of the chat view, to the scroll view hosting the table with chat messages.
+                let add_fake_row = state.active_chat().is_some()
+                    && matches!(
+                        state.settings.chat.behaviour.chat_position,
+                        ChatPosition::Bottom
+                    );
+                let chat_row_count = match add_fake_row {
+                    true => state.chat_message_count() + 1,
+                    false => state.chat_message_count(),
+                };
 
-                                let heights: Vec<f32> = heights.collect();
-                                for (idx, m) in ch.messages.iter().enumerate() {
-                                    if state.filter.matches(m) {
-                                        filtered_payload.push(m);
-                                        filtered_heights.push(heights[idx]);
-                                        original_indices.push(idx);
+                self.cached_row_heights
+                    .entry(state.active_chat_tab_name.clone())
+                    .or_default()
+                    .resize(chat_row_count, chat_row_height);
+
+                ui.push_id(&state.active_chat_tab_name, |ui| {
+                    let view_height = ui.available_height();
+                    let view_width = ui.available_width();
+
+                    let mut builder = TableBuilder::new(ui);
+                    if let Some(message_id) = self.scroll_to {
+                        builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
+                        self.scroll_to = None;
+                    } else {
+                        builder = builder.stick_to_bottom(stick_chat_to_bottom);
+                    }
+
+                    let heights = self.cached_row_heights[&state.active_chat_tab_name]
+                        .clone()
+                        .into_iter();
+
+                    let scroll_area_output = builder
+                        .max_scroll_height(view_height)
+                        .column(Column::remainder())
+                        .auto_shrink([false; 2])
+                        .body(|body| {
+                            if let Some(ch) = state.active_chat() {
+                                // Filter the messages. I can probably only pass the references around instead of copying
+                                // the whole object, and avoid code duplication, but input types don't match, and I don't
+                                // have enough vigor to rewrite `Chat` in a way that `ch.messages` only stores their references.
+
+                                // Note: I have decided to always keep direction of the filtered messages top-to-bottom,
+                                // as opposed to the regular chat view (may be both). May change it later, but not today.
+
+                                if state.filter.active {
+                                    let mut filtered_payload = Vec::new();
+                                    let mut filtered_heights = Vec::new();
+                                    let mut original_indices = Vec::new();
+
+                                    let heights: Vec<f32> = heights.collect();
+                                    for (idx, m) in ch.messages.iter().enumerate() {
+                                        if state.filter.matches(m) {
+                                            filtered_payload.push(m);
+                                            filtered_heights.push(heights[idx]);
+                                            original_indices.push(idx);
+                                        }
                                     }
-                                }
 
-                                body.heterogeneous_rows(filtered_heights.into_iter(), |mut row| {
-                                    let row_index = row.index();
-                                    row.col(|ui| {
-                                        self.user_context_menu_open |= self
-                                            .show_regular_chat_single_message(
-                                                ui,
-                                                state,
-                                                ch,
-                                                &ch.messages[original_indices[row_index]],
-                                                row_index,
-                                                false,
-                                                0.0,
-                                            );
-                                    });
-                                });
-                            } else {
-                                body.heterogeneous_rows(heights, |mut row| {
-                                    let row_index = row.index();
-                                    if row.index() == 0 && add_fake_row {
-                                        let sz = view_height - chat_row_height - 4.0;
-                                        row.col(|ui| {
-                                            ui.allocate_space(egui::Vec2 {
-                                                x: view_width,
-                                                y: sz,
+                                    body.heterogeneous_rows(
+                                        filtered_heights.into_iter(),
+                                        |mut row| {
+                                            let row_index = row.index();
+                                            row.col(|ui| {
+                                                self.user_context_menu_open |= self
+                                                    .show_regular_chat_single_message(
+                                                        ui,
+                                                        state,
+                                                        ch,
+                                                        &ch.messages[original_indices[row_index]],
+                                                        row_index,
+                                                        false,
+                                                        0.0,
+                                                    );
                                             });
-                                        });
-                                        self.cached_row_heights
-                                            .get_mut(&state.active_chat_tab_name)
-                                            .unwrap()[0] = sz;
-                                    } else {
-                                        let message_idx = match add_fake_row {
-                                            true => row_index - 1,
-                                            false => row_index,
-                                        };
-                                        let message = &ch.messages[message_idx];
-
-                                        row.col(|ui| {
-                                            let marker_shown = self.maybe_show_unread_marker(
-                                                ui,
-                                                state,
-                                                &state.active_chat_tab_name,
-                                                message_idx,
-                                                chat_row_height,
-                                            );
-
-                                            let marker_height = match marker_shown {
-                                                true => chat_row_height,
-                                                false => 0.0,
+                                        },
+                                    );
+                                } else {
+                                    body.heterogeneous_rows(heights, |mut row| {
+                                        let row_index = row.index();
+                                        if row.index() == 0 && add_fake_row {
+                                            let sz = view_height - chat_row_height - 4.0;
+                                            row.col(|ui| {
+                                                ui.allocate_space(egui::Vec2 {
+                                                    x: view_width,
+                                                    y: sz,
+                                                });
+                                            });
+                                            self.cached_row_heights
+                                                .get_mut(&state.active_chat_tab_name)
+                                                .unwrap()[0] = sz;
+                                        } else {
+                                            let message_idx = match add_fake_row {
+                                                true => row_index - 1,
+                                                false => row_index,
                                             };
+                                            let message = &ch.messages[message_idx];
 
-                                            self.user_context_menu_open |= self
-                                                .show_regular_chat_single_message(
+                                            row.col(|ui| {
+                                                let marker_shown = self.maybe_show_unread_marker(
                                                     ui,
                                                     state,
-                                                    ch,
-                                                    message,
-                                                    row_index,
-                                                    true,
-                                                    marker_height,
+                                                    &state.active_chat_tab_name,
+                                                    message_idx,
+                                                    chat_row_height,
                                                 );
+
+                                                let marker_height = match marker_shown {
+                                                    true => chat_row_height,
+                                                    false => 0.0,
+                                                };
+
+                                                self.user_context_menu_open |= self
+                                                    .show_regular_chat_single_message(
+                                                        ui,
+                                                        state,
+                                                        ch,
+                                                        message,
+                                                        row_index,
+                                                        true,
+                                                        marker_height,
+                                                    );
+                                            });
+                                        }
+                                    });
+                                }
+                            } else {
+                                match state.active_chat_tab_name.as_str() {
+                                    super::SERVER_TAB_NAME => {
+                                        let server_tab_styles = Some(vec![TextStyle::Monospace]);
+                                        body.heterogeneous_rows(heights, |mut row| {
+                                            let row_index = row.index();
+                                            row.col(|ui| {
+                                                self.show_server_tab_single_message(
+                                                    ui,
+                                                    state,
+                                                    row_index,
+                                                    &server_tab_styles,
+                                                )
+                                            });
                                         });
                                     }
-                                });
-                            }
-                        } else {
-                            match state.active_chat_tab_name.as_str() {
-                                super::SERVER_TAB_NAME => {
-                                    let server_tab_styles = Some(vec![TextStyle::Monospace]);
-                                    body.heterogeneous_rows(heights, |mut row| {
-                                        let row_index = row.index();
-                                        row.col(|ui| {
-                                            self.show_server_tab_single_message(
-                                                ui,
-                                                state,
-                                                row_index,
-                                                &server_tab_styles,
-                                            )
+                                    super::HIGHLIGHTS_TAB_NAME => {
+                                        body.heterogeneous_rows(heights, |mut row| {
+                                            let row_index = row.index();
+                                            row.col(|ui| {
+                                                self.show_highlights_tab_single_message(
+                                                    ui, state, row_index,
+                                                )
+                                            });
                                         });
-                                    });
+                                    }
+                                    _ => (),
                                 }
-                                super::HIGHLIGHTS_TAB_NAME => {
-                                    body.heterogeneous_rows(heights, |mut row| {
-                                        let row_index = row.index();
-                                        row.col(|ui| {
-                                            self.show_highlights_tab_single_message(
-                                                ui, state, row_index,
-                                            )
-                                        });
-                                    });
-                                }
-                                _ => (),
                             }
-                        }
-                    });
+                        });
 
-                // Decide if a shadow should be drawn.
-                let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
-                let offscreen_area_height =
-                    scroll_area_output.content_size.y - scroll_view_bottom_y;
+                    // Decide if a shadow should be drawn.
+                    let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
+                    let offscreen_area_height =
+                        scroll_area_output.content_size.y - scroll_view_bottom_y;
 
-                // Side comment: it would be nice to get the scroll view position rounded down, so that sub-pixel jitters
-                //   don't disable autoscrolling (apparently this happens when offscreen_area_height >= eps).
-                if offscreen_area_height > 1. {
-                    ui.add(InnerShadow::new(20));
-                }
+                    // Side comment: it would be nice to get the scroll view position rounded down, so that sub-pixel jitters
+                    //   don't disable autoscrolling (apparently this happens when offscreen_area_height >= eps).
+                    if offscreen_area_height > 1. {
+                        ui.add(InnerShadow::new(20));
+                    }
+                });
             });
-        });
     }
 
     #[allow(clippy::too_many_arguments)]
