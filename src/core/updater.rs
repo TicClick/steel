@@ -94,7 +94,7 @@ fn set_state(
 #[derive(Debug)]
 pub struct Updater {
     state: Arc<Mutex<UpdateState>>,
-    settings: AutoUpdate,
+    pub settings: AutoUpdate,
     th: std::thread::JoinHandle<()>,
     backend_channel: UnboundedSender<BackendRequest>,
 }
@@ -131,6 +131,12 @@ impl Updater {
             self.toggle_autoupdate(new_settings.enabled);
         }
         self.settings = new_settings;
+    }
+
+    pub fn force_check_after_url_change(&self) {
+        self.backend_channel
+            .send(BackendRequest::InitiateAutoupdate)
+            .unwrap();
     }
 
     pub fn toggle_autoupdate(&self, enabled: bool) {
@@ -204,8 +210,20 @@ impl UpdaterBackend {
         channel: UnboundedReceiver<BackendRequest>,
         core: UnboundedSender<AppMessageIn>,
     ) -> Self {
+        let src: UpdateSource = settings.url.clone().into();
+        let should_force_update = settings.url != default_update_url();
+
+        if should_force_update {
+            let mut guard = state.lock().unwrap();
+            guard.force_update = true;
+            guard.url_test_result = match test_update_url(&settings.url) {
+                Ok(_) => Some(Ok(())),
+                Err(e) => Some(Err(e)),
+            };
+        }
+
         Self {
-            src: settings.url.into(),
+            src,
             state,
             self_channel,
             channel,
@@ -240,39 +258,55 @@ impl UpdaterBackend {
     }
 
     fn change_url(&mut self, url: String) {
-        match &self.src {
-            UpdateSource::Gist(s) | UpdateSource::GitHub(s) => {
-                if s == &url {
-                    return;
-                }
+        let url_unchanged = match &self.src {
+            UpdateSource::Gist(s) | UpdateSource::GitHub(s) => s == &url,
+        };
+
+        if url_unchanged {
+            {
+                let mut guard = self.state.lock().unwrap();
+                guard.url_test_result = Some(Ok(()));
             }
+            set_state(&self.state, State::Idle, &self.core);
+            return;
         }
 
         match test_update_url(&url) {
             Ok(src) => {
                 log::debug!("updater: change url {:?} -> {:?}", self.src, src);
                 self.src = src;
-                let mut guard = self.state.lock().unwrap();
-                guard.url_test_result = Some(Ok(()));
-                guard.force_update = true;
+                {
+                    let mut guard = self.state.lock().unwrap();
+                    guard.url_test_result = Some(Ok(()));
+                    guard.force_update = true;
+                }
+                set_state(&self.state, State::Idle, &self.core);
+                // Automatically trigger update check after successful URL change
+                self.run_update_cycle();
             }
             Err(e) => {
-                let mut guard = self.state.lock().unwrap();
-                guard.force_update = false;
-                guard.url_test_result = Some(Err(e));
+                {
+                    let mut guard = self.state.lock().unwrap();
+                    guard.force_update = false;
+                    guard.url_test_result = Some(Err(e));
+                }
+                set_state(&self.state, State::Idle, &self.core);
             }
         }
-        set_state(&self.state, State::Idle, &self.core);
     }
 
     fn run_update_cycle(&mut self) {
+        // Always attempt metadata fetch if force_update is set (e.g., after URL change)
+        let force_update = self.state.lock().unwrap().force_update;
+
         let enough_time_slept = match self.last_autoupdate_run {
             None => true,
             Some(when) => {
                 (chrono::Local::now() - when).num_minutes() >= AUTOUPDATE_INTERVAL_MINUTES
             }
         };
-        if !(enough_time_slept && self.autoupdate) {
+
+        if !(force_update || (enough_time_slept && self.autoupdate)) {
             return;
         }
 
@@ -352,6 +386,7 @@ impl UpdaterBackend {
                     for release in releases {
                         if release.platform_specific_asset().is_some() {
                             log::debug!("latest relevant release: {:?}", release);
+                            self.state.lock().unwrap().url_test_result = Some(Ok(()));
                             set_state(&self.state, State::MetadataReady(release), &self.core);
                             return;
                         }
