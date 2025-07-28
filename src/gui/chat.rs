@@ -9,7 +9,7 @@ use steel_core::TextStyle;
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
-use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN};
+use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN_Y};
 
 use crate::gui::command;
 
@@ -75,53 +75,62 @@ impl ChatWindow {
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         let interactive = state.is_connected() && state.active_chat().is_some();
         if interactive {
-            egui::TopBottomPanel::bottom("input").show(ctx, |ui| {
-                ui.vertical_centered_justified(|ui| {
-                    let message_length_exceeded = self.chat_input.len() >= 450;
+            egui::TopBottomPanel::bottom("input")
+                .frame(
+                    egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
+                        left: 8.0,
+                        right: 8.0,
+                        top: 2.,
+                        bottom: 4.0,
+                    }),
+                )
+                .show(ctx, |ui| {
+                    ui.vertical_centered_justified(|ui| {
+                        let message_length_exceeded = self.chat_input.len() >= 450;
 
-                    // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-                    let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                        .char_limit(MAX_MESSAGE_LENGTH)
-                        .id_source("chat-input")
-                        .hint_text("new message");
-                    if message_length_exceeded {
-                        text_field = text_field.text_color(egui::Color32::RED);
-                    }
-
-                    ui.add_space(8.);
-                    let mut response = ui.add(text_field);
-                    if message_length_exceeded {
-                        response = response.on_hover_text_at_pointer(format!(
-                            "messages longer than {} characters are truncated",
-                            MAX_MESSAGE_LENGTH
-                        ));
-                    }
-                    self.response_widget_id = Some(response.id);
-                    ui.add_space(2.);
-
-                    if let Some(ch) = state.active_chat() {
-                        if response.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                            && !{
-                                let result = self
-                                    .command_helper
-                                    .detect_and_run(state, &mut self.chat_input);
-                                if result {
-                                    self.return_focus(ctx, state);
-                                }
-                                result
-                            }
-                        {
-                            let trimmed_message = self.chat_input.trim();
-                            if !trimmed_message.is_empty() {
-                                state.core.chat_message_sent(&ch.name, trimmed_message);
-                            }
-                            self.chat_input.clear();
-                            response.request_focus();
+                        // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+                        let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                            .char_limit(MAX_MESSAGE_LENGTH)
+                            .id_source("chat-input")
+                            .hint_text("new message");
+                        if message_length_exceeded {
+                            text_field = text_field.text_color(egui::Color32::RED);
                         }
-                    }
+
+                        ui.add_space(8.);
+                        let mut response = ui.add(text_field);
+                        if message_length_exceeded {
+                            response = response.on_hover_text_at_pointer(format!(
+                                "messages longer than {} characters are truncated",
+                                MAX_MESSAGE_LENGTH
+                            ));
+                        }
+                        self.response_widget_id = Some(response.id);
+                        ui.add_space(2.);
+
+                        if let Some(ch) = state.active_chat() {
+                            if response.lost_focus()
+                                && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                                && !{
+                                    let result = self
+                                        .command_helper
+                                        .detect_and_run(state, &mut self.chat_input);
+                                    if result {
+                                        self.return_focus(ctx, state);
+                                    }
+                                    result
+                                }
+                            {
+                                let trimmed_message = self.chat_input.trim();
+                                if !trimmed_message.is_empty() {
+                                    state.core.chat_message_sent(&ch.name, trimmed_message);
+                                }
+                                self.chat_input.clear();
+                                response.request_focus();
+                            }
+                        }
+                    });
                 });
-            });
         } else {
             self.response_widget_id = None;
         }
@@ -137,7 +146,8 @@ impl ChatWindow {
 
         egui::CentralPanel::default()
             .frame(
-                egui::Frame::central_panel(&ctx.style()).inner_margin(CENTRAL_PANEL_INNER_MARGIN),
+                egui::Frame::central_panel(&ctx.style())
+                    .inner_margin(egui::Margin::symmetric(8.0, CENTRAL_PANEL_INNER_MARGIN_Y)),
             )
             .show(ctx, |ui| {
                 if self
