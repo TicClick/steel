@@ -89,7 +89,7 @@ impl AutojoinSection {
     pub fn show(&mut self, settings: &mut Settings, ui: &mut eframe::egui::Ui) {
         ui.vertical(|ui| {
             ui.heading("auto-join channels").on_hover_text_at_pointer(
-                "your favourite channels -- they will be automatically open on connect",
+                "your favourite channels -- they will be automatically opened after connecting",
             );
             Self::display_editable_container(
                 settings,
@@ -100,8 +100,8 @@ impl AutojoinSection {
         });
 
         ui.vertical(|ui| {
-            ui.heading("auto-open chats").on_hover_text_at_pointer(
-                "your favourite users -- their chat windows will be automatically open on connect",
+            ui.heading("auto-open private messages").on_hover_text_at_pointer(
+                "your favourite users -- chats with them will be automatically opened after connecting",
             );
             Self::display_editable_container(
                 settings,
