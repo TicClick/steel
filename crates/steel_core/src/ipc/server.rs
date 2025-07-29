@@ -7,6 +7,7 @@ use crate::settings::Settings;
 #[derive(Debug)]
 pub enum AppMessageIn {
     ConnectionChanged(ConnectionStatus),
+    ConnectionActivity,
     ChatError(IRCError),
     ChatMessageReceived { target: String, message: Message },
     ServerMessageReceived { content: String },

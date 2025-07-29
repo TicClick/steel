@@ -11,11 +11,13 @@ use crate::gui::read_tracker;
 
 use super::filter::FilterCollection;
 use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
 #[derive(Debug)]
 pub enum UIMessageIn {
     SettingsChanged(Settings),
     ConnectionStatusChanged(ConnectionStatus),
+    ConnectionActivity,
     NewMessageReceived { target: String, message: Message },
     NewServerMessageReceived(String),
     NewChatRequested(String, ChatState),
@@ -42,6 +44,8 @@ pub struct UIState {
     pub glass: glass::Glass,
 
     pub filter: FilterCollection,
+
+    pub connection_indicator: ConnectionIndicator,
 }
 
 impl UIState {
@@ -65,6 +69,8 @@ impl UIState {
             },
 
             filter: FilterCollection::default(),
+
+            connection_indicator: ConnectionIndicator::new(false),
         }
     }
 
