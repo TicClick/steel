@@ -43,10 +43,35 @@ pub enum ChatBackend {
     API,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+fn default_irc_server() -> String {
+    "irc.ppy.sh".into()
+}
+
+fn default_irc_ping_timeout() -> u32 {
+    40
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IRCChatSettings {
     pub username: String,
     pub password: String,
+
+    #[serde(default = "default_irc_server")]
+    pub server: String,
+
+    #[serde(default = "default_irc_ping_timeout")]
+    pub ping_timeout: u32,
+}
+
+impl Default for IRCChatSettings {
+    fn default() -> Self {
+        Self {
+            username: String::new(),
+            password: String::new(),
+            server: default_irc_server(),
+            ping_timeout: default_irc_ping_timeout(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]

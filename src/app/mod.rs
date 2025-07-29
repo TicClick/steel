@@ -492,7 +492,12 @@ impl Application {
             ConnectionStatus::Connected | ConnectionStatus::InProgress => {}
             ConnectionStatus::Disconnected { .. } | ConnectionStatus::Scheduled(_) => {
                 let irc_config = self.state.settings.chat.irc.clone();
-                self.irc.connect(&irc_config.username, &irc_config.password);
+                self.irc.connect(
+                    &irc_config.username,
+                    &irc_config.password,
+                    &irc_config.server,
+                    irc_config.ping_timeout,
+                );
             }
         }
     }

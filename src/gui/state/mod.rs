@@ -50,6 +50,7 @@ pub struct UIState {
 
 impl UIState {
     pub fn new(app_queue_handle: UnboundedSender<AppMessageIn>, settings: Settings) -> Self {
+        let irc_settings = settings.chat.irc.clone();
         Self {
             connection: ConnectionStatus::default(),
             settings,
@@ -70,7 +71,11 @@ impl UIState {
 
             filter: FilterCollection::default(),
 
-            connection_indicator: ConnectionIndicator::new(false),
+            connection_indicator: ConnectionIndicator::new(
+                false,
+                irc_settings.server,
+                irc_settings.ping_timeout,
+            ),
         }
     }
 

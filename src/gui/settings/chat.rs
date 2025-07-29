@@ -184,6 +184,26 @@ impl SettingsWindow {
                                 self.visible_password = !self.visible_password;
                             }
                         });
+
+                        ui.horizontal(|ui| {
+                            ui.label("IRC server");
+                            let input =
+                                egui::TextEdit::singleline(&mut state.settings.chat.irc.server);
+                            ui.add(input).on_hover_text_at_pointer(
+                                "possible options: \n\
+                                - cho.ppy.sh\n\
+                                - irc.ppy.sh"
+                            );
+                        });
+
+                        ui.horizontal(|ui: &mut egui::Ui| {
+                            ui.label("ping timeout");
+                            let input = egui::Slider::new(&mut state.settings.chat.irc.ping_timeout, 15..=120).integer();
+                            ui.add(input).on_hover_text_at_pointer(
+                                "if there's no data from the server for this amount of time, reconnect.\n\
+                                large values help when on slow/unstable network, but may keep you hanging."
+                            );
+                        });
                     });
                 }
                 ChatBackend::API => {
