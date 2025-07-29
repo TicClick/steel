@@ -1,6 +1,6 @@
 use eframe::egui;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConnectionIndicator {
     last_update: chrono::DateTime<chrono::Local>,
     connected: bool,

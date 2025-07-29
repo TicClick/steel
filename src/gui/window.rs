@@ -218,6 +218,19 @@ impl ApplicationWindow {
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
                 self.s.connection = conn;
+                match conn {
+                    steel_core::chat::ConnectionStatus::Connected => {
+                        self.s.connection_indicator.connect();
+                    }
+                    steel_core::chat::ConnectionStatus::Disconnected { .. } => {
+                        self.s.connection_indicator.disconnect();
+                    }
+                    _ => {}
+                }
+            }
+
+            UIMessageIn::ConnectionActivity => {
+                self.s.connection_indicator.refresh();
             }
 
             UIMessageIn::NewChatRequested { target, switch } => {

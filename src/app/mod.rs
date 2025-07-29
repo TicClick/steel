@@ -63,6 +63,9 @@ impl Application {
                 AppMessageIn::ConnectionChanged(status) => {
                     self.handle_connection_status(status);
                 }
+                AppMessageIn::ConnectionActivity => {
+                    self.ui_queue.send(UIMessageIn::ConnectionActivity).unwrap();
+                }
                 AppMessageIn::ChatMessageReceived { target, message } => {
                     self.handle_chat_message(&target, message);
                 }
@@ -291,6 +294,7 @@ impl Application {
         self.ui_queue
             .send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
+
         log::debug!("IRC connection status changed to {:?}", status);
         match status {
             ConnectionStatus::Connected => {

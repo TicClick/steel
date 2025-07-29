@@ -102,6 +102,8 @@ pub fn dispatch_message(
     msg: irc_proto::Message,
     own_username: &str,
 ) {
+    sender.send(AppMessageIn::ConnectionActivity).unwrap();
+
     match msg.command {
         Command::PRIVMSG(..) => self::privmsg_handler(sender, msg),
 
