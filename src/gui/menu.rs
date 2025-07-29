@@ -1,6 +1,9 @@
-use eframe::egui::{self, global_theme_preference_switch};
+use eframe::egui::{self, global_theme_preference_switch, Widget};
 
-use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
+use crate::{
+    core::settings::ui::ThemeMode, gui::widgets::connection_indicator::ConnectionIndicator,
+    LOG_FILE_NAME,
+};
 use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
 
 use crate::gui::state::UIState;
@@ -13,6 +16,7 @@ pub struct Menu {
     pub show_usage: bool,
 
     pin_window: bool,
+    pub connection_indicator: ConnectionIndicator,
 }
 
 impl Menu {
@@ -46,6 +50,8 @@ impl Menu {
                 self.show_application_menu(ui, ctx, frame, state);
                 self.show_chat_menu(ui, ctx, state, response_widget_id);
                 self.show_help_menu(ui, ctx, state);
+
+                self.connection_indicator.clone().ui(ui);
 
                 let ui_spacing = ui.spacing_mut();
                 ui_spacing.item_spacing.x = 0.0;
