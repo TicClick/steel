@@ -126,7 +126,7 @@ impl SettingsWindow {
                             user_button.context_menu(|ui| {
                                 if ui.button("Remove").clicked() {
                                     remove_user = true;
-                                    ui.close_menu();
+                                    ui.close();
                                 }
                             });
                             if remove_user {

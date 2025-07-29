@@ -78,10 +78,10 @@ impl ChatWindow {
             egui::TopBottomPanel::bottom("input")
                 .frame(
                     egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
-                        left: 8.0,
-                        right: 8.0,
-                        top: 2.,
-                        bottom: 4.0,
+                        left: 8,
+                        right: 8,
+                        top: 0,
+                        bottom: 2,
                     }),
                 )
                 .show(ctx, |ui| {
@@ -147,7 +147,7 @@ impl ChatWindow {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::central_panel(&ctx.style())
-                    .inner_margin(egui::Margin::symmetric(8.0, CENTRAL_PANEL_INNER_MARGIN_Y)),
+                    .inner_margin(egui::Margin::symmetric(8, CENTRAL_PANEL_INNER_MARGIN_Y)),
             )
             .show(ctx, |ui| {
                 if self
@@ -603,7 +603,7 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
         chat_button.context_menu(|ui| {
             if ui.button("Go to message").clicked() {
                 switch_requested = true;
-                ui.close_menu();
+                ui.close();
             }
         });
         if switch_requested {

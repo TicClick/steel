@@ -50,10 +50,13 @@ pub enum BackendRequest {
 }
 
 pub fn test_update_url(url: &str) -> Result<UpdateSource, String> {
-    match ureq::request("GET", url).call() {
+    match ureq::get(url).call() {
         Err(e) => Err(e.to_string()),
-        Ok(payload) => {
-            let v = payload.into_string().unwrap();
+        Ok(mut payload) => {
+            let v = payload
+                .body_mut()
+                .read_to_string()
+                .map_err(|e| e.to_string())?;
             match serde_json::from_str::<Vec<ReleaseMetadataGitHub>>(&v) {
                 Ok(_) => Ok(UpdateSource::GitHub(url.to_owned())),
                 Err(_) => match serde_json::from_str::<ReleaseMetadataGist>(&v) {
@@ -356,8 +359,8 @@ impl UpdaterBackend {
 
     // The metadata file should mirror GitHub API response from /repos/{user}/{repo}/releases
     fn fetch_metadata_gist(&self, url: &str) {
-        match ureq::request("GET", url).call() {
-            Ok(payload) => match payload.into_json::<ReleaseMetadataGist>() {
+        match ureq::get(url).call() {
+            Ok(mut payload) => match payload.body_mut().read_json::<ReleaseMetadataGist>() {
                 Ok(files) => {
                     if let Some(metadata_file) = files.files.get(GIST_METADATA_FILENAME) {
                         self.fetch_metadata_github(&metadata_file.raw_url);
@@ -376,8 +379,8 @@ impl UpdaterBackend {
     }
 
     fn fetch_metadata_github(&self, url: &str) {
-        match ureq::request("GET", url).call() {
-            Ok(payload) => match payload.into_json::<Vec<ReleaseMetadataGitHub>>() {
+        match ureq::get(url).call() {
+            Ok(mut payload) => match payload.body_mut().read_json::<Vec<ReleaseMetadataGitHub>>() {
                 Ok(mut releases) => {
                     // Descending order
                     releases
@@ -413,7 +416,7 @@ impl UpdaterBackend {
                 );
                 set_state(&self.state, State::FetchingRelease(0, None), &self.core);
 
-                match ureq::request("GET", &a.browser_download_url).call() {
+                match ureq::get(&a.browser_download_url).call() {
                     Ok(r) => {
                         let state = self.state.clone();
                         let core = self.core.clone();
@@ -522,13 +525,15 @@ impl UpdaterBackend {
 }
 
 fn download(
-    r: ureq::Response,
+    mut r: ureq::http::Response<ureq::Body>,
     state: Arc<Mutex<UpdateState>>,
     core: UnboundedSender<AppMessageIn>,
 ) -> Result<Vec<u8>, std::io::Error> {
     let chunk_sz = 1 << 18; // 256K
     let total_bytes: Option<usize> = r
-        .header("Content-Length")
+        .headers()
+        .get("Content-Length")
+        .and_then(|value| value.to_str().ok())
         .and_then(|value| value.parse().ok());
 
     let initial_state = State::FetchingRelease(0, total_bytes);
@@ -536,7 +541,7 @@ fn download(
 
     let mut chunk = Vec::with_capacity(chunk_sz);
     let mut data = Vec::new();
-    let mut stream = r.into_reader();
+    let mut stream = r.body_mut().as_reader();
 
     loop {
         match stream.read_exact(&mut chunk) {

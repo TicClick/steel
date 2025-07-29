@@ -26,7 +26,7 @@ pub fn menu_item_open_chat(ui: &mut egui::Ui, state: &UIState, show_icon: bool, 
 
     if ui.button(text).clicked() {
         state.core.chat_opened(target);
-        ui.close_menu();
+        ui.close();
     }
 }
 
@@ -37,13 +37,11 @@ pub fn menu_item_open_chat_user_profile(ui: &mut egui::Ui, show_icon: bool, targ
     };
 
     if ui.button(text).clicked() {
-        ui.ctx().output_mut(|o| {
-            o.open_url = Some(egui::output::OpenUrl {
-                url: format!("https://osu.ppy.sh/users/@{}", target),
-                new_tab: true,
-            });
-        });
-        ui.close_menu();
+        ui.ctx().open_url(egui::output::OpenUrl::new_tab(format!(
+            "https://osu.ppy.sh/users/@{}",
+            target
+        )));
+        ui.close();
     }
 }
 
@@ -54,19 +52,11 @@ pub fn menu_item_translate_message(ui: &mut egui::Ui, show_icon: bool, message_t
     };
 
     if ui.button(text).clicked() {
-        ui.ctx().output_mut(|o| {
-            o.open_url = Some(egui::output::OpenUrl {
-                url: format!(
-                    "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
-                    percent_encoding::utf8_percent_encode(
-                        message_text,
-                        percent_encoding::NON_ALPHANUMERIC
-                    )
-                ),
-                new_tab: true,
-            });
-        });
-        ui.close_menu();
+        ui.ctx().open_url(egui::output::OpenUrl::new_tab(format!(
+            "https://translate.google.com/?sl=auto&tl=en&text={}&op=translate",
+            percent_encoding::utf8_percent_encode(message_text, percent_encoding::NON_ALPHANUMERIC)
+        )));
+        ui.close();
     }
 }
 
@@ -77,10 +67,8 @@ pub fn menu_item_copy_message(ui: &mut egui::Ui, show_icon: bool, message: &Mess
     };
 
     if ui.button(text).clicked() {
-        ui.ctx().output_mut(|o| {
-            o.copied_text = message.to_string();
-        });
-        ui.close_menu();
+        ui.ctx().copy_text(message.to_string());
+        ui.close();
     }
 }
 
@@ -91,9 +79,7 @@ pub fn menu_item_copy_username(ui: &mut egui::Ui, show_icon: bool, message: &Mes
     };
 
     if ui.button(text).clicked() {
-        ui.ctx().output_mut(|o| {
-            o.copied_text = message.username.clone();
-        });
-        ui.close_menu();
+        ui.ctx().copy_text(message.username.clone());
+        ui.close();
     }
 }

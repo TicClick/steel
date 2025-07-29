@@ -32,7 +32,7 @@ impl Menu {
         response_widget_id: &mut Option<egui::Id>,
     ) {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            egui::menu::bar(ui, |ui| {
+            egui::MenuBar::new().ui(ui, |ui| {
                 global_theme_preference_switch(ui);
                 let new_theme = match ui.ctx().theme() {
                     egui::Theme::Dark => ThemeMode::Dark,
@@ -99,18 +99,18 @@ impl Menu {
         ui.menu_button("application", |ui| {
             if ui.button("settings").clicked() {
                 self.show_settings = !self.show_settings;
-                ui.close_menu();
+                ui.close();
             }
 
             ui.separator();
 
             if ui.button("restart").clicked() {
                 state.core.restart_requested(&state.settings);
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("exit").clicked() {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Close);
-                ui.close_menu();
+                ui.close();
             }
         });
     }
@@ -149,14 +149,14 @@ impl Menu {
                         state.core.disconnect_requested();
                     }
                 }
-                ui.close_menu();
+                ui.close();
             }
 
             ui.separator();
 
             if ui.button("find...").clicked() {
                 state.filter.active = true;
-                ui.close_menu();
+                ui.close();
             }
         });
     }
@@ -169,7 +169,7 @@ impl Menu {
             });
             if ui.button("update").on_hover_text_at_pointer(autoupdate_status).clicked() {
                 self.show_update = !self.show_update;
-                ui.close_menu();
+                ui.close();
             }
 
             ui.separator();
@@ -179,21 +179,21 @@ impl Menu {
                     "open the directory where the application is located"
                 ).clicked() {
                     state.core.open_fs_path(".");
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 if ui.button("runtime log").on_hover_text_at_pointer(
                     "open text journal with debug messages and errors -- may or may not help with debugging"
                 ).clicked() {
                     state.core.open_fs_path(LOG_FILE_NAME);
-                    ui.close_menu();
+                    ui.close();
                 }
 
                 if ui.button("settings file").on_hover_text_at_pointer(
                     "open settings in Notepad"
                 ).clicked() {
                     state.core.open_fs_path(SETTINGS_FILE_NAME);
-                    ui.close_menu();
+                    ui.close();
                 }
             });
 
@@ -201,13 +201,13 @@ impl Menu {
                 "show the help window with bits about interface, features, and all things related"
             ).clicked() {
                 self.show_usage = !self.show_usage;
-                ui.close_menu();
+                ui.close();
             }
             if ui.button("about").on_hover_text_at_pointer(
                 "show application info"
             ).clicked() {
                 self.show_about = !self.show_about;
-                ui.close_menu();
+                ui.close();
             }
         });
     }

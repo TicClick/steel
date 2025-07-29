@@ -16,6 +16,6 @@ pub fn menu_item_open_chat_log(ui: &mut egui::Ui, state: &UIState, show_icon: bo
 
     if ui.add(egui::Button::new(text)).clicked() {
         state.core.open_fs_path(chat_path.to_str().unwrap());
-        ui.close_menu();
+        ui.close();
     }
 }

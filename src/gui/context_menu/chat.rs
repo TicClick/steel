@@ -33,7 +33,7 @@ pub fn menu_item_add_to_favourites(
         state.settings.chat.autojoin.push(target.to_owned());
         // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
         state.core.settings_updated(&state.settings);
-        ui.close_menu();
+        ui.close();
     }
 }
 
@@ -52,7 +52,7 @@ pub fn menu_item_remove_from_favourites(
         state.settings.chat.autojoin.retain(|s| s != target);
         // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
         state.core.settings_updated(&state.settings);
-        ui.close_menu();
+        ui.close();
     }
 }
 
@@ -64,7 +64,7 @@ pub fn menu_item_clear_chat_tab(ui: &mut egui::Ui, state: &UIState, show_icon: b
 
     if ui.button(text).clicked() {
         state.core.chat_tab_cleared(target);
-        ui.close_menu();
+        ui.close();
     }
 }
 
@@ -87,6 +87,6 @@ pub fn menu_item_close_chat(
     };
     if ui.button(text).clicked() {
         state.core.chat_tab_closed(target);
-        ui.close_menu();
+        ui.close();
     }
 }

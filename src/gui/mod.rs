@@ -22,7 +22,7 @@ const SERVER_TAB_NAME: &str = "$server";
 const HIGHLIGHTS_SEPARATOR: &str = ", ";
 
 // Overridden value of egui::Frame::central_panel().inner_margin (otherwise chat box generates empty space around it).
-const CENTRAL_PANEL_INNER_MARGIN_Y: f32 = 0.;
+const CENTRAL_PANEL_INNER_MARGIN_Y: i8 = 4;
 
 pub trait DecoratedText {
     fn with_styles(
