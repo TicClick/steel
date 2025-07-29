@@ -30,9 +30,7 @@ impl egui::Widget for BaseBeatmapLink<'_> {
                 resp.context_menu(|ui| menu_item_copy_url(ui, &self.location));
 
                 if resp.clicked() {
-                    ui.output_mut(|o| {
-                        o.open_url = Some(egui::OpenUrl::new_tab(self.location));
-                    });
+                    ui.ctx().open_url(egui::OpenUrl::new_tab(self.location));
                 }
 
                 resp

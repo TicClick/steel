@@ -343,7 +343,7 @@ impl CommandHelper {
                     cmd.action(state, args[1..].to_vec());
                     input.clear();
                 }
-                ui.close_menu();
+                ui.close();
                 break;
             }
         }

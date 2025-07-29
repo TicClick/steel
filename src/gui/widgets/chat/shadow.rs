@@ -17,10 +17,11 @@ impl egui::Widget for InnerShadow {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let mut shadow_rect = ui.available_rect_before_wrap();
 
-        let central_frame_margin = CENTRAL_PANEL_INNER_MARGIN_Y;
-        shadow_rect.set_left(shadow_rect.left() - central_frame_margin);
+        shadow_rect.set_left(shadow_rect.left() - 8.0);
         shadow_rect.set_width(
-            shadow_rect.width() + ui.spacing().scroll.bar_inner_margin + central_frame_margin,
+            shadow_rect.width()
+                + ui.spacing().scroll.bar_inner_margin
+                + f32::from(CENTRAL_PANEL_INNER_MARGIN_Y),
         );
         shadow_rect.set_bottom(shadow_rect.bottom() + ui.spacing().item_spacing.y);
 

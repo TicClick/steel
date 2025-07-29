@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 use tokio::sync::mpsc::unbounded_channel;
 
 use steel::core::chat::Message;
@@ -40,9 +40,9 @@ pub fn main() {
     }
 
     for i in 0..25 {
-        let len = thread_rng().gen_range(1..40);
-        let msg: String = thread_rng()
-            .sample_iter(&rand::distributions::Alphanumeric)
+        let len = rng().random_range(1..40);
+        let msg: String = rng()
+            .sample_iter(&rand::distr::Alphanumeric)
             .take(len)
             .map(char::from)
             .collect();
