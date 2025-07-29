@@ -9,6 +9,7 @@ use steel_core::TextStyle;
 use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
+use crate::gui::widgets::selectable_button::SelectableButton;
 use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN_Y};
 
 use crate::gui::command;
@@ -496,8 +497,9 @@ impl ChatWindow {
         }
         .with_styles(styles, &state.settings);
 
+        let invisible_text = format!(" <{}>", msg.username);
         #[allow(unused_mut)] // glass
-        let mut resp = ui.button(username_text);
+        let mut resp = ui.add(SelectableButton::new(username_text, invisible_text));
 
         #[cfg(feature = "glass")]
         if let Some(tt) = state.glass.show_user_tooltip(chat_name, msg) {
