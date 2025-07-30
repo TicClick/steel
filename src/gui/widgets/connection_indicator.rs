@@ -56,7 +56,7 @@ impl ConnectionIndicator {
             true => match delta_ms {
                 0..10_000 => 4,
                 10_000..25_000 => 3,
-                25_000..=40_000 => 2,
+                25_000..40_000 => 2,
                 _ => 1,
             },
             false => 0,
