@@ -82,10 +82,10 @@ pub fn cleanup_after_update() {
     }
 }
 
-pub fn restart() {
-    if let Ok(image) = std::env::current_exe() {
+pub fn restart(executable_path: Option<PathBuf>) {
+    if let Some(exe_path) = executable_path.or(std::env::current_exe().ok()) {
         log::debug!("restart: going to launch another copy of myself and then exit");
-        if let Err(e) = std::process::Command::new(&image).arg(&image).spawn() {
+        if let Err(e) = std::process::Command::new(&exe_path).arg(&exe_path).spawn() {
             log::error!("failed to restart myself: {:?}", e);
         } else {
             std::process::exit(0);

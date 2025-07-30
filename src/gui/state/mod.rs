@@ -39,6 +39,7 @@ pub struct UIState {
 
     pub update_state: UpdateState,
     pub sound_player: crate::core::sound::SoundPlayer,
+    pub original_exe_path: Option<std::path::PathBuf>,
 
     #[cfg(feature = "glass")]
     pub glass: glass::Glass,
@@ -49,7 +50,11 @@ pub struct UIState {
 }
 
 impl UIState {
-    pub fn new(app_queue_handle: UnboundedSender<AppMessageIn>, settings: Settings) -> Self {
+    pub fn new(
+        app_queue_handle: UnboundedSender<AppMessageIn>,
+        settings: Settings,
+        original_exe_path: Option<std::path::PathBuf>,
+    ) -> Self {
         let irc_settings = settings.chat.irc.clone();
         Self {
             connection: ConnectionStatus::default(),
@@ -61,6 +66,7 @@ impl UIState {
             read_tracker: read_tracker::ReadTracker::new(),
             update_state: UpdateState::default(),
             sound_player: crate::core::sound::SoundPlayer::new(),
+            original_exe_path,
 
             #[cfg(feature = "glass")]
             glass: {

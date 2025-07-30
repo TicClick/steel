@@ -36,6 +36,7 @@ pub fn setup_logging() {
 pub fn run_app(
     ui_queue_in: UnboundedSender<UIMessageIn>,
     ui_queue_out: UnboundedReceiver<UIMessageIn>,
+    original_exe_path: Option<std::path::PathBuf>,
 ) -> std::thread::JoinHandle<()> {
     let mut app = app::Application::new(ui_queue_in);
     app.initialize();
@@ -63,6 +64,7 @@ pub fn run_app(
                 ui_queue_out,
                 app_queue,
                 settings,
+                original_exe_path,
             )))
         }),
     )

@@ -90,7 +90,7 @@ impl Application {
                 }
 
                 AppMessageIn::UIRestartRequested => {
-                    crate::core::os::restart();
+                    crate::core::os::restart(None);
                 }
 
                 AppMessageIn::UIExitRequested => {
