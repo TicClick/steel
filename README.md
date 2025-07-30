@@ -13,6 +13,27 @@
 
 [download the latest version](https://github.com/TicClick/steel/releases/latest) and extract it into a separate folder. enable automatic updates for better experience.
 
+## dependencies
+
+see [DEVELOPMENT.md](./DEVELOPMENT.md) if you want to build it from source.
+
+### Windows/macOS
+
+should work out of the box, provided you have OpenGL installed.
+
+### Linux
+
+(you probably have all of this already)
+
+```
+libasound.so.2
+libssl.so.3
+libcrypto.so.3
+libgcc_s.so.1
+libm.so.6
+libc.so.6 # v2.39+
+```
+
 ## FAQ
 
 ### so uhh what does it look like?
