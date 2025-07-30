@@ -1,9 +1,11 @@
+use std::time::Instant;
+
 use eframe::egui;
 
 #[derive(Debug)]
 pub struct ConnectionIndicator {
-    last_activity: chrono::DateTime<chrono::Local>,
-    _last_delta_update: chrono::DateTime<chrono::Local>,
+    last_activity: Instant,
+    _last_delta_update: Instant,
     _cached_delta_ms: i64,
 
     connected: bool,
@@ -13,7 +15,7 @@ pub struct ConnectionIndicator {
 
 impl ConnectionIndicator {
     pub fn new(connected: bool, server: String, ping_timeout: u32) -> Self {
-        let now = chrono::Local::now();
+        let now = Instant::now();
         Self {
             last_activity: now,
             _last_delta_update: now,
@@ -25,16 +27,14 @@ impl ConnectionIndicator {
     }
 
     pub fn refresh(&mut self) {
-        self.last_activity = chrono::Local::now();
+        self.last_activity = Instant::now();
     }
 
     pub fn delta_ms(&mut self) -> i64 {
-        let now = chrono::Local::now();
-
-        let update_lag = now - self._last_delta_update;
-        if update_lag.num_milliseconds() > 1000 {
-            self._cached_delta_ms = (now - self.last_activity).num_milliseconds();
-            self._last_delta_update = now;
+        let update_lag = self._last_delta_update.elapsed();
+        if update_lag.as_millis() > 1000 {
+            self._cached_delta_ms = self.last_activity.elapsed().as_millis() as i64;
+            self._last_delta_update = Instant::now();
         }
 
         self._cached_delta_ms
@@ -131,12 +131,12 @@ impl ConnectionIndicator {
         let delta_s = (delta_ms as f32) / 1000.0;
         let on_hover_text = match self.connected {
             true => format!(
-                "last event: {delta_s:.1} s ago\n\
+                "network activity: {delta_s:.1} s ago\n\
                 server: {}\n\
                 ping timeout: {} s",
                 self.server, self.ping_timeout
             ),
-            false => "You are offline".into(),
+            false => "offline".into(),
         };
         response.on_hover_text_at_pointer(on_hover_text)
     }
