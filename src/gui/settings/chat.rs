@@ -200,7 +200,7 @@ impl SettingsWindow {
                             ui.label("ping timeout");
                             let input = egui::Slider::new(&mut state.settings.chat.irc.ping_timeout, 15..=120).integer();
                             ui.add(input).on_hover_text_at_pointer(
-                                "if there's no data from the server for this amount of time, reconnect.\n\
+                                "if the server doesn't respond to IRC PING (regular status checks) for this amount of time, reconnect.\n\
                                 large values help when on slow/unstable network, but may keep you hanging."
                             );
                         });
