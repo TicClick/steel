@@ -8,6 +8,8 @@ use steel_core::settings::application::AutoUpdate;
 use steel_core::VersionString;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
+use crate::core::os::backup_exe_path;
+
 pub const RECENT_RELEASES_METADATA_URL: &str =
     "https://api.github.com/repos/TicClick/steel/releases";
 const GIST_METADATA_FILENAME: &str = "releases.json";
@@ -238,7 +240,7 @@ impl UpdaterBackend {
     }
 
     fn run(&mut self) {
-        crate::core::os::cleanup_after_update();
+        std::thread::spawn(crate::core::os::cleanup_after_update);
         if self.autoupdate {
             self.self_channel
                 .send(BackendRequest::InitiateAutoupdate)
@@ -453,39 +455,41 @@ impl UpdaterBackend {
         }
 
         let target = std::env::current_exe()?;
-        let mut backup = target.clone();
-        backup.set_file_name(format!(
-            "{}.old",
-            target.file_name().unwrap().to_str().unwrap()
-        ));
-        log::info!(
-            "updater: renaming old executable {:?} -> {:?}",
-            target,
-            backup
-        );
+        if let Some(backup) = backup_exe_path() {
+            log::info!(
+                "updater: renaming old executable {:?} -> {:?}",
+                target,
+                backup
+            );
 
-        // The original executable has already been renamed during the previous update round, and now we have fetched
-        // a binary from another release stream.
-        if target.exists() {
-            std::fs::rename(&target, &backup)?;
-        }
+            // The original executable has already been renamed during the previous update round, and now we have fetched
+            // a binary from another release stream.
+            if target.exists() {
+                std::fs::rename(&target, &backup)?;
+            }
 
-        let reader = Box::new(std::io::Cursor::new(data));
-        let extraction_result = match archive_type {
-            ArchiveType::TarGZip => self.extract_gzip(reader, &target),
-            ArchiveType::Zip => self.extract_zip(reader, &target),
-            ArchiveType::Unknown(_) => Ok(()), // handled above already
-        };
-        if extraction_result.is_err() {
-            log::error!("{:?}", extraction_result);
-            if let Err(e) = std::fs::rename(&backup, &target) {
-                log::error!(
-                    "failed to restore the executable after an unsuccessful update: {:?}",
-                    e
-                );
+            let reader = Box::new(std::io::Cursor::new(data));
+            let extraction_result = match archive_type {
+                ArchiveType::TarGZip => self.extract_gzip(reader, &target),
+                ArchiveType::Zip => self.extract_zip(reader, &target),
+                ArchiveType::Unknown(_) => Ok(()), // handled above already
             };
+            if extraction_result.is_err() {
+                log::error!("{:?}", extraction_result);
+                if let Err(e) = std::fs::rename(&backup, &target) {
+                    log::error!(
+                        "failed to restore the executable after an unsuccessful update: {:?}",
+                        e
+                    );
+                };
+            }
+            extraction_result
+        } else {
+            Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Couldn't obtain backup path for .exe renaming",
+            ))
         }
-        extraction_result
     }
 
     fn extract_gzip(

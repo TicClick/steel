@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
     let target = match target.starts_with(".") {
         false => std::path::Path::new(target).to_path_buf(),
@@ -24,26 +26,57 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn backup_exe_path() -> Option<PathBuf> {
+    match std::env::current_exe() {
+        Ok(pb) => match pb.file_name() {
+            None => None,
+            Some(file_name) => {
+                let file_name = file_name.to_str().unwrap();
+                Some(pb.with_file_name(format!("{file_name}.old")))
+            }
+        },
+        Err(e) => {
+            log::warn!("Failed to read current executable path: {:?}", e);
+            None
+        }
+    }
+}
+
 pub fn cleanup_after_update() {
-    if let Ok(executable) = std::env::current_exe() {
-        let mut old_backup = executable.clone();
-        old_backup.set_file_name(format!(
-            "{}.old",
-            executable.file_name().unwrap().to_str().unwrap()
-        ));
+    if let Some(old_backup) = backup_exe_path() {
         if !old_backup.exists() {
             return;
         }
-        if let Err(e) = std::fs::remove_file(&old_backup) {
+
+        let start_time = std::time::Instant::now();
+        let max_duration = std::time::Duration::from_secs(180);
+        let mut sleep_duration = std::time::Duration::from_millis(100);
+
+        let mut last_error = None;
+        while start_time.elapsed() < max_duration {
+            match std::fs::remove_file(&old_backup) {
+                Err(e) => {
+                    last_error = Some(e);
+                    std::thread::sleep(sleep_duration);
+                    sleep_duration = std::cmp::min(
+                        sleep_duration.mul_f32(1.5),
+                        std::time::Duration::from_secs(5),
+                    );
+                }
+                Ok(_) => {
+                    log::debug!(
+                        "removed old executable ({:?}) which was left after SUCCESSFUL update. time spent waiting: {:?}",
+                        old_backup, start_time.elapsed()
+                    );
+                    return;
+                }
+            }
+        }
+
+        if let Some(e) = last_error {
             log::warn!(
-                "failed to remove old executable ({:?}) which was left after SUCCESSFUL update: {:?}",
-                old_backup,
-                e
-            );
-        } else {
-            log::debug!(
-                "removed old executable ({:?}) which was left after SUCCESSFUL update",
-                old_backup
+                "failed to remove old executable ({:?}) which was left after SUCCESSFUL update after {:?}: {:?}",
+                old_backup, max_duration, e
             );
         }
     }
