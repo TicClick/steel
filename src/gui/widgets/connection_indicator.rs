@@ -27,6 +27,7 @@ impl ConnectionIndicator {
     }
 
     pub fn connect(&mut self, server: String, ping_timeout: u32) {
+        self.refresh();
         self.connected = true;
         self.server = server;
         self.ping_timeout = ping_timeout;
