@@ -142,8 +142,13 @@ impl ApplicationWindow {
         ui_queue: UnboundedReceiver<UIMessageIn>,
         app_queue_handle: UnboundedSender<AppMessageIn>,
         initial_settings: Settings,
+        original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
-        let state = UIState::new(app_queue_handle, initial_settings.clone());
+        let state = UIState::new(
+            app_queue_handle,
+            initial_settings.clone(),
+            original_exe_path,
+        );
         set_startup_ui_settings(&cc.egui_ctx, &initial_settings);
 
         Self {
