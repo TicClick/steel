@@ -65,6 +65,10 @@ pub fn main() {
         std::thread::sleep(std::time::Duration::from_secs(1));
     });
 
-    let app_thread = run_app(ui_queue_in, ui_queue_out);
+    let app_thread = run_app(
+        ui_queue_in,
+        ui_queue_out,
+        std::env::current_exe().ok()
+    );
     app_thread.join().unwrap();
 }
