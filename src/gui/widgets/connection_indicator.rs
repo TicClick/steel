@@ -4,13 +4,17 @@ use eframe::egui;
 pub struct ConnectionIndicator {
     last_update: chrono::DateTime<chrono::Local>,
     connected: bool,
+    server: String,
+    ping_timeout: u32,
 }
 
 impl ConnectionIndicator {
-    pub fn new(connected: bool) -> Self {
+    pub fn new(connected: bool, server: String, ping_timeout: u32) -> Self {
         Self {
             last_update: chrono::Local::now(),
             connected,
+            server,
+            ping_timeout,
         }
     }
 
@@ -22,8 +26,10 @@ impl ConnectionIndicator {
         self.connected = false;
     }
 
-    pub fn connect(&mut self) {
+    pub fn connect(&mut self, server: String, ping_timeout: u32) {
         self.connected = true;
+        self.server = server;
+        self.ping_timeout = ping_timeout;
     }
 
     pub fn signal_strength(&self, delta: f32) -> i32 {
@@ -41,7 +47,7 @@ impl ConnectionIndicator {
 
 impl Default for ConnectionIndicator {
     fn default() -> Self {
-        Self::new(false)
+        Self::new(false, String::new(), 40)
     }
 }
 
@@ -104,7 +110,12 @@ impl egui::Widget for ConnectionIndicator {
             .response;
 
         let on_hover_text = match self.connected {
-            true => format!("Last event: {delta:.1} s ago"),
+            true => format!(
+                "last event: {delta:.1} s ago\n\
+                server: {}\n\
+                ping timeout: {} s",
+                self.server, self.ping_timeout
+            ),
             false => "You are offline".into(),
         };
         response.on_hover_text_at_pointer(on_hover_text)

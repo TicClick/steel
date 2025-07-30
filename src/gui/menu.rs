@@ -1,9 +1,6 @@
 use eframe::egui::{self, global_theme_preference_switch, Widget};
 
-use crate::{
-    core::settings::ui::ThemeMode,
-    LOG_FILE_NAME,
-};
+use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
 use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
 
 use crate::gui::state::UIState;

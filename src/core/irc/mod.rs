@@ -42,16 +42,17 @@ impl IRCActorHandle {
         }
     }
 
-    pub fn connect(&self, username: &str, password: &str) {
+    pub fn connect(&self, username: &str, password: &str, server: &str, ping_timeout: u32) {
         let config = irc::client::data::Config {
             username: Some(username.to_owned()),
             nickname: Some(username.to_owned()),
             password: Some(password.to_owned()),
-            server: Some("irc.ppy.sh".to_owned()),
+            server: Some(server.to_owned()),
             port: Some(6667),
             nick_password: Some(password.to_owned()),
             realname: Some(username.to_owned()),
             use_tls: Some(false),
+            ping_timeout: Some(ping_timeout),
             ..Default::default()
         };
 
