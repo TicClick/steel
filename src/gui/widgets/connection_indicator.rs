@@ -1,8 +1,11 @@
 use eframe::egui;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ConnectionIndicator {
-    last_update: chrono::DateTime<chrono::Local>,
+    last_activity: chrono::DateTime<chrono::Local>,
+    _last_delta_update: chrono::DateTime<chrono::Local>,
+    _cached_delta_ms: i64,
+
     connected: bool,
     server: String,
     ping_timeout: u32,
@@ -10,8 +13,11 @@ pub struct ConnectionIndicator {
 
 impl ConnectionIndicator {
     pub fn new(connected: bool, server: String, ping_timeout: u32) -> Self {
+        let now = chrono::Local::now();
         Self {
-            last_update: chrono::Local::now(),
+            last_activity: now,
+            _last_delta_update: now,
+            _cached_delta_ms: 0,
             connected,
             server,
             ping_timeout,
@@ -19,7 +25,19 @@ impl ConnectionIndicator {
     }
 
     pub fn refresh(&mut self) {
-        self.last_update = chrono::Local::now();
+        self.last_activity = chrono::Local::now();
+    }
+
+    pub fn delta_ms(&mut self) -> i64 {
+        let now = chrono::Local::now();
+
+        let update_lag = now - self._last_delta_update;
+        if update_lag.num_milliseconds() > 1000 {
+            self._cached_delta_ms = (now - self.last_activity).num_milliseconds();
+            self._last_delta_update = now;
+        }
+
+        self._cached_delta_ms
     }
 
     pub fn disconnect(&mut self) {
@@ -33,12 +51,12 @@ impl ConnectionIndicator {
         self.ping_timeout = ping_timeout;
     }
 
-    pub fn signal_strength(&self, delta: f32) -> i32 {
+    pub fn signal_strength(&self, delta_ms: i64) -> i32 {
         match self.connected {
-            true => match delta {
-                0.0..=10.0 => 4,
-                10.0..=25.0 => 3,
-                25.0..=40.0 => 2,
+            true => match delta_ms {
+                0..10_000 => 4,
+                10_000..25_000 => 3,
+                25_000..=40_000 => 2,
                 _ => 1,
             },
             false => 0,
@@ -52,10 +70,10 @@ impl Default for ConnectionIndicator {
     }
 }
 
-impl egui::Widget for ConnectionIndicator {
-    fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let delta = (chrono::Local::now() - self.last_update).as_seconds_f32();
-        let signal_strength = self.signal_strength(delta);
+impl ConnectionIndicator {
+    pub fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
+        let delta_ms = self.delta_ms();
+        let signal_strength = self.signal_strength(delta_ms);
 
         let response = ui.ctx().read_response(ui.next_auto_id());
         let visuals = response.map_or(&ui.style().visuals.widgets.inactive, |response| {
@@ -110,9 +128,10 @@ impl egui::Widget for ConnectionIndicator {
             })
             .response;
 
+        let delta_s = (delta_ms as f32) / 1000.0;
         let on_hover_text = match self.connected {
             true => format!(
-                "last event: {delta:.1} s ago\n\
+                "last event: {delta_s:.1} s ago\n\
                 server: {}\n\
                 ping timeout: {} s",
                 self.server, self.ping_timeout
