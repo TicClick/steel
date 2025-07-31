@@ -97,8 +97,9 @@ impl Default for TaskbarFlashEvents {
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum NotificationStyle {
-    #[default]
+    #[cfg_attr(not(target_os = "linux"), default)]
     Window,
+    #[cfg_attr(target_os = "linux", default)]
     Taskbar,
 }
 
@@ -107,9 +108,26 @@ impl Display for NotificationStyle {
         write!(
             f,
             "{}",
-            match self {
-                Self::Window => "window",
-                Self::Taskbar => "taskbar",
+            if cfg!(target_os = "windows") {
+                match self {
+                    Self::Window => "flash window",
+                    Self::Taskbar => "flash taskbar icon",
+                }
+            } else if cfg!(target_os = "macos") {
+                match self {
+                    Self::Window => "jump many times in dock",
+                    Self::Taskbar => "jump once in dock",
+                }
+            } else if cfg!(target_os = "linux") {
+                match self {
+                    Self::Window => "(unsupported)",
+                    Self::Taskbar => "flash taskbar icon",
+                }
+            } else {
+                match self {
+                    Self::Window => "flash window (unsupported)",
+                    Self::Taskbar => "flash taskbar icon (unsupported)",
+                }
             }
         )
     }

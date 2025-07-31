@@ -251,18 +251,24 @@ impl UIState {
 
                 if should_notify {
                     if window_unfocused {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Critical,
-                        ));
-                        if matches!(
-                            self.settings.notifications.notification_style,
-                            steel_core::settings::NotificationStyle::Taskbar
-                        ) {
+                        if cfg!(target_os = "linux") {
                             ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                                 eframe::egui::UserAttentionType::Informational,
                             ));
-                        };
-                        self.flash_start_time = Some(std::time::Instant::now());
+                        } else {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                                eframe::egui::UserAttentionType::Critical,
+                            ));
+                            if matches!(
+                                self.settings.notifications.notification_style,
+                                steel_core::settings::NotificationStyle::Taskbar
+                            ) {
+                                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                                    eframe::egui::UserAttentionType::Informational,
+                                ));
+                            };
+                            self.flash_start_time = Some(std::time::Instant::now());
+                        }
                     }
 
                     if let Some(sound) = &self.settings.notifications.highlights.sound {
