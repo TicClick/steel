@@ -256,7 +256,7 @@ impl UIState {
                         ));
                         if matches!(
                             self.settings.notifications.notification_style,
-                            steel_core::settings::NotificationStyle::TaskbarOnly
+                            steel_core::settings::NotificationStyle::Taskbar
                         ) {
                             ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                                 eframe::egui::UserAttentionType::Informational,
@@ -357,7 +357,7 @@ impl UIState {
         if self.settings.notifications.enable_flash_timeout
             && matches!(
                 self.settings.notifications.notification_style,
-                steel_core::settings::NotificationStyle::WindowAndTaskbar
+                steel_core::settings::NotificationStyle::Window
             )
         {
             if let Some(start_time) = self.flash_start_time {
