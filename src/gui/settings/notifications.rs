@@ -138,14 +138,17 @@ impl SettingsWindow {
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
                             &mut self.notifications_style,
-                            NotificationStyle::Taskbar,
-                            NotificationStyle::Taskbar.to_string(),
+                            NotificationStyle::Moderate,
+                            NotificationStyle::Moderate.to_string(),
                         );
-                        ui.selectable_value(
-                            &mut self.notifications_style,
-                            NotificationStyle::Window,
-                            NotificationStyle::Window.to_string(),
-                        );
+
+                        if cfg!(not(target_os = "linux")) {
+                            ui.selectable_value(
+                                &mut self.notifications_style,
+                                NotificationStyle::Intensive,
+                                NotificationStyle::Intensive.to_string(),
+                            );
+                        }
                     });
 
                 if self.notifications_style != state.settings.notifications.notification_style {
@@ -155,26 +158,35 @@ impl SettingsWindow {
 
             ui.label("notify on");
             ui.indent("notify-checkboxes", |ui| {
-                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.highlights, "highlights");
-                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.private_messages, "private messages");
+                ui.checkbox(&mut state.settings.notifications.notification_events.highlights, "highlights");
+                ui.checkbox(&mut state.settings.notifications.notification_events.private_messages, "private messages");
             });
 
-            ui.checkbox(&mut state.settings.notifications.enable_flash_timeout, "stop flashing after timeout");
+            let is_timeout_enabled = matches!(self.notifications_style, NotificationStyle::Intensive) && cfg!(not(target_os = "linux"));
+            ui.add_enabled_ui(is_timeout_enabled, |ui| {
+                ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
 
-            ui.indent("flash-timeout-slider", |ui| {
-                ui.horizontal(|ui| {
-                    ui.label("timeout duration");
-                    let mut timeout = state.settings.notifications.flash_timeout_seconds as f32;
-                    let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
-                    if ui.add_enabled(
-                        state.settings.notifications.enable_flash_timeout,
-                        slider
-                    ).changed() {
-                        state.settings.notifications.flash_timeout_seconds = timeout as u32;
-                    }
+                ui.add_enabled_ui(state.settings.notifications.enable_notification_timeout, |ui| {
+                    ui.indent("notification-timeout-slider", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("timeout duration");
+                            let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
+                            let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
+                            if ui.add(slider).changed() {
+                                state.settings.notifications.notification_timeout_seconds = timeout as u32;
+                            }
+                        });
+                    });
                 });
-            });
-
+            })
+                .response
+                .on_disabled_hover_text(
+                    if cfg!(target_os = "linux") {
+                        "this setting is unavailable on Linux"
+                    } else {
+                        "this setting is inapplicable for selected notifcation style"
+                    }
+                );
         });
     }
 }

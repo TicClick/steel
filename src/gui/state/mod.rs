@@ -47,7 +47,7 @@ pub struct UIState {
     pub filter: FilterCollection,
 
     pub connection_indicator: ConnectionIndicator,
-    flash_start_time: Option<std::time::Instant>,
+    notification_start_time: Option<std::time::Instant>,
 }
 
 impl UIState {
@@ -83,7 +83,7 @@ impl UIState {
                 irc_settings.server,
                 irc_settings.ping_timeout,
             ),
-            flash_start_time: None,
+            notification_start_time: None,
         }
     }
 
@@ -238,12 +238,12 @@ impl UIState {
                 let should_notify = {
                     let is_private_message = !normalized.is_channel();
                     let should_flash_for_highlight = contains_highlight
-                        && self.settings.notifications.taskbar_flash_events.highlights;
+                        && self.settings.notifications.notification_events.highlights;
                     let should_flash_for_private_message = is_private_message
                         && self
                             .settings
                             .notifications
-                            .taskbar_flash_events
+                            .notification_events
                             .private_messages;
 
                     should_flash_for_highlight || should_flash_for_private_message
@@ -251,18 +251,24 @@ impl UIState {
 
                 if should_notify {
                     if window_unfocused {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Critical,
-                        ));
-                        if matches!(
-                            self.settings.notifications.notification_style,
-                            steel_core::settings::NotificationStyle::Taskbar
-                        ) {
+                        if cfg!(target_os = "linux") {
                             ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                                 eframe::egui::UserAttentionType::Informational,
                             ));
-                        };
-                        self.flash_start_time = Some(std::time::Instant::now());
+                        } else {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                                eframe::egui::UserAttentionType::Critical,
+                            ));
+                            if matches!(
+                                self.settings.notifications.notification_style,
+                                steel_core::settings::NotificationStyle::Moderate
+                            ) {
+                                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                                    eframe::egui::UserAttentionType::Informational,
+                                ));
+                            };
+                            self.notification_start_time = Some(std::time::Instant::now());
+                        }
                     }
 
                     if let Some(sound) = &self.settings.notifications.highlights.sound {
@@ -354,20 +360,20 @@ impl UIState {
     }
 
     pub fn check_flash_timeout(&mut self, ctx: &eframe::egui::Context) {
-        if self.settings.notifications.enable_flash_timeout
+        if self.settings.notifications.enable_notification_timeout
             && matches!(
                 self.settings.notifications.notification_style,
-                steel_core::settings::NotificationStyle::Window
+                steel_core::settings::NotificationStyle::Intensive
             )
         {
-            if let Some(start_time) = self.flash_start_time {
+            if let Some(start_time) = self.notification_start_time {
                 let elapsed = start_time.elapsed().as_secs();
-                if elapsed >= self.settings.notifications.flash_timeout_seconds as u64 {
+                if elapsed >= self.settings.notifications.notification_timeout_seconds as u64 {
                     // Stop the attention request by sending Informational (less intrusive)
                     ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                         eframe::egui::UserAttentionType::Informational,
                     ));
-                    self.flash_start_time = None;
+                    self.notification_start_time = None;
                 }
             }
         }

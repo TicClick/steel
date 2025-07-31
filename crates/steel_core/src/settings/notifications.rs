@@ -5,10 +5,10 @@ use std::fmt::Display;
 #[serde(default)]
 pub struct Notifications {
     pub highlights: Highlights,
-    pub taskbar_flash_events: TaskbarFlashEvents,
+    pub notification_events: NotificationEvents,
     pub sound_only_when_unfocused: bool,
-    pub enable_flash_timeout: bool,
-    pub flash_timeout_seconds: u32,
+    pub enable_notification_timeout: bool,
+    pub notification_timeout_seconds: u32,
     pub notification_style: NotificationStyle,
 }
 
@@ -16,10 +16,10 @@ impl Default for Notifications {
     fn default() -> Self {
         Self {
             highlights: Highlights::default(),
-            taskbar_flash_events: TaskbarFlashEvents::default(),
+            notification_events: NotificationEvents::default(),
             sound_only_when_unfocused: false,
-            enable_flash_timeout: false,
-            flash_timeout_seconds: 10,
+            enable_notification_timeout: false,
+            notification_timeout_seconds: 10,
             notification_style: NotificationStyle::default(),
         }
     }
@@ -80,12 +80,12 @@ impl Display for Sound {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct TaskbarFlashEvents {
+pub struct NotificationEvents {
     pub highlights: bool,
     pub private_messages: bool,
 }
 
-impl Default for TaskbarFlashEvents {
+impl Default for NotificationEvents {
     fn default() -> Self {
         Self {
             highlights: true,
@@ -97,9 +97,10 @@ impl Default for TaskbarFlashEvents {
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum NotificationStyle {
-    #[default]
-    Window,
-    Taskbar,
+    #[cfg_attr(not(target_os = "linux"), default)]
+    Intensive,
+    #[cfg_attr(target_os = "linux", default)]
+    Moderate,
 }
 
 impl Display for NotificationStyle {
@@ -107,9 +108,26 @@ impl Display for NotificationStyle {
         write!(
             f,
             "{}",
-            match self {
-                Self::Window => "window",
-                Self::Taskbar => "taskbar",
+            if cfg!(target_os = "windows") {
+                match self {
+                    Self::Intensive => "flash window",
+                    Self::Moderate => "flash taskbar icon",
+                }
+            } else if cfg!(target_os = "macos") {
+                match self {
+                    Self::Intensive => "jump many times in dock",
+                    Self::Moderate => "jump once in dock",
+                }
+            } else if cfg!(target_os = "linux") {
+                match self {
+                    Self::Intensive => "(unsupported)",
+                    Self::Moderate => "flash taskbar icon",
+                }
+            } else {
+                match self {
+                    Self::Intensive => "flash window (unsupported)",
+                    Self::Moderate => "flash taskbar icon (unsupported)",
+                }
             }
         )
     }
