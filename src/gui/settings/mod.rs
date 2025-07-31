@@ -36,6 +36,7 @@ pub struct SettingsWindow {
 
     highlights_input: String,
     notifications_builtin_sound: settings::BuiltInSound,
+    notifications_style: settings::NotificationStyle,
     text_row_height: Option<f32>,
 }
 
@@ -50,6 +51,8 @@ impl SettingsWindow {
         {
             self.notifications_builtin_sound = sound.clone();
         }
+
+        self.notifications_style = state.settings.notifications.notification_style.clone();
 
         let mut save_clicked = false;
         egui::Window::new("settings").open(is_open).show(ctx, |ui| {

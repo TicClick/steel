@@ -14,7 +14,9 @@ pub use application::Application;
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
 pub use logging::{AppLoggingConfig, LoggingConfig};
-pub use notifications::{BuiltInSound, Highlights, Notifications, Sound};
+pub use notifications::{
+    BuiltInSound, Highlights, NotificationStyle, Notifications, Sound, TaskbarFlashEvents,
+};
 pub use ui::{ChatColours, ThemeMode, UI};
 
 pub const SETTINGS_FILE_NAME: &str = "settings.yaml";

@@ -2,7 +2,7 @@ use eframe::egui;
 
 use super::SettingsWindow;
 use crate::gui::{state::UIState, HIGHLIGHTS_SEPARATOR};
-use steel_core::settings::{BuiltInSound, Sound};
+use steel_core::settings::{BuiltInSound, NotificationStyle, Sound};
 
 impl SettingsWindow {
     pub(super) fn show_notifications_tab(
@@ -37,7 +37,7 @@ impl SettingsWindow {
                 state.update_highlights(&self.highlights_input);
             }
 
-            ui.heading("notification sound");
+            ui.heading("sound");
 
             ui.radio_value(
                 &mut state.settings.notifications.highlights.sound,
@@ -117,9 +117,64 @@ impl SettingsWindow {
                 }
             });
 
+            let checkbox_sound_when_unfocused = egui::Checkbox::new(
+                &mut state.settings.notifications.sound_only_when_unfocused,
+                "play sounds only when client is not focused"
+            );
+
+            ui.add_enabled(builtin_sound_chosen, checkbox_sound_when_unfocused)
+                .on_hover_text_at_pointer("when enabled, notification sounds will only play when the application is not in focus");
+
             // TODO: implement custom sound picker
             // There is no centralized egui-based file dialog solution. nfd2 pulls up GTK3, tinyfiledialogs seems to crash when used naively.
             // Need to either implement it myself, or check potential leads from https://github.com/emilk/egui/issues/270
+
+            ui.heading("visuals");
+
+            ui.horizontal(|ui| {
+                ui.label("notification style");
+                egui::ComboBox::from_id_salt("notification_style")
+                    .selected_text(self.notifications_style.to_string())
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.notifications_style,
+                            NotificationStyle::Taskbar,
+                            NotificationStyle::Taskbar.to_string(),
+                        );
+                        ui.selectable_value(
+                            &mut self.notifications_style,
+                            NotificationStyle::Window,
+                            NotificationStyle::Window.to_string(),
+                        );
+                    });
+
+                if self.notifications_style != state.settings.notifications.notification_style {
+                    state.settings.notifications.notification_style = self.notifications_style.clone();
+                }
+            });
+
+            ui.label("notify on");
+            ui.indent("notify-checkboxes", |ui| {
+                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.highlights, "highlights");
+                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.private_messages, "private messages");
+            });
+
+            ui.checkbox(&mut state.settings.notifications.enable_flash_timeout, "stop flashing after timeout");
+
+            ui.indent("flash-timeout-slider", |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("timeout duration");
+                    let mut timeout = state.settings.notifications.flash_timeout_seconds as f32;
+                    let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
+                    if ui.add_enabled(
+                        state.settings.notifications.enable_flash_timeout,
+                        slider
+                    ).changed() {
+                        state.settings.notifications.flash_timeout_seconds = timeout as u32;
+                    }
+                });
+            });
+
         });
     }
 }
