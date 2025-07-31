@@ -163,7 +163,7 @@ impl SettingsWindow {
             });
 
             let is_timeout_enabled = matches!(self.notifications_style, NotificationStyle::Intensive) && cfg!(not(target_os = "linux"));
-            let response = ui.add_enabled_ui(is_timeout_enabled, |ui| {
+            ui.add_enabled_ui(is_timeout_enabled, |ui| {
                 ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
 
                 ui.add_enabled_ui(state.settings.notifications.enable_notification_timeout, |ui| {
