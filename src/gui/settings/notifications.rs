@@ -54,21 +54,7 @@ impl SettingsWindow {
                 let inner = egui::ComboBox::from_id_salt("sound")
                     .selected_text(self.notifications_builtin_sound.to_string())
                     .show_ui(ui, |ui| {
-                        let mut c = ui
-                            .selectable_value(
-                                &mut self.notifications_builtin_sound,
-                                BuiltInSound::Bell,
-                                BuiltInSound::Bell.to_string(),
-                            )
-                            .clicked();
-                        c = c
-                            || ui
-                                .selectable_value(
-                                    &mut self.notifications_builtin_sound,
-                                    BuiltInSound::DoubleBell,
-                                    BuiltInSound::DoubleBell.to_string(),
-                                )
-                                .clicked();
+                        let mut options = vec![BuiltInSound::Bell, BuiltInSound::DoubleBell];
 
                         // \o /
                         if format!(
@@ -76,33 +62,32 @@ impl SettingsWindow {
                             md5::compute(state.settings.chat.irc.username.as_bytes())
                         ) == "cdb6d5ffca1edf2659aa721c19ccec1b"
                         {
-                            c = c
-                                || ui
-                                    .selectable_value(
-                                        &mut self.notifications_builtin_sound,
-                                        BuiltInSound::PartyHorn,
-                                        BuiltInSound::PartyHorn.to_string(),
-                                    )
-                                    .clicked();
+                            options.push(BuiltInSound::PartyHorn);
                         }
-                        c = c
-                            || ui
-                                .selectable_value(
-                                    &mut self.notifications_builtin_sound,
-                                    BuiltInSound::Ping,
-                                    BuiltInSound::Ping.to_string(),
-                                )
-                                .clicked();
-                        c = c
-                            || ui
-                                .selectable_value(
-                                    &mut self.notifications_builtin_sound,
-                                    BuiltInSound::TwoTone,
-                                    BuiltInSound::TwoTone.to_string(),
-                                )
-                                .clicked();
 
-                        c
+                        options.extend([BuiltInSound::Ping, BuiltInSound::TwoTone]);
+
+                        let dropdown_height = options.len() as f32
+                            * (ui.text_style_height(&egui::TextStyle::Body)
+                                + 2. * ui.spacing().item_spacing.y);
+
+                        egui::ScrollArea::vertical()
+                            .auto_shrink([true, false])
+                            .max_height(dropdown_height)
+                            .show(ui, |ui| {
+                                let mut clicked = false;
+                                for o in options {
+                                    clicked |= ui
+                                        .selectable_value(
+                                            &mut self.notifications_builtin_sound,
+                                            o.clone(),
+                                            o.to_string(),
+                                        )
+                                        .clicked();
+                                }
+                                clicked
+                            })
+                            .inner
                     });
 
                 if response.clicked() || inner.inner.unwrap_or(false) {
