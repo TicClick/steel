@@ -15,7 +15,7 @@ pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
 pub use logging::{AppLoggingConfig, LoggingConfig};
 pub use notifications::{
-    BuiltInSound, Highlights, NotificationStyle, Notifications, Sound, NotificationEvents,
+    BuiltInSound, Highlights, NotificationEvents, NotificationStyle, Notifications, Sound,
 };
 pub use ui::{ChatColours, ThemeMode, UI};
 

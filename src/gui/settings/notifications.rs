@@ -162,22 +162,31 @@ impl SettingsWindow {
                 ui.checkbox(&mut state.settings.notifications.notification_events.private_messages, "private messages");
             });
 
-            if cfg!(not(target_os = "linux")) {
+            let is_timeout_enabled = matches!(self.notifications_style, NotificationStyle::Intensive) && cfg!(not(target_os = "linux"));
+            let response = ui.add_enabled_ui(is_timeout_enabled, |ui| {
                 ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
-                ui.indent("notification-timeout-slider", |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("timeout duration");
-                        let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
-                        let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
-                        if ui.add_enabled(
-                            state.settings.notifications.enable_notification_timeout,
-                            slider
-                        ).changed() {
-                            state.settings.notifications.notification_timeout_seconds = timeout as u32;
-                        }
+
+                ui.add_enabled_ui(state.settings.notifications.enable_notification_timeout, |ui| {
+                    ui.indent("notification-timeout-slider", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("timeout duration");
+                            let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
+                            let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
+                            if ui.add(slider).changed() {
+                                state.settings.notifications.notification_timeout_seconds = timeout as u32;
+                            }
+                        });
                     });
                 });
-            }
+            })
+                .response
+                .on_disabled_hover_text(
+                    if cfg!(target_os = "linux") {
+                        "this setting is unavailable on Linux"
+                    } else {
+                        "this setting is inapplicable for selected notifcation style"
+                    }
+                );
         });
     }
 }
