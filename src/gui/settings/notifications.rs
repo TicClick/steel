@@ -158,23 +158,22 @@ impl SettingsWindow {
 
             ui.label("notify on");
             ui.indent("notify-checkboxes", |ui| {
-                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.highlights, "highlights");
-                ui.checkbox(&mut state.settings.notifications.taskbar_flash_events.private_messages, "private messages");
+                ui.checkbox(&mut state.settings.notifications.notification_events.highlights, "highlights");
+                ui.checkbox(&mut state.settings.notifications.notification_events.private_messages, "private messages");
             });
 
             if cfg!(not(target_os = "linux")) {
-                ui.checkbox(&mut state.settings.notifications.enable_flash_timeout, "stop flashing after timeout");
-
-                ui.indent("flash-timeout-slider", |ui| {
+                ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
+                ui.indent("notification-timeout-slider", |ui| {
                     ui.horizontal(|ui| {
                         ui.label("timeout duration");
-                        let mut timeout = state.settings.notifications.flash_timeout_seconds as f32;
+                        let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
                         let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
                         if ui.add_enabled(
-                            state.settings.notifications.enable_flash_timeout,
+                            state.settings.notifications.enable_notification_timeout,
                             slider
                         ).changed() {
-                            state.settings.notifications.flash_timeout_seconds = timeout as u32;
+                            state.settings.notifications.notification_timeout_seconds = timeout as u32;
                         }
                     });
                 });

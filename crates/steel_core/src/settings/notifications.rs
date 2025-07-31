@@ -5,10 +5,10 @@ use std::fmt::Display;
 #[serde(default)]
 pub struct Notifications {
     pub highlights: Highlights,
-    pub taskbar_flash_events: TaskbarFlashEvents,
+    pub notification_events: NotificationEvents,
     pub sound_only_when_unfocused: bool,
-    pub enable_flash_timeout: bool,
-    pub flash_timeout_seconds: u32,
+    pub enable_notification_timeout: bool,
+    pub notification_timeout_seconds: u32,
     pub notification_style: NotificationStyle,
 }
 
@@ -16,10 +16,10 @@ impl Default for Notifications {
     fn default() -> Self {
         Self {
             highlights: Highlights::default(),
-            taskbar_flash_events: TaskbarFlashEvents::default(),
+            notification_events: NotificationEvents::default(),
             sound_only_when_unfocused: false,
-            enable_flash_timeout: false,
-            flash_timeout_seconds: 10,
+            enable_notification_timeout: false,
+            notification_timeout_seconds: 10,
             notification_style: NotificationStyle::default(),
         }
     }
@@ -80,12 +80,12 @@ impl Display for Sound {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
-pub struct TaskbarFlashEvents {
+pub struct NotificationEvents {
     pub highlights: bool,
     pub private_messages: bool,
 }
 
-impl Default for TaskbarFlashEvents {
+impl Default for NotificationEvents {
     fn default() -> Self {
         Self {
             highlights: true,
