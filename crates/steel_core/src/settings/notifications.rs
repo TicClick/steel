@@ -1,10 +1,28 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Notifications {
     pub highlights: Highlights,
+    pub taskbar_flash_events: TaskbarFlashEvents,
+    pub sound_only_when_unfocused: bool,
+    pub enable_flash_timeout: bool,
+    pub flash_timeout_seconds: u32,
+    pub notification_style: NotificationStyle,
+}
+
+impl Default for Notifications {
+    fn default() -> Self {
+        Self {
+            highlights: Highlights::default(),
+            taskbar_flash_events: TaskbarFlashEvents::default(),
+            sound_only_when_unfocused: false,
+            enable_flash_timeout: false,
+            flash_timeout_seconds: 10,
+            notification_style: NotificationStyle::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -56,6 +74,42 @@ impl Display for Sound {
             "{}",
             match self {
                 Self::BuiltIn(s) => format!("built-in ({})", s),
+            }
+        )
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct TaskbarFlashEvents {
+    pub highlights: bool,
+    pub private_messages: bool,
+}
+
+impl Default for TaskbarFlashEvents {
+    fn default() -> Self {
+        Self {
+            highlights: true,
+            private_messages: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum NotificationStyle {
+    #[default]
+    Flash,
+    LightUp,
+}
+
+impl Display for NotificationStyle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Flash => "flash repeatedly",
+                Self::LightUp => "light up once",
             }
         )
     }

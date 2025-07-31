@@ -343,6 +343,9 @@ impl eframe::App for ApplicationWindow {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
 
+        // Check if flash timeout has elapsed
+        self.s.check_flash_timeout(ctx);
+
         self.usage_window
             .show(ctx, &mut self.s, &mut self.menu.show_usage);
         self.settings
