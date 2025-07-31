@@ -138,13 +138,13 @@ impl SettingsWindow {
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
                             &mut self.notifications_style,
-                            NotificationStyle::Flash,
-                            NotificationStyle::Flash.to_string(),
+                            NotificationStyle::TaskbarOnly,
+                            NotificationStyle::TaskbarOnly.to_string(),
                         );
                         ui.selectable_value(
                             &mut self.notifications_style,
-                            NotificationStyle::LightUp,
-                            NotificationStyle::LightUp.to_string(),
+                            NotificationStyle::WindowAndTaskbar,
+                            NotificationStyle::WindowAndTaskbar.to_string(),
                         );
                     });
 

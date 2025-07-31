@@ -251,17 +251,17 @@ impl UIState {
 
                 if should_notify {
                     if window_unfocused {
-                        let attention_type = match self.settings.notifications.notification_style {
-                            steel_core::settings::NotificationStyle::Flash => {
-                                eframe::egui::UserAttentionType::Critical
-                            }
-                            steel_core::settings::NotificationStyle::LightUp => {
-                                eframe::egui::UserAttentionType::Informational
-                            }
-                        };
                         ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            attention_type,
+                            eframe::egui::UserAttentionType::Critical,
                         ));
+                        if matches!(
+                            self.settings.notifications.notification_style,
+                            steel_core::settings::NotificationStyle::TaskbarOnly
+                        ) {
+                            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                                eframe::egui::UserAttentionType::Informational,
+                            ));
+                        };
                         self.flash_start_time = Some(std::time::Instant::now());
                     }
 
@@ -354,18 +354,21 @@ impl UIState {
     }
 
     pub fn check_flash_timeout(&mut self, ctx: &eframe::egui::Context) {
-        if !self.settings.notifications.enable_flash_timeout {
-            return;
-        }
-
-        if let Some(start_time) = self.flash_start_time {
-            let elapsed = start_time.elapsed().as_secs();
-            if elapsed >= self.settings.notifications.flash_timeout_seconds as u64 {
-                // Stop the attention request by sending Informational (less intrusive)
-                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                    eframe::egui::UserAttentionType::Informational,
-                ));
-                self.flash_start_time = None;
+        if self.settings.notifications.enable_flash_timeout
+            && matches!(
+                self.settings.notifications.notification_style,
+                steel_core::settings::NotificationStyle::WindowAndTaskbar
+            )
+        {
+            if let Some(start_time) = self.flash_start_time {
+                let elapsed = start_time.elapsed().as_secs();
+                if elapsed >= self.settings.notifications.flash_timeout_seconds as u64 {
+                    // Stop the attention request by sending Informational (less intrusive)
+                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                        eframe::egui::UserAttentionType::Informational,
+                    ));
+                    self.flash_start_time = None;
+                }
             }
         }
     }

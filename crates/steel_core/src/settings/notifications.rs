@@ -98,8 +98,8 @@ impl Default for TaskbarFlashEvents {
 #[serde(rename_all = "lowercase")]
 pub enum NotificationStyle {
     #[default]
-    Flash,
-    LightUp,
+    WindowAndTaskbar,
+    TaskbarOnly,
 }
 
 impl Display for NotificationStyle {
@@ -108,8 +108,8 @@ impl Display for NotificationStyle {
             f,
             "{}",
             match self {
-                Self::Flash => "flash repeatedly",
-                Self::LightUp => "light up once",
+                Self::WindowAndTaskbar => "window + taskbar",
+                Self::TaskbarOnly => "taskbar",
             }
         )
     }
