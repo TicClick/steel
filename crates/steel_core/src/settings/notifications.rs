@@ -98,9 +98,9 @@ impl Default for TaskbarFlashEvents {
 #[serde(rename_all = "lowercase")]
 pub enum NotificationStyle {
     #[cfg_attr(not(target_os = "linux"), default)]
-    Window,
+    Intensive,
     #[cfg_attr(target_os = "linux", default)]
-    Taskbar,
+    Moderate,
 }
 
 impl Display for NotificationStyle {
@@ -110,23 +110,23 @@ impl Display for NotificationStyle {
             "{}",
             if cfg!(target_os = "windows") {
                 match self {
-                    Self::Window => "flash window",
-                    Self::Taskbar => "flash taskbar icon",
+                    Self::Intensive => "flash window",
+                    Self::Moderate => "flash taskbar icon",
                 }
             } else if cfg!(target_os = "macos") {
                 match self {
-                    Self::Window => "jump many times in dock",
-                    Self::Taskbar => "jump once in dock",
+                    Self::Intensive => "jump many times in dock",
+                    Self::Moderate => "jump once in dock",
                 }
             } else if cfg!(target_os = "linux") {
                 match self {
-                    Self::Window => "(unsupported)",
-                    Self::Taskbar => "flash taskbar icon",
+                    Self::Intensive => "(unsupported)",
+                    Self::Moderate => "flash taskbar icon",
                 }
             } else {
                 match self {
-                    Self::Window => "flash window (unsupported)",
-                    Self::Taskbar => "flash taskbar icon (unsupported)",
+                    Self::Intensive => "flash window (unsupported)",
+                    Self::Moderate => "flash taskbar icon (unsupported)",
                 }
             }
         )

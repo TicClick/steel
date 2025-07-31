@@ -138,15 +138,15 @@ impl SettingsWindow {
                     .show_ui(ui, |ui| {
                         ui.selectable_value(
                             &mut self.notifications_style,
-                            NotificationStyle::Taskbar,
-                            NotificationStyle::Taskbar.to_string(),
+                            NotificationStyle::Moderate,
+                            NotificationStyle::Moderate.to_string(),
                         );
 
                         if cfg!(not(target_os = "linux")) {
                             ui.selectable_value(
                                 &mut self.notifications_style,
-                                NotificationStyle::Window,
-                                NotificationStyle::Window.to_string(),
+                                NotificationStyle::Intensive,
+                                NotificationStyle::Intensive.to_string(),
                             );
                         }
                     });
