@@ -89,6 +89,9 @@ pub struct ChatBehaviour {
 
     #[serde(default = "default_true")]
     pub track_unread_messages: bool,
+
+    #[serde(default = "default_true")]
+    pub keep_focus_on_input: bool,
 }
 
 impl Default for ChatBehaviour {
@@ -98,6 +101,7 @@ impl Default for ChatBehaviour {
             handle_osu_beatmap_links: true,
             chat_position: ChatPosition::Bottom,
             track_unread_messages: true,
+            keep_focus_on_input: true,
         }
     }
 }

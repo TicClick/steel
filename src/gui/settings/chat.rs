@@ -254,6 +254,14 @@ impl SettingsWindow {
                     "mark the end of read messages in inactive tabs, so that you know what's new",
                 );
 
+                ui.checkbox(
+                    &mut state.settings.chat.behaviour.keep_focus_on_input,
+                    "automatically focus on chat input",
+                )
+                .on_hover_text_at_pointer(
+                    "after you click somewhere in the UI, return keyboard focus to the chat input field automatically"
+                );
+
                 ui.horizontal(|ui| {
                     ui.label("chat position:");
                     let chat_position_label =
