@@ -364,7 +364,7 @@ impl eframe::App for ApplicationWindow {
 
         self.chat.show(ctx, &self.s);
 
-        if !self.menu.dialogs_visible() {
+        if self.s.settings.chat.behaviour.keep_focus_on_input && !self.menu.dialogs_visible() {
             self.chat.return_focus(ctx, &self.s);
         }
 
