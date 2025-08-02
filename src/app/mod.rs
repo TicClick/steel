@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::error::Error;
 
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
@@ -93,8 +94,8 @@ impl Application {
                     crate::core::os::restart(None);
                 }
 
-                AppMessageIn::UIExitRequested => {
-                    break;
+                AppMessageIn::UIExitRequested(return_code) => {
+                    std::process::exit(return_code);
                 }
 
                 AppMessageIn::UIChatOpened(target) => {
@@ -126,9 +127,14 @@ impl Application {
                     self.ui_request_usage_window();
                 }
 
+                AppMessageIn::UIShowError { error, is_fatal } => {
+                    self.ui_push_backend_error(error, is_fatal);
+                }
+
                 AppMessageIn::UIFilesystemPathRequested(path) => {
                     if let Err(e) = open_in_file_explorer(&path) {
-                        log::error!("Failed to open filesystem path: {}", e);
+                        log::error!("Failed to open filesystem path {}: {}", path, e);
+                        self.ui_push_backend_error(Box::new(e), false);
                     }
                 }
 
@@ -181,6 +187,12 @@ impl Application {
         }
     }
 
+    pub fn ui_push_backend_error(&self, error: Box<dyn Error + Send + Sync>, is_fatal: bool) {
+        self.ui_queue
+            .send(UIMessageIn::BackendError { error, is_fatal })
+            .unwrap();
+    }
+
     pub fn check_application_updates(&self) {
         if let Some(u) = &self.updater {
             u.check_version();
@@ -199,20 +211,25 @@ impl Application {
         }
     }
 
-    pub fn initialize(&mut self) {
-        self.load_settings(true);
-        log::set_max_level(self.state.settings.logging.application.level);
+    pub fn initialize(&mut self) -> Result<(), steel_core::settings::SettingsError> {
+        self.load_settings(false)?;
 
+        log::set_max_level(self.state.settings.logging.application.level);
         self.enable_chat_logger(&self.state.settings.logging.clone());
 
         self.start_updater();
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
+
+        Ok(())
     }
 
-    pub fn load_settings(&mut self, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME, fallback);
+    pub fn load_settings(
+        &mut self,
+        fallback: bool,
+    ) -> Result<(), steel_core::settings::SettingsError> {
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME, fallback)?;
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -220,6 +237,7 @@ impl Application {
 
         self.handle_chat_moderator_added("BanchoBot".into());
         self.ui_handle_settings_requested();
+        Ok(())
     }
 
     pub fn current_settings(&self) -> &Settings {

@@ -1,4 +1,7 @@
-use steel_core::ipc::ui::UIMessageIn;
+use steel_core::{
+    ipc::ui::UIMessageIn,
+    settings::{Settings, SettingsError},
+};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 pub mod actor;
@@ -39,11 +42,23 @@ pub fn run_app(
     original_exe_path: Option<std::path::PathBuf>,
 ) -> std::thread::JoinHandle<()> {
     let mut app = app::Application::new(ui_queue_in);
-    app.initialize();
+    let settings = match app.initialize() {
+        Ok(()) => app.current_settings().to_owned(),
+        Err(e) => {
+            app.ui_push_backend_error(Box::new(e), true);
+            Settings::default()
+        }
+    };
 
     let app_queue = app.app_queue.clone();
-    let settings = app.current_settings().to_owned();
 
+    app.ui_push_backend_error(
+        Box::new(SettingsError::IoError(std::io::Error::new(
+            std::io::ErrorKind::AddrInUse,
+            "blah",
+        ))),
+        false,
+    );
     let app_thread = std::thread::spawn(move || {
         app.run();
     });

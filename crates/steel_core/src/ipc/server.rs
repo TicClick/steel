@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use crate::chat::irc::IRCError;
 use crate::chat::{ConnectionStatus, Message};
 use crate::ipc::updater::UpdateState;
@@ -9,21 +11,36 @@ pub enum AppMessageIn {
     ConnectionChanged(ConnectionStatus),
     ConnectionActivity,
     ChatError(IRCError),
-    ChatMessageReceived { target: String, message: Message },
-    ServerMessageReceived { content: String },
+    ChatMessageReceived {
+        target: String,
+        message: Message,
+    },
+    ServerMessageReceived {
+        content: String,
+    },
     ChannelJoined(String),
     DateChanged(chrono::DateTime<chrono::Local>, String),
 
     UIConnectRequested,
     UIDisconnectRequested,
     UIRestartRequested,
-    UIExitRequested,
+    UIExitRequested(i32),
     UIChatOpened(String),
     UIChatClosed(String),
     UIChatCleared(String),
     UIChatSwitchRequested(String, Option<usize>),
-    UIChatMessageSent { target: String, text: String },
-    UIChatActionSent { target: String, text: String },
+    UIChatMessageSent {
+        target: String,
+        text: String,
+    },
+    UIChatActionSent {
+        target: String,
+        text: String,
+    },
+    UIShowError {
+        error: Box<dyn Error + Sync + Send>,
+        is_fatal: bool,
+    },
     UISettingsRequested,
     UISettingsUpdated(Settings),
     UIUsageWindowRequested,

@@ -1,6 +1,7 @@
 pub mod application;
 pub mod chat;
 pub mod colour;
+pub mod errors;
 pub mod logging;
 pub mod notifications;
 pub mod ui;
@@ -13,6 +14,7 @@ use serde_yaml;
 pub use application::Application;
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
 pub use colour::Colour;
+pub use errors::SettingsError;
 pub use logging::{AppLoggingConfig, LoggingConfig};
 pub use notifications::{
     BuiltInSound, Highlights, NotificationEvents, NotificationStyle, Notifications, Sound,
@@ -32,20 +34,18 @@ pub struct Settings {
 }
 
 pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
-    fn from_file(source: &str, fallback: bool) -> Self {
+    fn from_file(source: &str, fallback: bool) -> Result<Self, SettingsError> {
         log::info!("Loading settings from {:?}", source);
         match std::fs::read_to_string(source) {
             Ok(contents) => match serde_yaml::from_str::<Self>(&contents) {
-                Ok(obj) => obj,
-                Err(e) => {
-                    panic!("Error while loading the config: {}", e);
-                }
+                Ok(obj) => Ok(obj),
+                Err(e) => Err(SettingsError::YamlError(format!("Failed to parse structure of the settings file {source} on startup"), e)),
             },
             Err(e) => {
                 if fallback {
-                    return Self::default();
+                    return Ok(Self::default());
                 }
-                panic!("Error reading file at {:?}: {}", source, e);
+                Err(SettingsError::IoError(format!("Failed to read the settings file {source} on startup"), e))
             }
         }
     }

@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ipc::server::AppMessageIn;
@@ -19,6 +21,12 @@ impl CoreClient {
     pub fn chat_opened(&self, chat: &str) {
         self.server
             .send(AppMessageIn::UIChatOpened(chat.to_owned()))
+            .unwrap();
+    }
+
+    pub fn push_ui_error(&self, error: Box<dyn Error + Sync + Send>, is_fatal: bool) {
+        self.server
+            .send(AppMessageIn::UIShowError { error, is_fatal })
             .unwrap();
     }
 
@@ -72,18 +80,24 @@ impl CoreClient {
             .unwrap();
     }
 
-    pub fn restart_requested(&self, settings: &Settings) {
-        self.server
-            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
-            .unwrap();
+    pub fn restart_requested(&self, settings: Option<&Settings>) {
+        if let Some(settings) = settings {
+            self.server
+                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .unwrap();
+        }
         self.server.send(AppMessageIn::UIRestartRequested).unwrap();
     }
 
-    pub fn exit_requested(&self, settings: &Settings) {
+    pub fn exit_requested(&self, settings: Option<&Settings>, return_code: i32) {
+        if let Some(settings) = settings {
+            self.server
+                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .unwrap();
+        }
         self.server
-            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .send(AppMessageIn::UIExitRequested(return_code))
             .unwrap();
-        self.server.send(AppMessageIn::UIExitRequested).unwrap();
     }
 
     pub fn chat_switch_requested(&self, target: &str, message_id: Option<usize>) {

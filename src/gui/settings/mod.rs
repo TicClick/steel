@@ -97,7 +97,9 @@ impl SettingsWindow {
                         state.core.settings_requested();
 
                         #[cfg(feature = "glass")]
-                        state.glass.load_settings();
+                        if let Err(e) = state.glass.load_settings() {
+                            state.core.push_ui_error(Box::new(e), false);
+                        }
                     }
 
                     if ui
