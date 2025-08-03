@@ -340,6 +340,18 @@ impl ApplicationWindow {
             UIMessageIn::BackendError { error, is_fatal } => {
                 self.error_popup.push_error(error, is_fatal);
             }
+
+            #[allow(unused_variables)] // glass
+            UIMessageIn::GlassSettingsChanged { settings_data_yaml } => {
+                #[cfg(feature = "glass")]
+                {
+                    if let Ok(glass_settings) =
+                        serde_yaml::from_str::<glass::config::GlassSettings>(&settings_data_yaml)
+                    {
+                        self.s.update_glass_settings(glass_settings);
+                    }
+                }
+            }
         }
     }
 }

@@ -70,11 +70,7 @@ impl UIState {
             original_exe_path,
 
             #[cfg(feature = "glass")]
-            glass: {
-                let mut g = glass::Glass::default();
-                g.load_settings();
-                g
-            },
+            glass: glass::Glass::default(),
 
             filter: FilterCollection::default(),
 
@@ -357,6 +353,11 @@ impl UIState {
 
     pub fn has_chat(&self, target: &str) -> bool {
         self.name_to_chat(&target.to_lowercase()).is_some()
+    }
+
+    #[cfg(feature = "glass")]
+    pub fn update_glass_settings(&mut self, settings: glass::config::GlassSettings) {
+        self.glass.set_settings(settings);
     }
 
     pub fn check_flash_timeout(&mut self, ctx: &eframe::egui::Context) {

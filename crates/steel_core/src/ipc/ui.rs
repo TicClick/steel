@@ -37,4 +37,9 @@ pub enum UIMessageIn {
         error: Box<dyn Error + Send + Sync>,
         is_fatal: bool,
     },
+
+    // Pass raw settings to avoid depending on the glass module.
+    GlassSettingsChanged {
+        settings_data_yaml: String,
+    },
 }

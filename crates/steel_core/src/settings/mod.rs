@@ -39,13 +39,19 @@ pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
         match std::fs::read_to_string(source) {
             Ok(contents) => match serde_yaml::from_str::<Self>(&contents) {
                 Ok(obj) => Ok(obj),
-                Err(e) => Err(SettingsError::YamlError(format!("Failed to parse structure of the settings file {source} on startup"), e)),
+                Err(e) => Err(SettingsError::YamlError(
+                    format!("Failed to parse structure of the settings file {source} on startup"),
+                    e,
+                )),
             },
             Err(e) => {
                 if fallback {
                     return Ok(Self::default());
                 }
-                Err(SettingsError::IoError(format!("Failed to read the settings file {source} on startup"), e))
+                Err(SettingsError::IoError(
+                    format!("Failed to read the settings file {source} on startup"),
+                    e,
+                ))
             }
         }
     }

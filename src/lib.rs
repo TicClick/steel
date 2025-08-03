@@ -1,7 +1,4 @@
-use steel_core::{
-    ipc::ui::UIMessageIn,
-    settings::{Settings, SettingsError},
-};
+use steel_core::{ipc::ui::UIMessageIn, settings::Settings};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 pub mod actor;
@@ -50,15 +47,16 @@ pub fn run_app(
         }
     };
 
-    let app_queue = app.app_queue.clone();
+    #[cfg(feature = "glass")]
+    {
+        let mut glass = glass::Glass::default();
+        match glass.load_settings() {
+            Ok(_) => app.ui_send_glass_settings(glass.settings_as_yaml()),
+            Err(e) => app.ui_push_backend_error(Box::new(e), false),
+        }
+    }
 
-    app.ui_push_backend_error(
-        Box::new(SettingsError::IoError(std::io::Error::new(
-            std::io::ErrorKind::AddrInUse,
-            "blah",
-        ))),
-        false,
-    );
+    let app_queue = app.app_queue.clone();
     let app_thread = std::thread::spawn(move || {
         app.run();
     });

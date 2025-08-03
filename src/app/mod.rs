@@ -286,6 +286,15 @@ impl Application {
             .unwrap();
     }
 
+    #[cfg(feature = "glass")]
+    pub fn ui_send_glass_settings(&self, settings_yaml: String) {
+        self.ui_queue
+            .send(UIMessageIn::GlassSettingsChanged {
+                settings_data_yaml: settings_yaml,
+            })
+            .unwrap();
+    }
+
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
         self.handle_logging_settings_change(&settings.logging);
 
