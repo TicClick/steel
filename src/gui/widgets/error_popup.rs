@@ -42,7 +42,7 @@ impl ErrorPopup {
                     ui.label(format!("Caused by the following error: {:?}", source_error));
                 }
 
-                ui.horizontal(|ui| match !most_recent_error.is_fatal {
+                ui.horizontal(|ui| match most_recent_error.is_fatal {
                     true => {
                         ui.add_space(ui.available_width() - 60.0);
                         if ui.button("restart").clicked() {
