@@ -40,7 +40,6 @@ impl Menu {
                 };
                 if new_theme != state.settings.ui.theme {
                     state.settings.ui.theme = new_theme;
-                    state.core.settings_updated(&state.settings);
                 }
 
                 self.show_application_menu(ui, ctx, frame, state);
