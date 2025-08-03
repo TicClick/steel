@@ -7,6 +7,14 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
     };
 
     log::debug!("requested to open {:?}", target);
+
+    if !target.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Path does not exist: {:?}", target),
+        ));
+    }
+
     if let Some(p) = target.to_str() {
         let path = p.to_owned();
         let (executable, args) = if cfg!(target_os = "windows") {
@@ -17,10 +25,12 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
         } else {
             ("xdg-open", vec![path])
         };
+
         if let Err(e) = std::process::Command::new(executable).args(&args).spawn() {
             log::error!(
                 "failed to open {target:?} from UI: {e:?} (command line: \"{executable} {args:?})"
             );
+            return Err(e);
         }
     }
     Ok(())

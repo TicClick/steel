@@ -63,21 +63,15 @@ pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
                 e,
             )
         })?;
-        
+
         let mut f = std::fs::File::create(path).map_err(|e| {
-            SettingsError::IoError(
-                format!("Failed to create settings file {path}"),
-                e,
-            )
+            SettingsError::IoError(format!("Failed to create settings file {path}"), e)
         })?;
-        
+
         f.write_all(s.as_bytes()).map_err(|e| {
-            SettingsError::IoError(
-                format!("Failed to write settings to file {path}"),
-                e,
-            )
+            SettingsError::IoError(format!("Failed to write settings to file {path}"), e)
         })?;
-        
+
         Ok(())
     }
 
