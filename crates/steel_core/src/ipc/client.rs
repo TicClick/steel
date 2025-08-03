@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -80,13 +81,15 @@ impl CoreClient {
             .unwrap();
     }
 
-    pub fn restart_requested(&self, settings: Option<&Settings>) {
+    pub fn restart_requested(&self, settings: Option<&Settings>, path: Option<PathBuf>) {
         if let Some(settings) = settings {
             self.server
                 .send(AppMessageIn::UISettingsUpdated(settings.clone()))
                 .unwrap();
         }
-        self.server.send(AppMessageIn::UIRestartRequested).unwrap();
+        self.server
+            .send(AppMessageIn::UIRestartRequested(path))
+            .unwrap();
     }
 
     pub fn exit_requested(&self, settings: Option<&Settings>, return_code: i32) {

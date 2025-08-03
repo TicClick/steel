@@ -82,7 +82,7 @@ impl ErrorPopup {
                         self.errors.pop();
                     }
                     ModalAction::Restart => {
-                        self.core.restart_requested(None);
+                        self.core.restart_requested(None, None);
                     }
                     ModalAction::Exit => {
                         self.core.exit_requested(None, 1);

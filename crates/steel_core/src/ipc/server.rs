@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::path::PathBuf;
 
 use crate::chat::irc::IRCError;
 use crate::chat::{ConnectionStatus, Message};
@@ -23,7 +24,7 @@ pub enum AppMessageIn {
 
     UIConnectRequested,
     UIDisconnectRequested,
-    UIRestartRequested,
+    UIRestartRequested(Option<PathBuf>),
     UIExitRequested(i32),
     UIChatOpened(String),
     UIChatClosed(String),

@@ -95,21 +95,9 @@ impl UpdateWindow {
                             m.tag_name
                         ));
                         if ui.button("restart now").clicked() {
-                            if let Err(e) =
-                                crate::core::os::restart(state.original_exe_path.clone())
-                            {
-                                let error_msg = format!(
-                                    "Failed to restart the client -- please do it manually: {}",
-                                    e
-                                );
-                                state.core.push_ui_error(
-                                    Box::new(std::io::Error::new(
-                                        std::io::ErrorKind::Other,
-                                        error_msg,
-                                    )),
-                                    false,
-                                );
-                            }
+                            state
+                                .core
+                                .restart_requested(None, state.original_exe_path.clone());
                         }
                     }
                 }

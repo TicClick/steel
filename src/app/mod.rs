@@ -90,8 +90,8 @@ impl Application {
                     self.disconnect();
                 }
 
-                AppMessageIn::UIRestartRequested => {
-                    if let Err(e) = crate::core::os::restart(None) {
+                AppMessageIn::UIRestartRequested(path) => {
+                    if let Err(e) = crate::core::os::restart(path) {
                         log::error!("Failed to restart application: {:?}", e);
                         self.ui_push_backend_error(Box::new(e), false);
                     }

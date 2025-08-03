@@ -106,7 +106,7 @@ impl Menu {
             ui.separator();
 
             if ui.button("restart").clicked() {
-                state.core.restart_requested(Some(&state.settings));
+                state.core.restart_requested(Some(&state.settings), None);
                 ui.close();
             }
             if ui.button("exit").clicked() {
