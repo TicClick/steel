@@ -91,7 +91,10 @@ impl Application {
                 }
 
                 AppMessageIn::UIRestartRequested => {
-                    crate::core::os::restart(None);
+                    if let Err(e) = crate::core::os::restart(None) {
+                        log::error!("Failed to restart application: {:?}", e);
+                        self.ui_push_backend_error(Box::new(e), false);
+                    }
                 }
 
                 AppMessageIn::UIExitRequested(return_code) => {
