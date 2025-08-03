@@ -3939,7 +3939,7 @@ dependencies = [
 
 [[package]]
 name = "steel_core"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "chrono",
  "ecolor",

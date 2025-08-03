@@ -317,10 +317,21 @@ impl Application {
 
     #[cfg(feature = "glass")]
     pub fn ui_handle_glass_settings_updated(&self, settings_yaml: String) {
-        if let Ok(glass_settings) =
-            serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml)
-        {
-            glass_settings.to_file(glass::DEFAULT_SETTINGS_PATH);
+        match serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml) {
+            Ok(glass_settings) => {
+                if let Err(e) = glass_settings.to_file(glass::DEFAULT_SETTINGS_PATH) {
+                    self.ui_push_backend_error(Box::new(e), false);
+                }
+            }
+            Err(e) => {
+                self.ui_push_backend_error(
+                    Box::new(steel_core::settings::SettingsError::YamlError(
+                        "Failed to parse glass settings YAML".to_string(),
+                        e,
+                    )),
+                    false,
+                );
+            }
         }
     }
 
@@ -328,7 +339,9 @@ impl Application {
         self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
-        self.state.settings.to_file(SETTINGS_FILE_NAME);
+        if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
+            self.ui_push_backend_error(Box::new(e), false);
+        }
     }
 
     pub fn ui_request_usage_window(&mut self) {
