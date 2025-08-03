@@ -222,7 +222,7 @@ impl Application {
     }
 
     pub fn initialize(&mut self) -> Result<(), steel_core::settings::SettingsError> {
-        self.load_settings(false)?;
+        self.load_settings()?;
 
         log::set_max_level(self.state.settings.logging.application.level);
         self.enable_chat_logger(&self.state.settings.logging.clone());
@@ -235,11 +235,8 @@ impl Application {
         Ok(())
     }
 
-    pub fn load_settings(
-        &mut self,
-        fallback: bool,
-    ) -> Result<(), steel_core::settings::SettingsError> {
-        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME, fallback)?;
+    pub fn load_settings(&mut self) -> Result<(), steel_core::settings::SettingsError> {
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME)?;
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -309,8 +306,8 @@ impl Application {
     pub fn ui_handle_glass_settings_requested(&self) {
         let mut glass = glass::Glass::default();
         match glass.load_settings() {
-            Ok(_) => {
-                self.ui_send_glass_settings(glass.settings_as_yaml());
+            Ok(settings) => {
+                self.ui_send_glass_settings(settings.as_string());
             }
             Err(e) => {
                 self.ui_push_backend_error(Box::new(e), false);

@@ -34,7 +34,7 @@ pub struct Settings {
 }
 
 pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
-    fn from_file(source: &str, fallback: bool) -> Result<Self, SettingsError> {
+    fn from_file(source: &str) -> Result<Self, SettingsError> {
         log::info!("Loading settings from {:?}", source);
         match std::fs::read_to_string(source) {
             Ok(contents) => match serde_yaml::from_str::<Self>(&contents) {
@@ -45,7 +45,7 @@ pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
                 )),
             },
             Err(e) => {
-                if fallback {
+                if e.kind() == std::io::ErrorKind::NotFound {
                     return Ok(Self::default());
                 }
                 Err(SettingsError::IoError(
@@ -72,6 +72,10 @@ pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
                 panic!("Error saving settings: {}", e);
             }
         }
+    }
+
+    fn as_string(&self) -> String {
+        serde_yaml::to_string(&self).unwrap_or_else(|_| String::new())
     }
 }
 

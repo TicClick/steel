@@ -48,13 +48,7 @@ pub fn run_app(
     };
 
     #[cfg(feature = "glass")]
-    {
-        let mut glass = glass::Glass::default();
-        match glass.load_settings() {
-            Ok(_) => app.ui_send_glass_settings(glass.settings_as_yaml()),
-            Err(e) => app.ui_push_backend_error(Box::new(e), false),
-        }
-    }
+    app.ui_handle_glass_settings_requested();
 
     let app_queue = app.app_queue.clone();
     let app_thread = std::thread::spawn(move || {
