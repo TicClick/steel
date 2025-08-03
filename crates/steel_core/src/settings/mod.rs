@@ -56,22 +56,29 @@ pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
         }
     }
 
-    fn to_file(&self, path: &str) {
-        match serde_yaml::to_string(self) {
-            Ok(s) => match std::fs::File::create(path) {
-                Ok(mut f) => {
-                    if f.write(s.as_bytes()).is_err() {
-                        panic!("Failed to save settings")
-                    }
-                }
-                Err(e) => {
-                    panic!("Failed to save settings to {:?}: {}", path, e);
-                }
-            },
-            Err(e) => {
-                panic!("Error saving settings: {}", e);
-            }
-        }
+    fn to_file(&self, path: &str) -> Result<(), SettingsError> {
+        let s = serde_yaml::to_string(self).map_err(|e| {
+            SettingsError::YamlError(
+                format!("Failed to serialize settings to YAML for {path}"),
+                e,
+            )
+        })?;
+        
+        let mut f = std::fs::File::create(path).map_err(|e| {
+            SettingsError::IoError(
+                format!("Failed to create settings file {path}"),
+                e,
+            )
+        })?;
+        
+        f.write_all(s.as_bytes()).map_err(|e| {
+            SettingsError::IoError(
+                format!("Failed to write settings to file {path}"),
+                e,
+            )
+        })?;
+        
+        Ok(())
     }
 
     fn as_string(&self) -> String {
