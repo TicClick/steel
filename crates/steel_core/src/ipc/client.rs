@@ -146,7 +146,9 @@ impl CoreClient {
     }
 
     pub fn glass_settings_requested(&self) {
-        self.server.send(AppMessageIn::UIGlassSettingsRequested).unwrap();
+        self.server
+            .send(AppMessageIn::UIGlassSettingsRequested)
+            .unwrap();
     }
 
     pub fn glass_settings_updated(&self, settings_yaml: String) {

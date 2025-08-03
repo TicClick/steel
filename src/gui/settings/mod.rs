@@ -108,7 +108,9 @@ impl SettingsWindow {
                         state.core.settings_updated(&state.settings.clone());
 
                         #[cfg(feature = "glass")]
-                        state.core.glass_settings_updated(state.glass.settings_as_yaml());
+                        state
+                            .core
+                            .glass_settings_updated(state.glass.settings_as_yaml());
 
                         save_clicked = true;
                     }

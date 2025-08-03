@@ -320,7 +320,9 @@ impl Application {
 
     #[cfg(feature = "glass")]
     pub fn ui_handle_glass_settings_updated(&self, settings_yaml: String) {
-        if let Ok(glass_settings) = serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml) {
+        if let Ok(glass_settings) =
+            serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml)
+        {
             glass_settings.to_file(glass::DEFAULT_SETTINGS_PATH);
         }
     }
