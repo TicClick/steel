@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::path::PathBuf;
+
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::ipc::server::AppMessageIn;
@@ -19,6 +22,12 @@ impl CoreClient {
     pub fn chat_opened(&self, chat: &str) {
         self.server
             .send(AppMessageIn::UIChatOpened(chat.to_owned()))
+            .unwrap();
+    }
+
+    pub fn push_ui_error(&self, error: Box<dyn Error + Sync + Send>, is_fatal: bool) {
+        self.server
+            .send(AppMessageIn::UIShowError { error, is_fatal })
             .unwrap();
     }
 
@@ -72,18 +81,26 @@ impl CoreClient {
             .unwrap();
     }
 
-    pub fn restart_requested(&self, settings: &Settings) {
+    pub fn restart_requested(&self, settings: Option<&Settings>, path: Option<PathBuf>) {
+        if let Some(settings) = settings {
+            self.server
+                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .unwrap();
+        }
         self.server
-            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .send(AppMessageIn::UIRestartRequested(path))
             .unwrap();
-        self.server.send(AppMessageIn::UIRestartRequested).unwrap();
     }
 
-    pub fn exit_requested(&self, settings: &Settings) {
+    pub fn exit_requested(&self, settings: Option<&Settings>, return_code: i32) {
+        if let Some(settings) = settings {
+            self.server
+                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .unwrap();
+        }
         self.server
-            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .send(AppMessageIn::UIExitRequested(return_code))
             .unwrap();
-        self.server.send(AppMessageIn::UIExitRequested).unwrap();
     }
 
     pub fn chat_switch_requested(&self, target: &str, message_id: Option<usize>) {
@@ -128,6 +145,18 @@ impl CoreClient {
     pub fn abort_application_update(&self) {
         self.server
             .send(AppMessageIn::AbortApplicationUpdate)
+            .unwrap();
+    }
+
+    pub fn glass_settings_requested(&self) {
+        self.server
+            .send(AppMessageIn::UIGlassSettingsRequested)
+            .unwrap();
+    }
+
+    pub fn glass_settings_updated(&self, settings_yaml: String) {
+        self.server
+            .send(AppMessageIn::UIGlassSettingsUpdated(settings_yaml))
             .unwrap();
     }
 }

@@ -1,4 +1,4 @@
-use steel_core::ipc::ui::UIMessageIn;
+use steel_core::{ipc::ui::UIMessageIn, settings::Settings};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 pub mod actor;
@@ -39,11 +39,18 @@ pub fn run_app(
     original_exe_path: Option<std::path::PathBuf>,
 ) -> std::thread::JoinHandle<()> {
     let mut app = app::Application::new(ui_queue_in);
-    app.initialize();
+    let settings = match app.initialize() {
+        Ok(()) => app.current_settings().to_owned(),
+        Err(e) => {
+            app.ui_push_backend_error(Box::new(e), true);
+            Settings::default()
+        }
+    };
+
+    #[cfg(feature = "glass")]
+    app.ui_handle_glass_settings_requested();
 
     let app_queue = app.app_queue.clone();
-    let settings = app.current_settings().to_owned();
-
     let app_thread = std::thread::spawn(move || {
         app.run();
     });

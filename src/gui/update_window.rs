@@ -95,7 +95,9 @@ impl UpdateWindow {
                             m.tag_name
                         ));
                         if ui.button("restart now").clicked() {
-                            crate::core::os::restart(state.original_exe_path.clone());
+                            state
+                                .core
+                                .restart_requested(None, state.original_exe_path.clone());
                         }
                     }
                 }

@@ -1,7 +1,8 @@
 use eframe::egui::{self, Theme};
+use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
-use crate::gui;
+use crate::gui::{self, widgets::error_popup::ErrorPopup};
 
 use crate::gui::state::UIState;
 use steel_core::{
@@ -134,6 +135,8 @@ pub struct ApplicationWindow {
     ui_queue: UnboundedReceiver<UIMessageIn>,
     s: UIState,
     filter_ui: gui::filter::FilterWindow,
+
+    error_popup: gui::widgets::error_popup::ErrorPopup,
 }
 
 impl ApplicationWindow {
@@ -145,7 +148,7 @@ impl ApplicationWindow {
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
         let state = UIState::new(
-            app_queue_handle,
+            app_queue_handle.clone(),
             initial_settings.clone(),
             original_exe_path,
         );
@@ -162,6 +165,7 @@ impl ApplicationWindow {
             ui_queue,
             s: state,
             filter_ui: gui::filter::FilterWindow::default(),
+            error_popup: ErrorPopup::new(CoreClient::new(app_queue_handle)),
         }
     }
 
@@ -332,6 +336,22 @@ impl ApplicationWindow {
             UIMessageIn::UpdateStateChanged(state) => {
                 self.s.update_state = state;
             }
+
+            UIMessageIn::BackendError { error, is_fatal } => {
+                self.error_popup.push_error(error, is_fatal);
+            }
+
+            #[allow(unused_variables)] // glass
+            UIMessageIn::GlassSettingsChanged { settings_data_yaml } => {
+                #[cfg(feature = "glass")]
+                {
+                    if let Ok(glass_settings) =
+                        serde_yaml::from_str::<glass::config::GlassSettings>(&settings_data_yaml)
+                    {
+                        self.s.update_glass_settings(glass_settings);
+                    }
+                }
+            }
         }
     }
 }
@@ -345,6 +365,8 @@ impl eframe::App for ApplicationWindow {
 
         // Check if flash timeout has elapsed
         self.s.check_flash_timeout(ctx);
+
+        self.error_popup.show(ctx);
 
         self.usage_window
             .show(ctx, &mut self.s, &mut self.menu.show_usage);
@@ -372,6 +394,6 @@ impl eframe::App for ApplicationWindow {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        self.s.core.exit_requested(&self.s.settings);
+        self.s.core.exit_requested(Some(&self.s.settings), 0);
     }
 }

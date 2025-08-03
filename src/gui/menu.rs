@@ -40,7 +40,6 @@ impl Menu {
                 };
                 if new_theme != state.settings.ui.theme {
                     state.settings.ui.theme = new_theme;
-                    state.core.settings_updated(&state.settings);
                 }
 
                 self.show_application_menu(ui, ctx, frame, state);
@@ -107,7 +106,7 @@ impl Menu {
             ui.separator();
 
             if ui.button("restart").clicked() {
-                state.core.restart_requested(&state.settings);
+                state.core.restart_requested(Some(&state.settings), None);
                 ui.close();
             }
             if ui.button("exit").clicked() {

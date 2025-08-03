@@ -97,7 +97,7 @@ impl SettingsWindow {
                         state.core.settings_requested();
 
                         #[cfg(feature = "glass")]
-                        state.glass.load_settings();
+                        state.core.glass_settings_requested();
                     }
 
                     if ui
@@ -108,7 +108,9 @@ impl SettingsWindow {
                         state.core.settings_updated(&state.settings.clone());
 
                         #[cfg(feature = "glass")]
-                        state.glass.save_settings();
+                        state
+                            .core
+                            .glass_settings_updated(state.glass.export_settings());
 
                         save_clicked = true;
                     }

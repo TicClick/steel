@@ -1,4 +1,5 @@
 use std::collections::BTreeSet;
+use std::error::Error;
 
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
@@ -89,12 +90,15 @@ impl Application {
                     self.disconnect();
                 }
 
-                AppMessageIn::UIRestartRequested => {
-                    crate::core::os::restart(None);
+                AppMessageIn::UIRestartRequested(path) => {
+                    if let Err(e) = crate::core::os::restart(path) {
+                        log::error!("Failed to restart application: {:?}", e);
+                        self.ui_push_backend_error(Box::new(e), false);
+                    }
                 }
 
-                AppMessageIn::UIExitRequested => {
-                    break;
+                AppMessageIn::UIExitRequested(return_code) => {
+                    std::process::exit(return_code);
                 }
 
                 AppMessageIn::UIChatOpened(target) => {
@@ -126,9 +130,14 @@ impl Application {
                     self.ui_request_usage_window();
                 }
 
+                AppMessageIn::UIShowError { error, is_fatal } => {
+                    self.ui_push_backend_error(error, is_fatal);
+                }
+
                 AppMessageIn::UIFilesystemPathRequested(path) => {
                     if let Err(e) = open_in_file_explorer(&path) {
-                        log::error!("Failed to open filesystem path: {}", e);
+                        log::error!("Failed to open filesystem path {}: {}", path, e);
+                        self.ui_push_backend_error(Box::new(e), false);
                     }
                 }
 
@@ -146,6 +155,16 @@ impl Application {
                 }
                 AppMessageIn::AbortApplicationUpdate => {
                     self.abort_application_update();
+                }
+
+                AppMessageIn::UIGlassSettingsRequested => {
+                    #[cfg(feature = "glass")]
+                    self.ui_handle_glass_settings_requested();
+                }
+                #[allow(unused_variables)] // glass
+                AppMessageIn::UIGlassSettingsUpdated(settings_yaml) => {
+                    #[cfg(feature = "glass")]
+                    self.ui_handle_glass_settings_updated(settings_yaml);
                 }
             }
         }
@@ -181,6 +200,12 @@ impl Application {
         }
     }
 
+    pub fn ui_push_backend_error(&self, error: Box<dyn Error + Send + Sync>, is_fatal: bool) {
+        self.ui_queue
+            .send(UIMessageIn::BackendError { error, is_fatal })
+            .unwrap();
+    }
+
     pub fn check_application_updates(&self) {
         if let Some(u) = &self.updater {
             u.check_version();
@@ -199,20 +224,22 @@ impl Application {
         }
     }
 
-    pub fn initialize(&mut self) {
-        self.load_settings(true);
-        log::set_max_level(self.state.settings.logging.application.level);
+    pub fn initialize(&mut self) -> Result<(), steel_core::settings::SettingsError> {
+        self.load_settings()?;
 
+        log::set_max_level(self.state.settings.logging.application.level);
         self.enable_chat_logger(&self.state.settings.logging.clone());
 
         self.start_updater();
         if self.state.settings.chat.autoconnect {
             self.connect();
         }
+
+        Ok(())
     }
 
-    pub fn load_settings(&mut self, fallback: bool) {
-        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME, fallback);
+    pub fn load_settings(&mut self) -> Result<(), steel_core::settings::SettingsError> {
+        self.state.settings = settings::Settings::from_file(SETTINGS_FILE_NAME)?;
 
         if self.state.settings.application.autoupdate.url.is_empty() {
             self.state.settings.application.autoupdate.url = updater::default_update_url();
@@ -220,6 +247,7 @@ impl Application {
 
         self.handle_chat_moderator_added("BanchoBot".into());
         self.ui_handle_settings_requested();
+        Ok(())
     }
 
     pub fn current_settings(&self) -> &Settings {
@@ -268,11 +296,55 @@ impl Application {
             .unwrap();
     }
 
+    #[cfg(feature = "glass")]
+    pub fn ui_send_glass_settings(&self, settings_yaml: String) {
+        self.ui_queue
+            .send(UIMessageIn::GlassSettingsChanged {
+                settings_data_yaml: settings_yaml,
+            })
+            .unwrap();
+    }
+
+    #[cfg(feature = "glass")]
+    pub fn ui_handle_glass_settings_requested(&self) {
+        let mut glass = glass::Glass::default();
+        match glass.load_settings() {
+            Ok(settings) => {
+                self.ui_send_glass_settings(settings.as_string());
+            }
+            Err(e) => {
+                self.ui_push_backend_error(Box::new(e), false);
+            }
+        }
+    }
+
+    #[cfg(feature = "glass")]
+    pub fn ui_handle_glass_settings_updated(&self, settings_yaml: String) {
+        match serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml) {
+            Ok(glass_settings) => {
+                if let Err(e) = glass_settings.to_file(glass::DEFAULT_SETTINGS_PATH) {
+                    self.ui_push_backend_error(Box::new(e), false);
+                }
+            }
+            Err(e) => {
+                self.ui_push_backend_error(
+                    Box::new(steel_core::settings::SettingsError::YamlError(
+                        "Failed to parse glass settings YAML".to_string(),
+                        e,
+                    )),
+                    false,
+                );
+            }
+        }
+    }
+
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
         self.handle_logging_settings_change(&settings.logging);
 
         self.state.settings = settings;
-        self.state.settings.to_file(SETTINGS_FILE_NAME);
+        if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
+            self.ui_push_backend_error(Box::new(e), false);
+        }
     }
 
     pub fn ui_request_usage_window(&mut self) {

@@ -3,10 +3,27 @@ use std::path::PathBuf;
 pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
     let target = match target.starts_with(".") {
         false => std::path::Path::new(target).to_path_buf(),
-        true => std::env::current_exe()?.parent().unwrap().join(target),
+        true => {
+            let exe_path = std::env::current_exe()?;
+            let parent = exe_path.parent().ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    "Executable has no parent directory",
+                )
+            })?;
+            parent.join(target)
+        }
     };
 
     log::debug!("requested to open {:?}", target);
+
+    if !target.exists() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("Path does not exist: {:?}", target),
+        ));
+    }
+
     if let Some(p) = target.to_str() {
         let path = p.to_owned();
         let (executable, args) = if cfg!(target_os = "windows") {
@@ -17,10 +34,12 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
         } else {
             ("xdg-open", vec![path])
         };
+
         if let Err(e) = std::process::Command::new(executable).args(&args).spawn() {
             log::error!(
                 "failed to open {target:?} from UI: {e:?} (command line: \"{executable} {args:?})"
             );
+            return Err(e);
         }
     }
     Ok(())
@@ -31,8 +50,15 @@ pub fn backup_exe_path() -> Option<PathBuf> {
         Ok(pb) => match pb.file_name() {
             None => None,
             Some(file_name) => {
-                let file_name = file_name.to_str().unwrap();
-                Some(pb.with_file_name(format!("{file_name}.old")))
+                if let Some(file_name_str) = file_name.to_str() {
+                    Some(pb.with_file_name(format!("{file_name_str}.old")))
+                } else {
+                    log::warn!(
+                        "Executable filename contains invalid UTF-8: {:?}",
+                        file_name
+                    );
+                    None
+                }
             }
         },
         Err(e) => {
@@ -82,15 +108,21 @@ pub fn cleanup_after_update() {
     }
 }
 
-pub fn restart(executable_path: Option<PathBuf>) {
-    if let Some(exe_path) = executable_path.or(std::env::current_exe().ok()) {
-        log::debug!("restart: going to launch another copy of myself and then exit");
-        if let Err(e) = std::process::Command::new(&exe_path).arg(&exe_path).spawn() {
-            log::error!("failed to restart myself: {:?}", e);
-        } else {
-            std::process::exit(0);
-        }
-    }
+pub fn restart(executable_path: Option<PathBuf>) -> std::io::Result<()> {
+    let exe_path = executable_path
+        .or(std::env::current_exe().ok())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "Could not determine executable path for restart",
+            )
+        })?;
+
+    log::debug!("restart: going to launch another copy of myself and then exit");
+    std::process::Command::new(&exe_path)
+        .arg(&exe_path)
+        .spawn()?;
+    std::process::exit(0);
 }
 
 pub fn fix_cwd() -> Result<(), std::io::Error> {
