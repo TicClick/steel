@@ -153,6 +153,16 @@ impl Application {
                 AppMessageIn::AbortApplicationUpdate => {
                     self.abort_application_update();
                 }
+
+                AppMessageIn::UIGlassSettingsRequested => {
+                    #[cfg(feature = "glass")]
+                    self.ui_handle_glass_settings_requested();
+                }
+                #[allow(unused_variables)] // glass
+                AppMessageIn::UIGlassSettingsUpdated(settings_yaml) => {
+                    #[cfg(feature = "glass")]
+                    self.ui_handle_glass_settings_updated(settings_yaml);
+                }
             }
         }
     }
@@ -293,6 +303,26 @@ impl Application {
                 settings_data_yaml: settings_yaml,
             })
             .unwrap();
+    }
+
+    #[cfg(feature = "glass")]
+    pub fn ui_handle_glass_settings_requested(&self) {
+        let mut glass = glass::Glass::default();
+        match glass.load_settings() {
+            Ok(_) => {
+                self.ui_send_glass_settings(glass.settings_as_yaml());
+            }
+            Err(e) => {
+                self.ui_push_backend_error(Box::new(e), false);
+            }
+        }
+    }
+
+    #[cfg(feature = "glass")]
+    pub fn ui_handle_glass_settings_updated(&self, settings_yaml: String) {
+        if let Ok(glass_settings) = serde_yaml::from_str::<glass::config::GlassSettings>(&settings_yaml) {
+            glass_settings.to_file(glass::DEFAULT_SETTINGS_PATH);
+        }
     }
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {

@@ -53,4 +53,7 @@ pub enum AppMessageIn {
     CheckApplicationUpdates,
     DownloadApplicationUpdate,
     AbortApplicationUpdate,
+
+    UIGlassSettingsRequested,
+    UIGlassSettingsUpdated(String), // YAML data
 }
