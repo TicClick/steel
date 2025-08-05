@@ -1,29 +1,28 @@
 use eframe::egui;
+use steel_core::ipc::client::CoreClient;
 
-use crate::gui::state::UIState;
-
-pub struct ChannelLink<'link> {
+pub struct ChannelLink<'link, 'app> {
     display_text: &'link egui::RichText,
     location: &'link str,
 
-    ui_state: &'link UIState,
+    core_client: &'app CoreClient,
 }
 
-impl<'link> ChannelLink<'link> {
+impl<'link, 'app> ChannelLink<'link, 'app> {
     pub fn new(
         display_text: &'link egui::RichText,
         location: &'link str,
-        ui_state: &'link UIState,
+        core_client: &'app CoreClient
     ) -> Self {
         Self {
             display_text,
             location,
-            ui_state,
+            core_client,
         }
     }
 }
 
-impl egui::Widget for ChannelLink<'_> {
+impl egui::Widget for ChannelLink<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         let on_hover_text = format!("Open {}", self.location);
         let resp = ui
@@ -31,13 +30,7 @@ impl egui::Widget for ChannelLink<'_> {
             .on_hover_text_at_pointer(on_hover_text);
 
         if resp.clicked() {
-            match self.ui_state.has_chat(self.location) {
-                true => self
-                    .ui_state
-                    .core
-                    .chat_switch_requested(self.location, None),
-                false => self.ui_state.core.chat_opened(self.location),
-            }
+            self.core_client.chat_opened(self.location)
         }
 
         resp
