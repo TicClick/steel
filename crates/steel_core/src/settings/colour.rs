@@ -25,10 +25,15 @@ impl From<String> for Colour {
             .collect();
         match values[0..3].try_into() {
             Ok(rgb) => Self { rgb },
-            Err(e) => panic!(
-                "invalid colour value {} (must have 3 elements): {}",
-                value, e
-            ),
+            Err(e) => panic!("invalid colour value {value} (must have 3 elements): {e}"),
+        }
+    }
+}
+
+impl From<Color32> for Colour {
+    fn from(value: Color32) -> Self {
+        Self {
+            rgb: [value.r(), value.g(), value.b()],
         }
     }
 }

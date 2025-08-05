@@ -168,7 +168,7 @@ fn run_improved_deadlock_test() {
                         state.connection_completed();
                     }
                     ConnectionStatus::Disconnected { by_user } => {
-                        println!("Disconnected (requested by user: {})", by_user);
+                        println!("Disconnected (requested by user: {by_user})");
                         state.disconnection_completed();
                     }
                     ConnectionStatus::InProgress => {
@@ -200,51 +200,49 @@ fn run_improved_deadlock_test() {
                 drop(state); // Release the lock before sending the command.
                 println!("Sending Connect");
                 if let Err(e) = input_tx.send(IRCMessageIn::Connect(Box::new(config_clone))) {
-                    println!("Failed to send Connect: {}", e);
+                    println!("Failed to send Connect: {e}");
                     break;
                 }
-            } else if state.is_connected {
-                if state.connect_count == state.current_iteration {
-                    println!("Connected, sending messages...");
+            } else if state.is_connected && state.connect_count == state.current_iteration {
+                println!("Connected, sending messages...");
 
-                    let iteration = state.current_iteration;
-                    drop(state);
+                let iteration = state.current_iteration;
+                drop(state);
 
-                    if let Err(e) = input_tx.send(IRCMessageIn::JoinChannel("#test".to_string())) {
-                        println!("Failed to send JoinChannel: {}", e);
-                        force_exit_clone.store(true, Ordering::SeqCst);
-                        break;
-                    }
-
-                    for j in 0..3 {
-                        if let Err(e) = input_tx.send(IRCMessageIn::SendMessage {
-                            r#type: crate::core::chat::MessageType::Text,
-                            destination: "#test".to_string(),
-                            content: format!("Test message {} in iteration {}", j, iteration),
-                        }) {
-                            println!("Failed to send a message: {}", e);
-                            force_exit_clone.store(true, Ordering::SeqCst);
-                            break;
-                        }
-
-                        thread::sleep(Duration::from_millis(50));
-                    }
-
-                    thread::sleep(Duration::from_millis(1000));
-
-                    println!("Sending Disconnect");
-
-                    let mut state = test_state_controller.lock().unwrap();
-                    state.start_disconnection();
-                    drop(state);
-
-                    if let Err(e) = input_tx.send(IRCMessageIn::Disconnect) {
-                        println!("Failed to send Disconnect: {}", e);
-                        force_exit_clone.store(true, Ordering::SeqCst);
-                        break;
-                    }
-                    println!("(should be done disconnecting)");
+                if let Err(e) = input_tx.send(IRCMessageIn::JoinChannel("#test".to_string())) {
+                    println!("Failed to send JoinChannel: {e}");
+                    force_exit_clone.store(true, Ordering::SeqCst);
+                    break;
                 }
+
+                for j in 0..3 {
+                    if let Err(e) = input_tx.send(IRCMessageIn::SendMessage {
+                        r#type: crate::core::chat::MessageType::Text,
+                        destination: "#test".to_string(),
+                        content: format!("Test message {j} in iteration {iteration}"),
+                    }) {
+                        println!("Failed to send a message: {e}");
+                        force_exit_clone.store(true, Ordering::SeqCst);
+                        break;
+                    }
+
+                    thread::sleep(Duration::from_millis(50));
+                }
+
+                thread::sleep(Duration::from_millis(1000));
+
+                println!("Sending Disconnect");
+
+                let mut state = test_state_controller.lock().unwrap();
+                state.start_disconnection();
+                drop(state);
+
+                if let Err(e) = input_tx.send(IRCMessageIn::Disconnect) {
+                    println!("Failed to send Disconnect: {e}");
+                    force_exit_clone.store(true, Ordering::SeqCst);
+                    break;
+                }
+                println!("(should be done disconnecting)");
             }
 
             if let Ok(state) = test_state_controller.try_lock() {
@@ -277,7 +275,7 @@ fn run_improved_deadlock_test() {
 }
 
 fn create_local_irc_config(i: usize) -> irc::client::data::Config {
-    let username = format!("test_user_{}", i);
+    let username = format!("test_user_{i}");
     irc::client::data::Config {
         username: Some(username.clone()),
         nickname: Some(username.clone()),

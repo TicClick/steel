@@ -42,10 +42,12 @@ pub enum AppMessageIn {
         error: Box<dyn Error + Sync + Send>,
         is_fatal: bool,
     },
+    UIUserMentionRequested(String),
     UISettingsRequested,
-    UISettingsUpdated(Settings),
+    UISettingsUpdated(Box<Settings>),
     UIUsageWindowRequested,
     UIFilesystemPathRequested(String),
+    UIChatLogRequested(String),
 
     ChatModeratorAdded(String),
 

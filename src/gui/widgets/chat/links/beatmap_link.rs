@@ -1,26 +1,20 @@
 use eframe::egui;
+use steel_core::settings::chat::ChatBehaviour;
 
-use crate::gui::{context_menu::url::menu_item_copy_url, state::UIState};
+use crate::gui::context_menu::url::menu_item_copy_url;
 
 use super::regular_link::RegularLink;
 
-struct BaseBeatmapLink<'link> {
+struct BaseBeatmapLink<'link, 'app> {
     display_text: &'link egui::RichText,
     on_hover_text: String,
     location: String,
-
-    ui_state: &'link UIState,
+    behaviour: &'app ChatBehaviour,
 }
 
-impl egui::Widget for BaseBeatmapLink<'_> {
+impl egui::Widget for BaseBeatmapLink<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        match self
-            .ui_state
-            .settings
-            .chat
-            .behaviour
-            .handle_osu_beatmap_links
-        {
+        match self.behaviour.handle_osu_beatmap_links {
             false => ui.add(RegularLink::new(self.display_text, &self.location)),
             true => {
                 let resp = ui
@@ -39,59 +33,59 @@ impl egui::Widget for BaseBeatmapLink<'_> {
     }
 }
 
-pub struct BeatmapLink<'link> {
-    inner: BaseBeatmapLink<'link>,
+pub struct BeatmapLink<'link, 'app> {
+    inner: BaseBeatmapLink<'link, 'app>,
 }
 
-impl<'link> BeatmapLink<'link> {
+impl<'link, 'app> BeatmapLink<'link, 'app> {
     pub fn new(
         beatmap_id: u64,
         display_text: &'link egui::RichText,
-        ui_state: &'link UIState,
+        behaviour: &'app ChatBehaviour,
     ) -> Self {
-        let location = format!("https://osu.ppy.sh/beatmapsets/{}", beatmap_id);
-        let on_hover_text = format!("Beatmap #{} (open in browser)", beatmap_id);
+        let location = format!("https://osu.ppy.sh/beatmapsets/{beatmap_id}");
+        let on_hover_text = format!("Beatmap #{beatmap_id} (open in browser)");
         Self {
             inner: BaseBeatmapLink {
                 display_text,
                 on_hover_text,
                 location,
-                ui_state,
+                behaviour,
             },
         }
     }
 }
 
-impl egui::Widget for BeatmapLink<'_> {
+impl egui::Widget for BeatmapLink<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         ui.add(self.inner)
     }
 }
 
-pub struct BeatmapDifficultyLink<'link> {
-    inner: BaseBeatmapLink<'link>,
+pub struct BeatmapDifficultyLink<'link, 'app> {
+    inner: BaseBeatmapLink<'link, 'app>,
 }
 
-impl<'link> BeatmapDifficultyLink<'link> {
+impl<'link, 'app> BeatmapDifficultyLink<'link, 'app> {
     pub fn new(
         difficulty_id: u64,
         display_text: &'link egui::RichText,
-        ui_state: &'link UIState,
+        behaviour: &'app ChatBehaviour,
     ) -> Self {
-        let location = format!("https://osu.ppy.sh/beatmaps/{}", difficulty_id);
-        let on_hover_text = format!("Difficulty #{} (open in browser)", difficulty_id);
+        let location = format!("https://osu.ppy.sh/beatmaps/{difficulty_id}");
+        let on_hover_text = format!("Difficulty #{difficulty_id} (open in browser)");
         Self {
             inner: BaseBeatmapLink {
                 display_text,
                 on_hover_text,
                 location,
-                ui_state,
+                behaviour,
             },
         }
     }
 }
 
-impl egui::Widget for BeatmapDifficultyLink<'_> {
+impl egui::Widget for BeatmapDifficultyLink<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         ui.add(self.inner)
     }

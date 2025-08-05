@@ -25,19 +25,11 @@ const HIGHLIGHTS_SEPARATOR: &str = ", ";
 const CENTRAL_PANEL_INNER_MARGIN_Y: i8 = 4;
 
 pub trait DecoratedText {
-    fn with_styles(
-        self,
-        decorations: &Option<Vec<TextStyle>>,
-        settings: &steel_core::settings::Settings,
-    ) -> RichText;
+    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText;
 }
 
 impl DecoratedText for RichText {
-    fn with_styles(
-        mut self,
-        decorations: &Option<Vec<TextStyle>>,
-        settings: &steel_core::settings::Settings,
-    ) -> RichText {
+    fn with_styles(mut self, decorations: &Option<Vec<TextStyle>>) -> RichText {
         match decorations {
             None => self,
             Some(decorations) => {
@@ -48,10 +40,7 @@ impl DecoratedText for RichText {
                         TextStyle::Monospace => self = self.monospace(),
                         TextStyle::Underline => self = self.underline(),
                         TextStyle::Strikethrough => self = self.strikethrough(),
-
-                        TextStyle::Highlight => {
-                            self = self.color(settings.ui.colours().highlight.clone())
-                        }
+                        TextStyle::Highlight(c) => self = self.color(*c),
                         TextStyle::Coloured(c) => self = self.color(*c),
                     }
                 }
@@ -62,22 +51,14 @@ impl DecoratedText for RichText {
 }
 
 impl DecoratedText for String {
-    fn with_styles(
-        self,
-        decorations: &Option<Vec<TextStyle>>,
-        settings: &steel_core::settings::Settings,
-    ) -> RichText {
-        RichText::new(self).with_styles(decorations, settings)
+    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+        RichText::new(self).with_styles(decorations)
     }
 }
 
 impl DecoratedText for &str {
-    fn with_styles(
-        self,
-        decorations: &Option<Vec<TextStyle>>,
-        settings: &steel_core::settings::Settings,
-    ) -> RichText {
-        RichText::new(self).with_styles(decorations, settings)
+    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+        RichText::new(self).with_styles(decorations)
     }
 }
 

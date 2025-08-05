@@ -37,8 +37,7 @@ impl SoundPlayer {
             },
             Err(e) => {
                 log::error!(
-                    "failed to read the default audio device -- no sounds will play: {:?}",
-                    e
+                    "failed to read the default audio device -- no sounds will play: {e:?}"
                 );
                 Self {
                     _stream: None,
@@ -73,7 +72,7 @@ impl SoundPlayer {
             match sh.play_once(std::io::Cursor::new(sample)) {
                 Ok(sink) => self.sink = Some(sink),
                 Err(e) => {
-                    log::error!("failed to play {:?}: {:?}", sound, e);
+                    log::error!("failed to play {sound:?}: {e:?}");
                 }
             }
         }

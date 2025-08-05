@@ -73,7 +73,7 @@ impl Display for Sound {
             f,
             "{}",
             match self {
-                Self::BuiltIn(s) => format!("built-in ({})", s),
+                Self::BuiltIn(s) => format!("built-in ({s})"),
             }
         )
     }

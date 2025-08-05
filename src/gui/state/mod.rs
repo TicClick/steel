@@ -15,7 +15,7 @@ use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
 #[derive(Debug)]
 pub enum UIMessageIn {
-    SettingsChanged(Settings),
+    SettingsChanged(Box<Settings>),
     ConnectionStatusChanged(ConnectionStatus),
     ConnectionActivity,
     NewMessageReceived { target: String, message: Message },

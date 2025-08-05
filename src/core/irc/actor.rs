@@ -160,8 +160,7 @@ fn irc_thread_main(
     match rt.block_on(irc::client::Client::from_config(config)) {
         Err(e) => {
             tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
-                "failed to start the IRC client: {}",
-                e
+                "failed to start the IRC client: {e}"
             ))))
             .unwrap();
             tx.send(AppMessageIn::ConnectionChanged(
@@ -181,7 +180,7 @@ fn irc_thread_main(
                 let must_exit = check_irc_exit_requested(&arc);
                 if must_exit {
                     if let Err(e) = clt.send_quit("") {
-                        log::error!("Error sending quit command: {:?}", e);
+                        log::error!("Error sending quit command: {e:?}");
                     }
                     disconnected_by_user = true;
                     break;
@@ -196,8 +195,7 @@ fn irc_thread_main(
                         }
                         Some(Err(reason)) => {
                             tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
-                                "connection broken: {}",
-                                reason
+                                "connection broken: {reason}"
                             ))))
                             .unwrap();
                             break;

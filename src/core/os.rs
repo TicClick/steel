@@ -15,12 +15,12 @@ pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
         }
     };
 
-    log::debug!("requested to open {:?}", target);
+    log::debug!("requested to open {target:?}");
 
     if !target.exists() {
         return Err(std::io::Error::new(
             std::io::ErrorKind::NotFound,
-            format!("Path does not exist: {:?}", target),
+            format!("Path does not exist: {target:?}"),
         ));
     }
 
@@ -53,16 +53,13 @@ pub fn backup_exe_path() -> Option<PathBuf> {
                 if let Some(file_name_str) = file_name.to_str() {
                     Some(pb.with_file_name(format!("{file_name_str}.old")))
                 } else {
-                    log::warn!(
-                        "Executable filename contains invalid UTF-8: {:?}",
-                        file_name
-                    );
+                    log::warn!("Executable filename contains invalid UTF-8: {file_name:?}");
                     None
                 }
             }
         },
         Err(e) => {
-            log::warn!("Failed to read current executable path: {:?}", e);
+            log::warn!("Failed to read current executable path: {e:?}");
             None
         }
     }
@@ -101,8 +98,7 @@ pub fn cleanup_after_update() {
 
         if let Some(e) = last_error {
             log::warn!(
-                "failed to remove old executable ({:?}) which was left after SUCCESSFUL update after {:?}: {:?}",
-                old_backup, max_duration, e
+                "failed to remove old executable ({old_backup:?}) which was left after SUCCESSFUL update after {max_duration:?}: {e:?}"
             );
         }
     }

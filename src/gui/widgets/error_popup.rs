@@ -39,7 +39,7 @@ impl ErrorPopup {
                 ui.heading("Application error");
                 ui.label(format!("{}", most_recent_error.error));
                 if let Some(source_error) = most_recent_error.error.source() {
-                    ui.label(format!("Caused by the following error: {:?}", source_error));
+                    ui.label(format!("Caused by the following error: {source_error:?}"));
                 }
 
                 ui.horizontal(|ui| match most_recent_error.is_fatal {

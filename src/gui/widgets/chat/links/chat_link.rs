@@ -1,37 +1,39 @@
 use eframe::egui;
 
-use crate::gui::state::UIState;
-use steel_core::chat::ChatLike;
+use steel_core::{chat::ChatLike, ipc::client::CoreClient, settings::chat::ChatBehaviour};
 
 use super::regular_link::RegularLink;
 
-pub struct ChatLink<'link> {
+pub struct ChatLink<'link, 'app> {
     chat_name: &'link str,
     display_text: &'link egui::RichText,
     location: &'link str,
 
-    ui_state: &'link UIState,
+    behaviour: &'app ChatBehaviour,
+    core_client: &'app CoreClient,
 }
 
-impl<'link> ChatLink<'link> {
+impl<'link, 'app> ChatLink<'link, 'app> {
     pub fn new(
         chat_name: &'link str,
         display_text: &'link egui::RichText,
         location: &'link str,
-        ui_state: &'link UIState,
+        behaviour: &'app ChatBehaviour,
+        core_client: &'app CoreClient,
     ) -> Self {
         Self {
             chat_name,
             display_text,
             location,
-            ui_state,
+            behaviour,
+            core_client,
         }
     }
 }
 
-impl egui::Widget for ChatLink<'_> {
+impl egui::Widget for ChatLink<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        match self.ui_state.settings.chat.behaviour.handle_osu_chat_links {
+        match self.behaviour.handle_osu_chat_links {
             false => ui.add(RegularLink::new(self.display_text, self.location)),
             true => {
                 let title = match self.location.is_channel() {
@@ -43,13 +45,7 @@ impl egui::Widget for ChatLink<'_> {
                     .on_hover_text_at_pointer(title);
 
                 if resp.clicked() {
-                    match self.ui_state.has_chat(self.chat_name) {
-                        true => self
-                            .ui_state
-                            .core
-                            .chat_switch_requested(self.chat_name, None),
-                        false => self.ui_state.core.chat_opened(self.chat_name),
-                    }
+                    self.core_client.chat_opened(self.chat_name)
                 }
                 resp
             }

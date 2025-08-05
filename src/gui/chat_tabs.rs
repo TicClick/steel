@@ -104,7 +104,7 @@ fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str
     if !normalized_chat_name.is_channel() {
         menu_item_open_chat_user_profile(ui, false, normalized_chat_name);
     }
-    menu_item_open_chat_log(ui, state, false, normalized_chat_name);
+    menu_item_open_chat_log(ui, &state.core, false, normalized_chat_name);
 
     ui.separator();
 
@@ -154,7 +154,7 @@ impl ChatTabs {
                     // Whether the channel is valid or not is determined by the server (will send us a message),
                     // but for now let's add it to the interface.
                     let target = if matches!(mode, ChatType::Channel) && !input.is_channel() {
-                        format!("#{}", input)
+                        format!("#{input}")
                     } else {
                         input.to_owned()
                     };

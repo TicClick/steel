@@ -10,7 +10,7 @@ fn main() {
     let original_exe_path = std::env::current_exe().ok();
 
     if let Err(e) = crate::core::os::fix_cwd() {
-        panic!("Failed to set proper current working directory: {:?}", e);
+        panic!("Failed to set proper current working directory: {e:?}");
     }
     setup_logging();
 
