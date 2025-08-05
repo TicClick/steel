@@ -1,7 +1,5 @@
 use eframe::egui;
-use steel_core::chat::Message;
-
-use crate::gui::state::UIState;
+use steel_core::{chat::Message, ipc::client::CoreClient};
 
 const ICON_OPEN_CHAT: &str = "💬 Open chat";
 const OPEN_CHAT: &str = "Open chat";
@@ -18,14 +16,19 @@ const COPY_USERNAME: &str = "Copy username";
 const ICON_COPY_MESSAGE: &str = "📋 Copy message";
 const COPY_MESSAGE: &str = "Copy message";
 
-pub fn menu_item_open_chat(ui: &mut egui::Ui, state: &UIState, show_icon: bool, target: &str) {
+pub fn menu_item_open_chat(
+    ui: &mut egui::Ui,
+    core_client: &CoreClient,
+    show_icon: bool,
+    target: &str,
+) {
     let text = match show_icon {
         true => ICON_OPEN_CHAT,
         false => OPEN_CHAT,
     };
 
     if ui.button(text).clicked() {
-        state.core.chat_opened(target);
+        core_client.chat_opened(target);
         ui.close();
     }
 }

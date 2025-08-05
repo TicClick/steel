@@ -9,17 +9,12 @@ use crate::core::chat::{Chat, ChatLike, Message, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::message::message_text::ChatMessageText;
 use crate::gui::widgets::chat::message::timestamp::TimestampLabel;
+use crate::gui::widgets::chat::message::username::{choose_colour, Username};
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
-use crate::gui::widgets::selectable_button::SelectableButton;
-use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN_Y};
+use crate::gui::CENTRAL_PANEL_INNER_MARGIN_Y;
 
 use crate::gui::command;
 
-use super::context_menu::chat_user::{
-    menu_item_copy_message, menu_item_copy_username, menu_item_open_chat,
-    menu_item_open_chat_user_profile, menu_item_translate_message,
-};
-use super::context_menu::shared::menu_item_open_chat_log;
 use super::widgets::chat::shadow::InnerShadow;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
@@ -361,8 +356,6 @@ impl ChatWindow {
         cache_heights: bool,
         extra_height: f32,
     ) -> bool {
-        // let msg = &ch.messages[message_index];
-        #[allow(unused_mut)] // glass
         let mut username_styles = Vec::new();
         let mut message_styles = Vec::new();
 
@@ -389,6 +382,11 @@ impl ChatWindow {
             message_styles.push(TextStyle::Italics);
         }
 
+        username_styles.push(TextStyle::Coloured(choose_colour(
+            &msg.username,
+            &state.settings,
+        )));
+
         let mut context_menu_active = false;
         let updated_height = ui
             .push_id(format!("{}_row_{}", ch.name, message_index), |ui| {
@@ -400,13 +398,14 @@ impl ChatWindow {
 
                     match msg.r#type {
                         MessageType::Action | MessageType::Text => {
-                            let response = self.format_username(
-                                ui,
-                                state,
-                                &ch.name,
+                            let response = ui.add(Username::new(
                                 msg,
+                                &ch.name,
                                 &Some(username_styles),
-                            );
+                                &state.core,
+                                state.is_connected(),
+                            ));
+
                             context_menu_active |= response.context_menu_opened();
 
                             ui.add(ChatMessageText::new(
@@ -447,7 +446,15 @@ impl ChatWindow {
                 ui.add(TimestampLabel::new(&msg.time, &None));
 
                 format_chat_name(ui, state, chat_name, msg);
-                self.format_username(ui, state, chat_name, msg, &None);
+
+                ui.add(Username::new(
+                    msg,
+                    chat_name,
+                    &None,
+                    &state.core,
+                    state.is_connected(),
+                ));
+
                 ui.add(ChatMessageText::new(
                     &msg.chunks.as_ref().unwrap(),
                     &None,
@@ -503,46 +510,9 @@ impl ChatWindow {
         }
     }
 
-    fn format_username(
-        &mut self,
-        ui: &mut egui::Ui,
-        state: &UIState,
-        chat_name: &str,
-        msg: &Message,
-        styles: &Option<Vec<TextStyle>>,
-    ) -> egui::Response {
-        let username_text = if msg.username == state.settings.chat.irc.username {
-            egui::RichText::new(&msg.username).color(state.settings.ui.colours().own.clone())
-        } else {
-            let colour = state
-                .settings
-                .ui
-                .colours()
-                .username_colour(&msg.username.to_lowercase());
-            egui::RichText::new(&msg.username).color(colour.clone())
-        }
-        .with_styles(styles);
-
-        let invisible_text = format!(" <{}>", msg.username);
-        #[allow(unused_mut)] // glass
-        let mut resp = ui.add(SelectableButton::new(username_text, invisible_text));
-
-        #[cfg(feature = "glass")]
-        if let Some(tt) = state.glass.show_user_tooltip(chat_name, msg) {
-            resp = resp.on_hover_text_at_pointer(tt);
-        }
-
-        if resp.clicked() {
-            self.handle_username_click(ui, msg);
-        }
-
-        resp.context_menu(|ui| show_username_menu(ui, state, chat_name, msg));
-        resp
-    }
-
-    fn handle_username_click(&mut self, ui: &mut egui::Ui, msg: &Message) {
+    pub fn insert_user_mention(&mut self, ctx: &egui::Context, username: String) {
         if let Some(text_edit_id) = self.response_widget_id {
-            if let Some(mut state) = egui::TextEdit::load_state(ui.ctx(), text_edit_id) {
+            if let Some(mut state) = egui::TextEdit::load_state(ctx, text_edit_id) {
                 let pos = match state.cursor.char_range() {
                     None => 0,
                     Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index),
@@ -557,46 +527,25 @@ impl ChatWindow {
                 }
 
                 let insertion = if self.chat_input.is_empty() {
-                    format!("{}: ", msg.username)
+                    format!("{}: ", username)
                 } else if pos == self.chat_input.chars().count() {
                     if self.chat_input.ends_with(' ') {
-                        msg.username.to_owned()
+                        username.to_owned()
                     } else {
-                        format!(" {}", msg.username)
+                        format!(" {}", username)
                     }
                 } else {
-                    msg.username.to_owned()
+                    username.to_owned()
                 };
                 self.chat_input.insert_str(pos, &insertion);
                 let ccursor = egui::text::CCursor::new(pos + insertion.len());
                 state
                     .cursor
                     .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
-                state.store(ui.ctx(), text_edit_id);
+                state.store(ctx, text_edit_id);
             }
         }
     }
-}
-
-#[allow(unused_variables)] // glass
-fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
-    if state.is_connected() {
-        menu_item_open_chat(ui, state, true, &message.username);
-    }
-
-    menu_item_open_chat_user_profile(ui, true, &message.username);
-    menu_item_translate_message(ui, true, &message.text);
-    menu_item_open_chat_log(ui, state, true, &message.username);
-
-    ui.separator();
-
-    menu_item_copy_message(ui, false, message);
-    menu_item_copy_username(ui, false, message);
-
-    #[cfg(feature = "glass")]
-    state
-        .glass
-        .show_user_context_menu(ui, &state.core, chat_name, message);
 }
 
 fn format_system_message(ui: &mut egui::Ui, msg: &Message) -> f32 {

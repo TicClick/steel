@@ -25,6 +25,12 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn insert_user_mention(&self, username: &str) {
+        self.server
+            .send(AppMessageIn::UIUserMentionRequested(username.to_owned()))
+            .unwrap();
+    }
+
     pub fn push_ui_error(&self, error: Box<dyn Error + Sync + Send>, is_fatal: bool) {
         self.server
             .send(AppMessageIn::UIShowError { error, is_fatal })
@@ -109,6 +115,12 @@ impl CoreClient {
                 target.to_owned(),
                 message_id,
             ))
+            .unwrap();
+    }
+
+    pub fn open_chat_log(&self, target: &str) {
+        self.server
+            .send(AppMessageIn::UIFilesystemPathRequested(target.to_owned()))
             .unwrap();
     }
 

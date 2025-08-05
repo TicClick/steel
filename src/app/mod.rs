@@ -1,5 +1,6 @@
 use std::collections::BTreeSet;
 use std::error::Error;
+use std::path::Path;
 
 use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
@@ -11,7 +12,7 @@ use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
 use crate::core::irc::IRCActorHandle;
-use crate::core::logging::ChatLoggerHandle;
+use crate::core::logging::{chat_log_path, ChatLoggerHandle};
 use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
@@ -83,6 +84,10 @@ impl Application {
                     self.handle_chat_moderator_added(username);
                 }
 
+                AppMessageIn::UIUserMentionRequested(username) => {
+                    self.ui_handle_user_mention_requested(username);
+                }
+
                 AppMessageIn::UIConnectRequested => {
                     self.connect();
                 }
@@ -135,10 +140,14 @@ impl Application {
                 }
 
                 AppMessageIn::UIFilesystemPathRequested(path) => {
-                    if let Err(e) = open_in_file_explorer(&path) {
-                        log::error!("Failed to open filesystem path {}: {}", path, e);
-                        self.ui_push_backend_error(Box::new(e), false);
-                    }
+                    self.ui_handle_filesystem_path_request(path);
+                }
+                AppMessageIn::UIChatLogRequested(target) => {
+                    let path = chat_log_path(
+                        Path::new(&self.state.settings.logging.chat.directory),
+                        &target,
+                    );
+                    self.ui_handle_filesystem_path_request(path.to_str().unwrap().to_owned());
                 }
 
                 AppMessageIn::UpdateStateChanged(state) => {
@@ -172,6 +181,13 @@ impl Application {
 }
 
 impl Application {
+    pub fn ui_handle_filesystem_path_request(&self, path: String) {
+        if let Err(e) = open_in_file_explorer(&path) {
+            log::error!("Failed to open filesystem path {}: {}", path, e);
+            self.ui_push_backend_error(Box::new(e), false);
+        }
+    }
+
     pub fn ui_handle_chat_switch_requested(&self, chat: &str, message_id: Option<usize>) {
         self.ui_queue
             .send(UIMessageIn::ChatSwitchRequested(
@@ -203,6 +219,12 @@ impl Application {
     pub fn ui_push_backend_error(&self, error: Box<dyn Error + Send + Sync>, is_fatal: bool) {
         self.ui_queue
             .send(UIMessageIn::BackendError { error, is_fatal })
+            .unwrap();
+    }
+
+    pub fn ui_handle_user_mention_requested(&self, username: String) {
+        self.ui_queue
+            .send(UIMessageIn::UIUserMentionRequested(username))
             .unwrap();
     }
 

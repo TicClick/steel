@@ -329,6 +329,10 @@ impl ApplicationWindow {
                 }
             }
 
+            UIMessageIn::UIUserMentionRequested(username) => {
+                self.chat.insert_user_mention(ctx, username);
+            }
+
             UIMessageIn::UsageWindowRequested => {
                 self.menu.show_usage = true;
             }
