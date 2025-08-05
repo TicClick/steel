@@ -35,7 +35,7 @@ pub struct Settings {
 
 pub trait Loadable: Sized + Default + Serialize + for<'de> Deserialize<'de> {
     fn from_file(source: &str) -> Result<Self, SettingsError> {
-        log::info!("Loading settings from {:?}", source);
+        log::info!("Loading settings from {source:?}");
         match std::fs::read_to_string(source) {
             Ok(contents) => match serde_yaml::from_str::<Self>(&contents) {
                 Ok(obj) => Ok(obj),

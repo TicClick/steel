@@ -7,7 +7,7 @@ use crate::settings::Settings;
 
 #[derive(Debug)]
 pub enum UIMessageIn {
-    SettingsChanged(Settings),
+    SettingsChanged(Box<Settings>),
     ConnectionStatusChanged(ConnectionStatus),
     ConnectionActivity,
     NewSystemMessage {

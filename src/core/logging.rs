@@ -123,10 +123,7 @@ impl ChatLoggerBackend {
     fn log(&mut self, chat_name: String, message: Message) -> std::io::Result<()> {
         if self.files.is_empty() {
             if let Err(e) = std::fs::create_dir_all(&self.directory) {
-                log::error!(
-                    "Failed to create the directory for storing chat logs: {}",
-                    e
-                );
+                log::error!("Failed to create the directory for storing chat logs: {e}");
                 return Err(e);
             }
         }
@@ -143,11 +140,7 @@ impl ChatLoggerBackend {
                 {
                     Ok(handle) => (true, e.insert(handle)),
                     Err(e) => {
-                        log::error!(
-                            "Failed to open or create the chat log for {}: {}",
-                            chat_name,
-                            e
-                        );
+                        log::error!("Failed to open or create the chat log for {chat_name}: {e}");
                         return Err(e);
                     }
                 }
@@ -156,11 +149,7 @@ impl ChatLoggerBackend {
 
         if is_new_file {
             if let Err(e) = writeln!(&mut f, "\n") {
-                log::error!(
-                    "Failed to start a new logging session for {}: {}",
-                    chat_name,
-                    e
-                );
+                log::error!("Failed to start a new logging session for {chat_name}: {e}");
                 return Err(e);
             }
         }
@@ -173,8 +162,8 @@ impl ChatLoggerBackend {
 
         let formatted_message =
             format_message_for_logging(&self.formats.date, log_line_format, &message);
-        if let Err(e) = writeln!(&mut f, "{}", formatted_message) {
-            log::error!("Failed to append a chat log line for {}: {}", chat_name, e);
+        if let Err(e) = writeln!(&mut f, "{formatted_message}") {
+            log::error!("Failed to append a chat log line for {chat_name}: {e}");
             return Err(e);
         }
 

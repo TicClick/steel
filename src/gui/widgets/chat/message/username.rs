@@ -33,6 +33,9 @@ pub struct Username<'msg, 'app> {
     message: &'msg Message,
     core_client: &'app CoreClient,
     is_connected: bool,
+
+    #[cfg(feature = "glass")]
+    glass: &'app glass::Glass,
 }
 
 impl<'msg, 'app> Username<'msg, 'app> {
@@ -42,6 +45,8 @@ impl<'msg, 'app> Username<'msg, 'app> {
         styles: &'msg Option<Vec<TextStyle>>,
         core_client: &'app CoreClient,
         is_connected: bool,
+
+        #[cfg(feature = "glass")] glass: &'app glass::Glass,
     ) -> Self {
         Self {
             message,
@@ -49,6 +54,9 @@ impl<'msg, 'app> Username<'msg, 'app> {
             styles,
             core_client,
             is_connected,
+
+            #[cfg(feature = "glass")]
+            glass,
         }
     }
 
@@ -67,9 +75,8 @@ impl<'msg, 'app> Username<'msg, 'app> {
         menu_item_copy_username(ui, false, self.message);
 
         #[cfg(feature = "glass")]
-        state
-            .glass
-            .show_user_context_menu(ui, &self.core_client, self.chat_name, self.message);
+        self.glass
+            .show_user_context_menu(ui, self.core_client, self.chat_name, self.message);
     }
 }
 
@@ -82,7 +89,7 @@ impl Widget for Username<'_, '_> {
         let mut resp = ui.add(SelectableButton::new(username_text, invisible_text));
 
         #[cfg(feature = "glass")]
-        if let Some(tt) = state.glass.show_user_tooltip(self.chat_name, self.message) {
+        if let Some(tt) = self.glass.show_user_tooltip(self.chat_name, self.message) {
             resp = resp.on_hover_text_at_pointer(tt);
         }
 

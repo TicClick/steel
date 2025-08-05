@@ -154,7 +154,7 @@ impl ChatTabs {
                     // Whether the channel is valid or not is determined by the server (will send us a message),
                     // but for now let's add it to the interface.
                     let target = if matches!(mode, ChatType::Channel) && !input.is_channel() {
-                        format!("#{}", input)
+                        format!("#{input}")
                     } else {
                         input.to_owned()
                     };

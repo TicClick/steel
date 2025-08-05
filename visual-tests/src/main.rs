@@ -17,7 +17,7 @@ pub fn main() {
     for i in 0..10 {
         ui_queue_in
             .send(UIMessageIn::NewChatRequested {
-                target: format!("#test-{}", i),
+                target: format!("#test-{i}"),
                 switch: true,
             })
             .unwrap();
@@ -50,7 +50,7 @@ pub fn main() {
         ui_queue_in
             .send(UIMessageIn::NewMessageReceived {
                 target: "#test-0".to_owned(),
-                message: Message::new_text(format!("{}", i).as_str(), msg.as_str()),
+                message: Message::new_text(format!("{i}").as_str(), msg.as_str()),
             })
             .unwrap();
     }

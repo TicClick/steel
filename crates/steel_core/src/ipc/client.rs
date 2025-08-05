@@ -43,7 +43,7 @@ impl CoreClient {
 
     pub fn settings_updated(&self, settings: &Settings) {
         self.server
-            .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+            .send(AppMessageIn::UISettingsUpdated(Box::new(settings.clone())))
             .unwrap();
     }
 
@@ -90,7 +90,7 @@ impl CoreClient {
     pub fn restart_requested(&self, settings: Option<&Settings>, path: Option<PathBuf>) {
         if let Some(settings) = settings {
             self.server
-                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .send(AppMessageIn::UISettingsUpdated(Box::new(settings.clone())))
                 .unwrap();
         }
         self.server
@@ -101,7 +101,7 @@ impl CoreClient {
     pub fn exit_requested(&self, settings: Option<&Settings>, return_code: i32) {
         if let Some(settings) = settings {
             self.server
-                .send(AppMessageIn::UISettingsUpdated(settings.clone()))
+                .send(AppMessageIn::UISettingsUpdated(Box::new(settings.clone())))
                 .unwrap();
         }
         self.server

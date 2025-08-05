@@ -97,7 +97,7 @@ impl Application {
 
                 AppMessageIn::UIRestartRequested(path) => {
                     if let Err(e) = crate::core::os::restart(path) {
-                        log::error!("Failed to restart application: {:?}", e);
+                        log::error!("Failed to restart application: {e:?}");
                         self.ui_push_backend_error(Box::new(e), false);
                     }
                 }
@@ -129,7 +129,7 @@ impl Application {
                     self.ui_handle_settings_requested();
                 }
                 AppMessageIn::UISettingsUpdated(settings) => {
-                    self.ui_handle_settings_updated(settings);
+                    self.ui_handle_settings_updated(*settings);
                 }
                 AppMessageIn::UIUsageWindowRequested => {
                     self.ui_request_usage_window();
@@ -183,7 +183,7 @@ impl Application {
 impl Application {
     pub fn ui_handle_filesystem_path_request(&self, path: String) {
         if let Err(e) = open_in_file_explorer(&path) {
-            log::error!("Failed to open filesystem path {}: {}", path, e);
+            log::error!("Failed to open filesystem path {path}: {e}");
             self.ui_push_backend_error(Box::new(e), false);
         }
     }
@@ -314,7 +314,9 @@ impl Application {
 
     pub fn ui_handle_settings_requested(&self) {
         self.ui_queue
-            .send(UIMessageIn::SettingsChanged(self.state.settings.clone()))
+            .send(UIMessageIn::SettingsChanged(Box::new(
+                self.state.settings.clone(),
+            )))
             .unwrap();
     }
 
@@ -389,7 +391,7 @@ impl Application {
             .send(UIMessageIn::ConnectionStatusChanged(status))
             .unwrap();
 
-        log::debug!("IRC connection status changed to {:?}", status);
+        log::debug!("IRC connection status changed to {status:?}");
         match status {
             ConnectionStatus::Connected => {
                 for chat in self.state.chats.clone() {
@@ -508,14 +510,14 @@ impl Application {
     }
 
     pub fn handle_server_message(&mut self, content: String) {
-        log::debug!("IRC server message: {}", content);
+        log::debug!("IRC server message: {content}");
         self.ui_queue
             .send(UIMessageIn::NewServerMessageReceived(content))
             .unwrap();
     }
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
-        log::error!("IRC chat error: {:?}", e);
+        log::error!("IRC chat error: {e:?}");
         if matches!(e, IRCError::FatalError(_)) {
             self.irc.disconnect();
         }

@@ -90,7 +90,7 @@ pub fn default_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::
 }
 
 pub fn debug_handler(_sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
-    println!("message without handler: {:?}", msg);
+    println!("message without handler: {msg:?}");
 }
 
 pub fn join_handler(sender: &UnboundedSender<AppMessageIn>, channel: String) {

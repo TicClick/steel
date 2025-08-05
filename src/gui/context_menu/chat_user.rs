@@ -41,8 +41,7 @@ pub fn menu_item_open_chat_user_profile(ui: &mut egui::Ui, show_icon: bool, targ
 
     if ui.button(text).clicked() {
         ui.ctx().open_url(egui::output::OpenUrl::new_tab(format!(
-            "https://osu.ppy.sh/users/@{}",
-            target
+            "https://osu.ppy.sh/users/@{target}"
         )));
         ui.close();
     }

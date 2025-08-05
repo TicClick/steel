@@ -81,9 +81,7 @@ impl ReleaseMetadataGitHub {
         }
 
         log::debug!(
-            "platform-specific asset: looking for os={:?}, arch={:?}",
-            os_marker,
-            preferred_architectures
+            "platform-specific asset: looking for os={os_marker:?}, arch={preferred_architectures:?}"
         );
 
         let compatible: Vec<&ReleaseAsset> = self
@@ -142,7 +140,7 @@ impl From<String> for State {
 
 impl From<Box<dyn std::any::Any + std::marker::Send>> for State {
     fn from(value: Box<dyn std::any::Any + std::marker::Send>) -> Self {
-        Self::UpdateError(format!("{:?}", value))
+        Self::UpdateError(format!("{value:?}"))
     }
 }
 

@@ -44,7 +44,7 @@ pub enum AppMessageIn {
     },
     UIUserMentionRequested(String),
     UISettingsRequested,
-    UISettingsUpdated(Settings),
+    UISettingsUpdated(Box<Settings>),
     UIUsageWindowRequested,
     UIFilesystemPathRequested(String),
     UIChatLogRequested(String),

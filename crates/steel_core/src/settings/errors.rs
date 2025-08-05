@@ -9,8 +9,8 @@ pub enum SettingsError {
 impl fmt::Display for SettingsError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            SettingsError::IoError(details, err) => write!(f, "{}: {}", details, err),
-            SettingsError::YamlError(details, err) => write!(f, "{}: {}", details, err),
+            SettingsError::IoError(details, err) => write!(f, "{details}: {err}"),
+            SettingsError::YamlError(details, err) => write!(f, "{details}: {err}"),
         }
     }
 }

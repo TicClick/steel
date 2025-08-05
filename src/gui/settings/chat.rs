@@ -38,7 +38,7 @@ impl AutojoinSection {
                         if input.is_channel() {
                             input.to_owned()
                         } else {
-                            format!("#{}", input)
+                            format!("#{input}")
                         }
                     }
                     ChatType::Person => input.to_owned(),

@@ -94,8 +94,7 @@ impl ChatWindow {
                         let mut response = ui.add(text_field);
                         if message_length_exceeded {
                             response = response.on_hover_text_at_pointer(format!(
-                                "messages longer than {} characters are truncated",
-                                MAX_MESSAGE_LENGTH
+                                "messages longer than {MAX_MESSAGE_LENGTH} characters are truncated"
                             ));
                         }
                         self.response_widget_id = Some(response.id);
@@ -404,12 +403,14 @@ impl ChatWindow {
                                 &Some(username_styles),
                                 &state.core,
                                 state.is_connected(),
+                                #[cfg(feature = "glass")]
+                                &state.glass,
                             ));
 
                             context_menu_active |= response.context_menu_opened();
 
                             ui.add(ChatMessageText::new(
-                                &msg.chunks.as_ref().unwrap(),
+                                msg.chunks.as_ref().unwrap(),
                                 &Some(message_styles),
                                 &state.settings.chat.behaviour,
                                 &state.core,
@@ -453,10 +454,12 @@ impl ChatWindow {
                     &None,
                     &state.core,
                     state.is_connected(),
+                    #[cfg(feature = "glass")]
+                    &state.glass,
                 ));
 
                 ui.add(ChatMessageText::new(
-                    &msg.chunks.as_ref().unwrap(),
+                    msg.chunks.as_ref().unwrap(),
                     &None,
                     &state.settings.chat.behaviour,
                     &state.core,
@@ -483,7 +486,7 @@ impl ChatWindow {
                 ui.spacing_mut().item_spacing.x /= 2.;
                 ui.add(TimestampLabel::new(&msg.time, styles));
                 ui.add(ChatMessageText::new(
-                    &msg.chunks.as_ref().unwrap(),
+                    msg.chunks.as_ref().unwrap(),
                     styles,
                     &state.settings.chat.behaviour,
                     &state.core,
@@ -527,12 +530,12 @@ impl ChatWindow {
                 }
 
                 let insertion = if self.chat_input.is_empty() {
-                    format!("{}: ", username)
+                    format!("{username}: ")
                 } else if pos == self.chat_input.chars().count() {
                     if self.chat_input.ends_with(' ') {
                         username.to_owned()
                     } else {
-                        format!(" {}", username)
+                        format!(" {username}")
                     }
                 } else {
                     username.to_owned()

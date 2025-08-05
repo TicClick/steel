@@ -318,7 +318,7 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(message.highlight, "{:?} did not match {:?}", message_text, keywords);
+            assert!(message.highlight, "{message_text:?} did not match {keywords:?}");
         }
     }
 
@@ -341,7 +341,7 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(!message.highlight, "{:?} matched {:?} (it shouldn't have)", message_text, keywords);
+            assert!(!message.highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
         }
     }
 }

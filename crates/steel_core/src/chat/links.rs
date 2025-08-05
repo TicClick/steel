@@ -351,7 +351,7 @@ mod tests {
             username: "abc".into(),
             username_lowercase: "abc".into(),
             text: s.into(),
-            text_lowercase: s.to_lowercase().into(),
+            text_lowercase: s.to_lowercase(),
             chunks: None,
             id: None,
             highlight: false,

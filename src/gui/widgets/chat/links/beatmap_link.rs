@@ -43,8 +43,8 @@ impl<'link, 'app> BeatmapLink<'link, 'app> {
         display_text: &'link egui::RichText,
         behaviour: &'app ChatBehaviour,
     ) -> Self {
-        let location = format!("https://osu.ppy.sh/beatmapsets/{}", beatmap_id);
-        let on_hover_text = format!("Beatmap #{} (open in browser)", beatmap_id);
+        let location = format!("https://osu.ppy.sh/beatmapsets/{beatmap_id}");
+        let on_hover_text = format!("Beatmap #{beatmap_id} (open in browser)");
         Self {
             inner: BaseBeatmapLink {
                 display_text,
@@ -72,8 +72,8 @@ impl<'link, 'app> BeatmapDifficultyLink<'link, 'app> {
         display_text: &'link egui::RichText,
         behaviour: &'app ChatBehaviour,
     ) -> Self {
-        let location = format!("https://osu.ppy.sh/beatmaps/{}", difficulty_id);
-        let on_hover_text = format!("Difficulty #{} (open in browser)", difficulty_id);
+        let location = format!("https://osu.ppy.sh/beatmaps/{difficulty_id}");
+        let on_hover_text = format!("Difficulty #{difficulty_id} (open in browser)");
         Self {
             inner: BaseBeatmapLink {
                 display_text,

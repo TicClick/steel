@@ -76,7 +76,7 @@ fn set_state(
     core: &UnboundedSender<AppMessageIn>,
 ) {
     if let State::UpdateError(ref text) = current_step {
-        log::error!("failed to perform the update: {}", text);
+        log::error!("failed to perform the update: {text}");
     }
 
     let new_state = {
@@ -318,7 +318,7 @@ impl UpdaterBackend {
         if let Some(th) = self.autoupdate_timer.take() {
             log::debug!("joining the previous autoupdate timer thread (should be really quick)..");
             if let Err(e) = th.join() {
-                log::error!("previous autoupdate thread failed with error: {:?}", e);
+                log::error!("previous autoupdate thread failed with error: {e:?}");
             }
         }
 
@@ -390,7 +390,7 @@ impl UpdaterBackend {
                     log::debug!("updater: latest release info -> {:?}", releases.first());
                     for release in releases {
                         if release.platform_specific_asset().is_some() {
-                            log::debug!("latest relevant release: {:?}", release);
+                            log::debug!("latest relevant release: {release:?}");
                             self.state.lock().unwrap().url_test_result = Some(Ok(()));
                             set_state(&self.state, State::MetadataReady(release), &self.core);
                             return;
@@ -444,23 +444,16 @@ impl UpdaterBackend {
         data: Vec<u8>,
         archive_type: ArchiveType,
     ) -> Result<(), std::io::Error> {
-        log::info!("updater: archive type determined as {:?}", archive_type);
+        log::info!("updater: archive type determined as {archive_type:?}");
         if let ArchiveType::Unknown(ext) = archive_type {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!(
-                    "unknown archive extension {ext} -- you might be able to deal with it yourself"
-                ),
-            ));
+            return Err(io::Error::other(format!(
+                "unknown archive extension {ext} -- you might be able to deal with it yourself"
+            )));
         }
 
         let target = std::env::current_exe()?;
         if let Some(backup) = backup_exe_path() {
-            log::info!(
-                "updater: renaming old executable {:?} -> {:?}",
-                target,
-                backup
-            );
+            log::info!("updater: renaming old executable {target:?} -> {backup:?}");
 
             // The original executable has already been renamed during the previous update round, and now we have fetched
             // a binary from another release stream.
@@ -475,18 +468,16 @@ impl UpdaterBackend {
                 ArchiveType::Unknown(_) => Ok(()), // handled above already
             };
             if extraction_result.is_err() {
-                log::error!("{:?}", extraction_result);
+                log::error!("{extraction_result:?}");
                 if let Err(e) = std::fs::rename(&backup, &target) {
                     log::error!(
-                        "failed to restore the executable after an unsuccessful update: {:?}",
-                        e
+                        "failed to restore the executable after an unsuccessful update: {e:?}"
                     );
                 };
             }
             extraction_result
         } else {
-            Err(io::Error::new(
-                io::ErrorKind::Other,
+            Err(io::Error::other(
                 "Couldn't obtain backup path for .exe renaming",
             ))
         }
@@ -522,7 +513,7 @@ impl UpdaterBackend {
             )),
             Err(e) => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("failed to decode zip stream: {:?}", e),
+                format!("failed to decode zip stream: {e:?}"),
             )),
         }
     }
@@ -582,7 +573,7 @@ fn download(
                 }
             }
             Err(e) => {
-                log::error!("Failed to download the file in full: {}", e);
+                log::error!("Failed to download the file in full: {e}");
                 return Err(e);
             }
         }
