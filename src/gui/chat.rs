@@ -1,13 +1,14 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
 use std::collections::BTreeMap;
-use steel_core::chat::links::{Action, LinkType};
 use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
 
-use crate::core::chat::{Chat, ChatLike, Message, MessageChunk, MessageType};
+use crate::core::chat::{Chat, ChatLike, Message, MessageType};
 use crate::gui::state::UIState;
+use crate::gui::widgets::chat::message::message_text::ChatMessageText;
+use crate::gui::widgets::chat::message::timestamp::TimestampLabel;
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
 use crate::gui::widgets::selectable_button::SelectableButton;
 use crate::gui::{DecoratedText, CENTRAL_PANEL_INNER_MARGIN_Y};
@@ -19,10 +20,6 @@ use super::context_menu::chat_user::{
     menu_item_open_chat_user_profile, menu_item_translate_message,
 };
 use super::context_menu::shared::menu_item_open_chat_log;
-use super::widgets::chat::links::beatmap_link::{BeatmapDifficultyLink, BeatmapLink};
-use super::widgets::chat::links::channel_link::ChannelLink;
-use super::widgets::chat::links::chat_link::ChatLink;
-use super::widgets::chat::links::regular_link::RegularLink;
 use super::widgets::chat::shadow::InnerShadow;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
@@ -383,8 +380,11 @@ impl ChatWindow {
         }
 
         if msg.highlight {
-            message_styles.push(TextStyle::Highlight);
+            message_styles.push(TextStyle::Highlight(
+                state.settings.ui.colours().highlight.clone().into(),
+            ));
         }
+
         if matches!(msg.r#type, MessageType::Action) {
             message_styles.push(TextStyle::Italics);
         }
@@ -395,7 +395,9 @@ impl ChatWindow {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing.x /= 2.;
                     ui.set_max_width(self.widget_width);
-                    show_datetime(ui, state, msg, &None);
+
+                    ui.add(TimestampLabel::new(&msg.time, &None));
+
                     match msg.r#type {
                         MessageType::Action | MessageType::Text => {
                             let response = self.format_username(
@@ -407,7 +409,14 @@ impl ChatWindow {
                             );
                             context_menu_active |= response.context_menu_opened();
 
-                            format_chat_message_text(ui, state, msg, &Some(message_styles))
+                            ui.add(ChatMessageText::new(
+                                &msg.chunks.as_ref().unwrap(),
+                                &Some(message_styles),
+                                &state.settings.chat.behaviour,
+                                &state.core,
+                            ))
+                            .rect
+                            .height()
                         }
                         MessageType::System => format_system_message(ui, msg),
                     }
@@ -434,10 +443,19 @@ impl ChatWindow {
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
-                show_datetime(ui, state, msg, &None);
+
+                ui.add(TimestampLabel::new(&msg.time, &None));
+
                 format_chat_name(ui, state, chat_name, msg);
                 self.format_username(ui, state, chat_name, msg, &None);
-                format_chat_message_text(ui, state, msg, &None)
+                ui.add(ChatMessageText::new(
+                    &msg.chunks.as_ref().unwrap(),
+                    &None,
+                    &state.settings.chat.behaviour,
+                    &state.core,
+                ))
+                .rect
+                .height()
             })
             .inner;
         self.cached_row_heights
@@ -456,10 +474,18 @@ impl ChatWindow {
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;
-                show_datetime(ui, state, msg, styles);
-                format_chat_message_text(ui, state, msg, styles)
+                ui.add(TimestampLabel::new(&msg.time, styles));
+                ui.add(ChatMessageText::new(
+                    &msg.chunks.as_ref().unwrap(),
+                    styles,
+                    &state.settings.chat.behaviour,
+                    &state.core,
+                ))
             })
-            .inner;
+            .response
+            .rect
+            .height();
+
         self.cached_row_heights
             .get_mut(&state.active_chat_tab_name)
             .unwrap()[message_index] = updated_height;
@@ -495,7 +521,7 @@ impl ChatWindow {
                 .username_colour(&msg.username.to_lowercase());
             egui::RichText::new(&msg.username).color(colour.clone())
         }
-        .with_styles(styles, &state.settings);
+        .with_styles(styles);
 
         let invisible_text = format!(" <{}>", msg.username);
         #[allow(unused_mut)] // glass
@@ -552,21 +578,6 @@ impl ChatWindow {
     }
 }
 
-fn show_datetime(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    msg: &Message,
-    styles: &Option<Vec<TextStyle>>,
-) -> egui::Response {
-    let timestamp = egui::RichText::new(msg.formatted_time()).with_styles(styles, &state.settings);
-    ui.label(timestamp).on_hover_ui_at_pointer(|ui| {
-        ui.vertical(|ui| {
-            ui.label(format!("{} (local time zone)", msg.formatted_date_local()));
-            ui.label(format!("{} (UTC)", msg.formatted_date_utc()));
-        });
-    })
-}
-
 #[allow(unused_variables)] // glass
 fn show_username_menu(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
     if state.is_connected() {
@@ -612,75 +623,4 @@ fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message
             state.core.chat_switch_requested(chat_name, message.id);
         }
     }
-}
-
-fn format_chat_message_text(
-    ui: &mut egui::Ui,
-    state: &UIState,
-    msg: &Message,
-    styles: &Option<Vec<TextStyle>>,
-) -> f32 {
-    let layout = egui::Layout::from_main_dir_and_cross_align(
-        egui::Direction::LeftToRight,
-        egui::Align::Center,
-    )
-    .with_main_wrap(true)
-    .with_cross_justify(false);
-
-    let resp = ui.with_layout(layout, |ui| {
-        ui.spacing_mut().item_spacing.x = 0.0;
-        if let Some(chunks) = &msg.chunks {
-            for c in chunks {
-                match &c {
-                    MessageChunk::Text(text) => {
-                        let display_text =
-                            egui::RichText::new(text).with_styles(styles, &state.settings);
-                        ui.label(display_text);
-                    }
-                    MessageChunk::Link {
-                        title,
-                        location,
-                        link_type,
-                    } => {
-                        let display_text =
-                            egui::RichText::new(title).with_styles(styles, &state.settings);
-                        match link_type {
-                            LinkType::HTTP | LinkType::HTTPS => {
-                                ui.add(RegularLink::new(&display_text, location));
-                            }
-                            LinkType::OSU(osu_action) => match osu_action {
-                                Action::Chat(chat_name) => {
-                                    ui.add(ChatLink::new(
-                                        chat_name,
-                                        &display_text,
-                                        location,
-                                        state,
-                                    ));
-                                }
-                                Action::OpenBeatmap(beatmap_id) => {
-                                    ui.add(BeatmapLink::new(*beatmap_id, &display_text, state));
-                                }
-
-                                Action::OpenDifficulty(difficulty_id) => {
-                                    ui.add(BeatmapDifficultyLink::new(
-                                        *difficulty_id,
-                                        &display_text,
-                                        state,
-                                    ));
-                                }
-
-                                Action::Multiplayer(_lobby_id) => {
-                                    ui.add(RegularLink::new(&display_text, location));
-                                }
-                            },
-                            LinkType::Channel => {
-                                ui.add(ChannelLink::new(&display_text, location, state));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    });
-    resp.response.rect.height()
 }

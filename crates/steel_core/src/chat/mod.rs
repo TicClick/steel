@@ -4,7 +4,7 @@ pub mod links;
 use std::collections::BTreeSet;
 use std::fmt;
 
-use super::{DATETIME_FORMAT_WITH_TZ, DEFAULT_DATETIME_FORMAT, DEFAULT_TIME_FORMAT};
+use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
 
 #[derive(Clone, Debug, Hash)]
@@ -103,21 +103,6 @@ impl Message {
 
     pub fn new_system(text: &str) -> Self {
         Self::new("", text, MessageType::System)
-    }
-
-    pub fn formatted_time(&self) -> String {
-        self.time.format(DEFAULT_TIME_FORMAT).to_string()
-    }
-
-    pub fn formatted_date_local(&self) -> String {
-        self.time.format(DEFAULT_DATETIME_FORMAT).to_string()
-    }
-
-    pub fn formatted_date_utc(&self) -> String {
-        self.time
-            .naive_utc()
-            .format(DEFAULT_DATETIME_FORMAT)
-            .to_string()
     }
 
     pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {

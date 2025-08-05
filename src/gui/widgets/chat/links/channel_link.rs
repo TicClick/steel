@@ -12,7 +12,7 @@ impl<'link, 'app> ChannelLink<'link, 'app> {
     pub fn new(
         display_text: &'link egui::RichText,
         location: &'link str,
-        core_client: &'app CoreClient
+        core_client: &'app CoreClient,
     ) -> Self {
         Self {
             display_text,

@@ -46,6 +46,6 @@ pub enum TextStyle {
     Strikethrough,
     Monospace,
 
-    Highlight,
+    Highlight(ecolor::Color32),
     Coloured(ecolor::Color32),
 }

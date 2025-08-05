@@ -33,6 +33,14 @@ impl From<String> for Colour {
     }
 }
 
+impl From<Color32> for Colour {
+    fn from(value: Color32) -> Self {
+        Self {
+            rgb: [value.r(), value.g(), value.b()],
+        }
+    }
+}
+
 impl From<Colour> for String {
     fn from(val: Colour) -> Self {
         format!("{} {} {}", val.rgb[0], val.rgb[1], val.rgb[2])
