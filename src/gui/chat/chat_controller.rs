@@ -1,5 +1,5 @@
 use eframe::egui;
-use steel_core::settings::chat::ChatPosition;
+use steel_core::{chat::Chat, settings::chat::ChatPosition};
 
 use std::collections::HashMap;
 
@@ -7,6 +7,12 @@ use crate::gui::{chat::chat_view::ChatView, state::UIState};
 
 pub struct ChatViewController<'chat> {
     views: HashMap<String, ChatView<'chat>>,
+}
+
+impl<'chat> Default for ChatViewController<'chat> {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl<'chat> ChatViewController<'chat> {
@@ -52,5 +58,14 @@ impl<'chat> ChatViewController<'chat> {
         if let Some(chat_view) = self.views.get_mut(&state.active_chat_tab_name) {
             chat_view.show(ctx, state);
         }
+    }
+
+    pub fn add(&mut self, chat: &'chat Chat) {
+        self.views
+            .insert(chat.normalized_name.clone(), ChatView::new(chat));
+    }
+
+    pub fn remove(&mut self, name: &str) {
+        self.views.remove(&name.to_lowercase());
     }
 }

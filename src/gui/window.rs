@@ -1,4 +1,5 @@
 use eframe::egui::{self, Theme};
+use steel_core::chat::Chat;
 use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -170,6 +171,17 @@ impl<'chat> ApplicationWindow<'chat> {
         }
     }
 
+    fn add_chat_to_controller(&mut self, target: String, switch: bool) {
+        self.s.add_new_chat(target.clone(), switch);
+        if let Some(chat) = self.s.find_chat(&target) {
+            // SAFETY: The chat reference is valid for the lifetime of ApplicationWindow
+            // because it comes from self.s which is owned by ApplicationWindow.
+            // The lifetime 'chat is tied to the ApplicationWindow itself.
+            let chat_with_correct_lifetime: &'chat Chat = unsafe { std::mem::transmute(chat) };
+            self.chat_view_controller.add(chat_with_correct_lifetime);
+        }
+    }
+
     fn refresh_window_title(&self, ctx: &egui::Context) {
         let new_tab_title = match self.s.active_chat_tab_name.starts_with('$') {
             true => format!("steel v{}", crate::VERSION),
@@ -247,7 +259,7 @@ impl<'chat> ApplicationWindow<'chat> {
             }
 
             UIMessageIn::NewChatRequested { target, switch } => {
-                self.s.add_new_chat(target, switch);
+                self.add_chat_to_controller(target, switch);
                 if switch {
                     self.refresh_window_title(ctx);
                 }
@@ -314,6 +326,7 @@ impl<'chat> ApplicationWindow<'chat> {
             }
 
             UIMessageIn::ChatClosed(name) => {
+                self.chat_view_controller.remove(&name);
                 self.s.remove_chat(name);
                 self.refresh_window_title(ctx);
             }

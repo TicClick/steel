@@ -144,7 +144,7 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) {
+    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> &Chat {
         let chat = Chat::new(&name);
         self.chats.push(chat);
         if switch_to_chat {
@@ -154,6 +154,7 @@ impl UIState {
             self.read_tracker
                 .remove_last_read_position(&self.active_chat_tab_name);
         }
+        self.chats.last().unwrap()
     }
 
     pub fn chat_count(&self) -> usize {
@@ -353,6 +354,12 @@ impl UIState {
 
     pub fn has_chat(&self, target: &str) -> bool {
         self.name_to_chat(&target.to_lowercase()).is_some()
+    }
+
+    pub fn find_chat(&self, target: &str) -> Option<&Chat> {
+        self.chats
+            .iter()
+            .find(|c| c.normalized_name == target.to_lowercase())
     }
 
     #[cfg(feature = "glass")]
