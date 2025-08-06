@@ -126,9 +126,9 @@ fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
     });
 }
 
-pub struct ApplicationWindow<'chat> {
+pub struct ApplicationWindow {
     menu: gui::menu::Menu,
-    chat_view_controller: ChatViewController<'chat>,
+    chat_view_controller: ChatViewController,
     chat_tabs: gui::chat_tabs::ChatTabs,
     settings: gui::settings::SettingsWindow,
     about: gui::about::About,
@@ -142,7 +142,7 @@ pub struct ApplicationWindow<'chat> {
     error_popup: gui::widgets::error_popup::ErrorPopup,
 }
 
-impl<'chat> ApplicationWindow<'chat> {
+impl ApplicationWindow {
     pub fn new(
         cc: &eframe::CreationContext,
         ui_queue: UnboundedReceiver<UIMessageIn>,
@@ -176,8 +176,8 @@ impl<'chat> ApplicationWindow<'chat> {
     }
 
     fn add_chat_to_controller(&mut self, target: &str, switch: bool) {
-        if let Some(chat) = self.s.add_new_chat(target.to_owned(), switch) {
-            self.chat_view_controller.add(chat);
+        if let Some(_chat) = self.s.add_new_chat(target.to_owned(), switch) {
+            self.chat_view_controller.add(target.to_lowercase());
         }
     }
 
@@ -377,7 +377,7 @@ impl<'chat> ApplicationWindow<'chat> {
 
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
 
-impl eframe::App for ApplicationWindow<'_> {
+impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);

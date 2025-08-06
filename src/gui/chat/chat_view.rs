@@ -4,7 +4,7 @@ use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
 
-use crate::core::chat::{Chat, ChatLike, Message, MessageType};
+use crate::core::chat::{ChatLike, Message, MessageType};
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::message::username::choose_colour;
 use crate::gui::widgets::chat::message::ChatViewRow;
@@ -16,8 +16,8 @@ use crate::gui::command::{self, CommandHelper};
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
-pub struct ChatView<'chat> {
-    chat: &'chat Chat,
+pub struct ChatView {
+    chat_name: String,
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
@@ -32,10 +32,10 @@ pub struct ChatView<'chat> {
     user_context_menu_open: bool,
 }
 
-impl<'chat> ChatView<'chat> {
-    pub fn new(chat: &'chat Chat) -> Self {
+impl ChatView {
+    pub fn new(chat_name: String) -> Self {
         Self {
-            chat,
+            chat_name,
             chat_input: String::default(),
             response_widget_id: None,
             scroll_to: None,
@@ -70,6 +70,10 @@ impl<'chat> ChatView<'chat> {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
+        let chat = match state.find_chat(&self.chat_name) {
+            Some(chat) => chat,
+            None => return, // Chat not found, nothing to show
+        };
         let interactive = state.is_connected();
         if interactive {
             egui::TopBottomPanel::bottom("input")
@@ -108,7 +112,7 @@ impl<'chat> ChatView<'chat> {
                             && ui.input(|i| i.key_pressed(egui::Key::Enter))
                             && !{
                                 let result = self.command_helper.detect_and_run(
-                                    self.chat,
+                                    chat,
                                     &state.core,
                                     &mut self.chat_input,
                                 );
@@ -122,7 +126,7 @@ impl<'chat> ChatView<'chat> {
                             if !trimmed_message.is_empty() {
                                 state
                                     .core
-                                    .chat_message_sent(&self.chat.name, trimmed_message);
+                                    .chat_message_sent(&chat.name, trimmed_message);
                             }
                             self.chat_input.clear();
                             response.request_focus();
@@ -159,19 +163,14 @@ impl<'chat> ChatView<'chat> {
         let mut rows: Vec<ChatViewRow> = Vec::new();
 
         if add_filler_space {
-            rows.push(ChatViewRow::filler(self.chat, ui_height));
+            rows.push(ChatViewRow::filler(chat, ui_height));
         }
 
-        if !self.chat.normalized_name.starts_with('$') {
-            log::info!("Chat: {:?}", self.chat);
-            log::info!("Messages: {:?}", self.chat.messages);
-        }
-
-        for (idx, message) in self.chat.messages.iter().enumerate() {
-            if state.active_chat_tab_name == self.chat.normalized_name {
-                if let Some(unread_idx) = state.read_tracker.get_last_read_position(&self.chat.normalized_name) {
+        for (idx, message) in chat.messages.iter().enumerate() {
+            if state.active_chat_tab_name == chat.normalized_name {
+                if let Some(unread_idx) = state.read_tracker.get_last_read_position(&chat.normalized_name) {
                     if unread_idx == idx {
-                        rows.push(ChatViewRow::unread_marker(self.chat, chat_row_height, state.settings.ui.colours().highlight.clone().into()));
+                        rows.push(ChatViewRow::unread_marker(chat, chat_row_height, state.settings.ui.colours().highlight.clone().into()));
                     }
                 }
             }
@@ -183,11 +182,11 @@ impl<'chat> ChatView<'chat> {
             {
                 if let Some(st) = state
                     .glass
-                    .style_username(&self.chat.normalized_name, message, &state.settings.ui.theme)
+                    .style_username(&chat.normalized_name, message, &state.settings.ui.theme)
                 {
                     username_styles.push(st);
                 }
-                if let Some(st) = state.glass.style_message(&self.chat.normalized_name, message) {
+                if let Some(st) = state.glass.style_message(&chat.normalized_name, message) {
                     message_styles.push(st);
                 }
             }
@@ -207,7 +206,7 @@ impl<'chat> ChatView<'chat> {
                 &state.settings,
             )));
 
-            rows.push(ChatViewRow::message(self.chat, message, Some(message_styles), Some(username_styles), &state.core, &state.settings));
+            rows.push(ChatViewRow::message(chat, message, Some(message_styles), Some(username_styles), &state.core, &state.settings));
         }
 
         egui::CentralPanel::default()
@@ -228,7 +227,7 @@ impl<'chat> ChatView<'chat> {
                         .show(ctx, |ui| {
                             self.command_helper.show(
                                 ui,
-                                self.chat,
+                                chat,
                                 &state.core,
                                 &mut self.chat_input,
                                 &self.response_widget_id,
@@ -250,14 +249,14 @@ impl<'chat> ChatView<'chat> {
                     ChatPosition::Bottom
                 );
                 let chat_row_count = match add_fake_row {
-                    true => self.chat.messages.len() + 1,
-                    false => self.chat.messages.len(),
+                    true => chat.messages.len() + 1,
+                    false => chat.messages.len(),
                 };
 
                 self.cached_row_heights.resize(chat_row_count, chat_row_height);
                 let mut heights = self.cached_row_heights.clone();
 
-                ui.push_id(&self.chat.normalized_name, |ui| {
+                ui.push_id(&chat.normalized_name, |ui| {
                     let view_height = ui.available_height();
                     // let view_width = ui.available_width();
 
@@ -290,7 +289,7 @@ impl<'chat> ChatView<'chat> {
                             });
                         });
 
-                        // .body(|body| match self.chat.normalized_name.as_str() {
+                        // .body(|body| match chat.normalized_name.as_str() {
                         //     SERVER_TAB_NAME => {
                         //         let server_tab_styles = Some(vec![TextStyle::Monospace]);
                         //         body.heterogeneous_rows(heights, |mut row| {
@@ -299,7 +298,7 @@ impl<'chat> ChatView<'chat> {
                         //                 self.show_server_tab_single_message(
                         //                     ui,
                         //                     state,
-                        //                     self.chat,
+                        //                     chat,
                         //                     row_index,
                         //                     &server_tab_styles,
                         //                 )
@@ -325,7 +324,7 @@ impl<'chat> ChatView<'chat> {
                         //         //     let mut original_indices = Vec::new();
 
                         //         //     let heights: Vec<f32> = heights.collect();
-                        //         //     for (idx, m) in self.chat.messages.iter().enumerate() {
+                        //         //     for (idx, m) in chat.messages.iter().enumerate() {
                         //         //         if state.filter.matches(m) {
                         //         //             filtered_payload.push(m);
                         //         //             filtered_heights.push(heights[idx]);
@@ -342,8 +341,8 @@ impl<'chat> ChatView<'chat> {
                         //         //                     .show_regular_chat_single_message(
                         //         //                         ui,
                         //         //                         state,
-                        //         //                         self.chat,
-                        //         //                         &self.chat.messages
+                        //         //                         chat,
+                        //         //                         &chat.messages
                         //         //                             [original_indices[row_index]],
                         //         //                         row_index,
                         //         //                         false,
@@ -367,13 +366,13 @@ impl<'chat> ChatView<'chat> {
                         //                         true => row_index - 1,
                         //                         false => row_index,
                         //                     };
-                        //                     let message = &self.chat.messages[message_idx];
+                        //                     let message = &chat.messages[message_idx];
 
                         //                     row.col(|ui| {
                         //                         let marker_shown = self.maybe_show_unread_marker(
                         //                             ui,
                         //                             state,
-                        //                             &self.chat.normalized_name,
+                        //                             &chat.normalized_name,
                         //                             message_idx,
                         //                             chat_row_height,
                         //                         );
@@ -387,7 +386,7 @@ impl<'chat> ChatView<'chat> {
                         //                             .show_regular_chat_single_message(
                         //                                 ui,
                         //                                 state,
-                        //                                 self.chat,
+                        //                                 chat,
                         //                                 message,
                         //                                 row_index,
                         //                                 true,
