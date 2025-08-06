@@ -2,12 +2,13 @@ use eframe::egui::{self, Theme};
 use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use crate::gui::chat::chat_controller::ChatViewController;
 use crate::gui::{self, widgets::error_popup::ErrorPopup};
 
 use crate::gui::state::UIState;
 use steel_core::{
     ipc::{server::AppMessageIn, ui::UIMessageIn},
-    settings::{chat::ChatPosition, Settings, ThemeMode},
+    settings::{Settings, ThemeMode},
 };
 
 const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
@@ -123,9 +124,9 @@ fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
     });
 }
 
-pub struct ApplicationWindow {
+pub struct ApplicationWindow<'chat> {
     menu: gui::menu::Menu,
-    chat: gui::chat::ChatWindow,
+    chat_view_controller: ChatViewController<'chat>,
     chat_tabs: gui::chat_tabs::ChatTabs,
     settings: gui::settings::SettingsWindow,
     about: gui::about::About,
@@ -139,7 +140,7 @@ pub struct ApplicationWindow {
     error_popup: gui::widgets::error_popup::ErrorPopup,
 }
 
-impl ApplicationWindow {
+impl<'chat> ApplicationWindow<'chat> {
     pub fn new(
         cc: &eframe::CreationContext,
         ui_queue: UnboundedReceiver<UIMessageIn>,
@@ -156,7 +157,7 @@ impl ApplicationWindow {
 
         Self {
             menu: gui::menu::Menu::new(),
-            chat: gui::chat::ChatWindow::new(),
+            chat_view_controller: ChatViewController::new(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
             settings: gui::settings::SettingsWindow::new(),
             about: gui::about::About::default(),
@@ -273,11 +274,12 @@ impl ApplicationWindow {
 
                     self.s.active_chat_tab_name = lowercase_name;
 
-                    if message_id.is_some() {
-                        self.chat.scroll_to = match self.s.settings.chat.behaviour.chat_position {
-                            ChatPosition::Bottom => Some(message_id.unwrap() + 1),
-                            ChatPosition::Top => message_id,
-                        };
+                    if let Some(message_id) = message_id {
+                        self.chat_view_controller.scroll_chat_to(
+                            &self.s,
+                            &self.s.active_chat_tab_name,
+                            message_id,
+                        );
                     }
                 }
                 self.refresh_window_title(ctx);
@@ -330,7 +332,8 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::UIUserMentionRequested(username) => {
-                self.chat.insert_user_mention(ctx, username);
+                self.chat_view_controller
+                    .insert_user_mention(ctx, &self.s, username);
             }
 
             UIMessageIn::UsageWindowRequested => {
@@ -362,7 +365,7 @@ impl ApplicationWindow {
 
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
 
-impl eframe::App for ApplicationWindow {
+impl eframe::App for ApplicationWindow<'_> {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
@@ -382,16 +385,28 @@ impl eframe::App for ApplicationWindow {
         self.update_window
             .show(ctx, &mut self.s, &mut self.menu.show_update);
 
-        self.menu
-            .show(ctx, frame, &mut self.s, &mut self.chat.response_widget_id);
+        let active_chat_name = self.s.active_chat_tab_name.clone();
+        self.menu.show(
+            ctx,
+            frame,
+            &mut self.s,
+            &mut self
+                .chat_view_controller
+                .response_widget_id(&active_chat_name),
+        );
+
         self.chat_tabs.show(ctx, &mut self.s);
 
         self.filter_ui.show(ctx, &mut self.s);
 
-        self.chat.show(ctx, &self.s);
+        self.chat_view_controller.show(ctx, &self.s);
 
-        if self.s.settings.chat.behaviour.keep_focus_on_input && !self.menu.dialogs_visible() {
-            self.chat.return_focus(ctx, &self.s);
+        if self.s.is_connected()
+            && self.s.settings.chat.behaviour.keep_focus_on_input
+            && !self.menu.dialogs_visible()
+        {
+            self.chat_view_controller
+                .return_focus(ctx, &active_chat_name);
         }
 
         self.refresh_window_geometry_settings(ctx);

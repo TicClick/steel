@@ -10,17 +10,18 @@ use crate::gui::state::UIState;
 use crate::gui::widgets::chat::message::message_text::ChatMessageText;
 use crate::gui::widgets::chat::message::timestamp::TimestampLabel;
 use crate::gui::widgets::chat::message::username::{choose_colour, Username};
+use crate::gui::widgets::chat::shadow::InnerShadow;
 use crate::gui::widgets::chat::unread_marker::UnreadMarker;
 use crate::gui::CENTRAL_PANEL_INNER_MARGIN_Y;
 
-use crate::gui::command;
-
-use super::widgets::chat::shadow::InnerShadow;
+use crate::gui::command::{self, CommandHelper};
+use crate::gui::HIGHLIGHTS_TAB_NAME;
+use crate::gui::SERVER_TAB_NAME;
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
-#[derive(Default)]
-pub struct ChatWindow {
+pub struct ChatView<'chat> {
+    chat: &'chat Chat,
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
@@ -37,9 +38,19 @@ pub struct ChatWindow {
     user_context_menu_open: bool,
 }
 
-impl ChatWindow {
-    pub fn new() -> Self {
-        Self::default()
+impl<'chat> ChatView<'chat> {
+    pub fn new(chat: &'chat Chat) -> Self {
+        Self {
+            chat,
+            chat_input: String::default(),
+            response_widget_id: None,
+            scroll_to: None,
+            chat_row_height: None,
+            cached_row_heights: BTreeMap::default(),
+            widget_width: 0.0,
+            command_helper: CommandHelper::default(),
+            user_context_menu_open: false,
+        }
     }
 
     fn maybe_show_unread_marker(
@@ -66,7 +77,7 @@ impl ChatWindow {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
-        let interactive = state.is_connected() && state.active_chat().is_some();
+        let interactive = state.is_connected();
         if interactive {
             egui::TopBottomPanel::bottom("input")
                 .frame(
@@ -100,26 +111,28 @@ impl ChatWindow {
                         self.response_widget_id = Some(response.id);
                         ui.add_space(2.);
 
-                        if let Some(ch) = state.active_chat() {
-                            if response.lost_focus()
-                                && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                                && !{
-                                    let result = self
-                                        .command_helper
-                                        .detect_and_run(state, &mut self.chat_input);
-                                    if result {
-                                        self.return_focus(ctx, state);
-                                    }
-                                    result
+                        if response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                            && !{
+                                let result = self.command_helper.detect_and_run(
+                                    self.chat,
+                                    &state.core,
+                                    &mut self.chat_input,
+                                );
+                                if result {
+                                    self.return_focus(ctx, state);
                                 }
-                            {
-                                let trimmed_message = self.chat_input.trim();
-                                if !trimmed_message.is_empty() {
-                                    state.core.chat_message_sent(&ch.name, trimmed_message);
-                                }
-                                self.chat_input.clear();
-                                response.request_focus();
+                                result
                             }
+                        {
+                            let trimmed_message = self.chat_input.trim();
+                            if !trimmed_message.is_empty() {
+                                state
+                                    .core
+                                    .chat_message_sent(&self.chat.name, trimmed_message);
+                            }
+                            self.chat_input.clear();
+                            response.request_focus();
                         }
                     });
                 });
@@ -154,7 +167,8 @@ impl ChatWindow {
                         .show(ctx, |ui| {
                             self.command_helper.show(
                                 ui,
-                                state,
+                                self.chat,
+                                &state.core,
                                 &mut self.chat_input,
                                 &self.response_widget_id,
                             );
@@ -173,23 +187,22 @@ impl ChatWindow {
                     .chat_row_height
                     .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
 
-                // Add a fake row, the side of the chat view, to the scroll view hosting the table with chat messages.
-                let add_fake_row = state.active_chat().is_some()
-                    && matches!(
-                        state.settings.chat.behaviour.chat_position,
-                        ChatPosition::Bottom
-                    );
+                // Add a fake row with the unread marker to the scroll view hosting the table with chat messages.
+                let add_fake_row = matches!(
+                    state.settings.chat.behaviour.chat_position,
+                    ChatPosition::Bottom
+                );
                 let chat_row_count = match add_fake_row {
-                    true => state.chat_message_count() + 1,
-                    false => state.chat_message_count(),
+                    true => self.chat.messages.len() + 1,
+                    false => self.chat.messages.len(),
                 };
 
                 self.cached_row_heights
-                    .entry(state.active_chat_tab_name.clone())
+                    .entry(self.chat.normalized_name.clone())
                     .or_default()
                     .resize(chat_row_count, chat_row_height);
 
-                ui.push_id(&state.active_chat_tab_name, |ui| {
+                ui.push_id(&self.chat.normalized_name, |ui| {
                     let view_height = ui.available_height();
                     let view_width = ui.available_width();
 
@@ -201,7 +214,7 @@ impl ChatWindow {
                         builder = builder.stick_to_bottom(stick_chat_to_bottom);
                     }
 
-                    let heights = self.cached_row_heights[&state.active_chat_tab_name]
+                    let heights = self.cached_row_heights[&self.chat.normalized_name]
                         .clone()
                         .into_iter();
 
@@ -209,22 +222,41 @@ impl ChatWindow {
                         .max_scroll_height(view_height)
                         .column(Column::remainder())
                         .auto_shrink([false; 2])
-                        .body(|body| {
-                            if let Some(ch) = state.active_chat() {
-                                // Filter the messages. I can probably only pass the references around instead of copying
-                                // the whole object, and avoid code duplication, but input types don't match, and I don't
-                                // have enough vigor to rewrite `Chat` in a way that `ch.messages` only stores their references.
+                        .body(|body| match self.chat.normalized_name.as_str() {
+                            SERVER_TAB_NAME => {
+                                let server_tab_styles = Some(vec![TextStyle::Monospace]);
+                                body.heterogeneous_rows(heights, |mut row| {
+                                    let row_index = row.index();
+                                    row.col(|ui| {
+                                        self.show_server_tab_single_message(
+                                            ui,
+                                            state,
+                                            row_index,
+                                            &server_tab_styles,
+                                        )
+                                    });
+                                });
+                            }
 
-                                // Note: I have decided to always keep direction of the filtered messages top-to-bottom,
-                                // as opposed to the regular chat view (may be both). May change it later, but not today.
+                            HIGHLIGHTS_TAB_NAME => {
+                                body.heterogeneous_rows(heights, |mut row| {
+                                    let row_index = row.index();
+                                    row.col(|ui| {
+                                        self.show_highlights_tab_single_message(
+                                            ui, state, row_index,
+                                        )
+                                    });
+                                });
+                            }
 
+                            _ => {
                                 if state.filter.active {
                                     let mut filtered_payload = Vec::new();
                                     let mut filtered_heights = Vec::new();
                                     let mut original_indices = Vec::new();
 
                                     let heights: Vec<f32> = heights.collect();
-                                    for (idx, m) in ch.messages.iter().enumerate() {
+                                    for (idx, m) in self.chat.messages.iter().enumerate() {
                                         if state.filter.matches(m) {
                                             filtered_payload.push(m);
                                             filtered_heights.push(heights[idx]);
@@ -241,8 +273,9 @@ impl ChatWindow {
                                                     .show_regular_chat_single_message(
                                                         ui,
                                                         state,
-                                                        ch,
-                                                        &ch.messages[original_indices[row_index]],
+                                                        self.chat,
+                                                        &self.chat.messages
+                                                            [original_indices[row_index]],
                                                         row_index,
                                                         false,
                                                         0.0,
@@ -262,20 +295,20 @@ impl ChatWindow {
                                                 });
                                             });
                                             self.cached_row_heights
-                                                .get_mut(&state.active_chat_tab_name)
+                                                .get_mut(&self.chat.normalized_name)
                                                 .unwrap()[0] = sz;
                                         } else {
                                             let message_idx = match add_fake_row {
                                                 true => row_index - 1,
                                                 false => row_index,
                                             };
-                                            let message = &ch.messages[message_idx];
+                                            let message = &self.chat.messages[message_idx];
 
                                             row.col(|ui| {
                                                 let marker_shown = self.maybe_show_unread_marker(
                                                     ui,
                                                     state,
-                                                    &state.active_chat_tab_name,
+                                                    &self.chat.normalized_name,
                                                     message_idx,
                                                     chat_row_height,
                                                 );
@@ -289,7 +322,7 @@ impl ChatWindow {
                                                     .show_regular_chat_single_message(
                                                         ui,
                                                         state,
-                                                        ch,
+                                                        self.chat,
                                                         message,
                                                         row_index,
                                                         true,
@@ -298,34 +331,6 @@ impl ChatWindow {
                                             });
                                         }
                                     });
-                                }
-                            } else {
-                                match state.active_chat_tab_name.as_str() {
-                                    super::SERVER_TAB_NAME => {
-                                        let server_tab_styles = Some(vec![TextStyle::Monospace]);
-                                        body.heterogeneous_rows(heights, |mut row| {
-                                            let row_index = row.index();
-                                            row.col(|ui| {
-                                                self.show_server_tab_single_message(
-                                                    ui,
-                                                    state,
-                                                    row_index,
-                                                    &server_tab_styles,
-                                                )
-                                            });
-                                        });
-                                    }
-                                    super::HIGHLIGHTS_TAB_NAME => {
-                                        body.heterogeneous_rows(heights, |mut row| {
-                                            let row_index = row.index();
-                                            row.col(|ui| {
-                                                self.show_highlights_tab_single_message(
-                                                    ui, state, row_index,
-                                                )
-                                            });
-                                        });
-                                    }
-                                    _ => (),
                                 }
                             }
                         });
@@ -349,7 +354,7 @@ impl ChatWindow {
         &mut self,
         ui: &mut egui::Ui,
         state: &UIState,
-        ch: &Chat,
+        chat: &Chat,
         msg: &Message,
         message_index: usize,
         cache_heights: bool,
@@ -362,11 +367,11 @@ impl ChatWindow {
         {
             if let Some(st) = state
                 .glass
-                .style_username(&ch.name, msg, &state.settings.ui.theme)
+                .style_username(&chat.name, msg, &state.settings.ui.theme)
             {
                 username_styles.push(st);
             }
-            if let Some(st) = state.glass.style_message(&ch.name, msg) {
+            if let Some(st) = state.glass.style_message(&chat.name, msg) {
                 message_styles.push(st);
             }
         }
@@ -388,7 +393,7 @@ impl ChatWindow {
 
         let mut context_menu_active = false;
         let updated_height = ui
-            .push_id(format!("{}_row_{}", ch.name, message_index), |ui| {
+            .push_id(format!("{}_row_{}", chat.name, message_index), |ui| {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing.x /= 2.;
                     ui.set_max_width(self.widget_width);
@@ -399,7 +404,7 @@ impl ChatWindow {
                         MessageType::Action | MessageType::Text => {
                             let response = ui.add(Username::new(
                                 msg,
-                                &ch.name,
+                                &chat.name,
                                 &Some(username_styles),
                                 &state.core,
                                 state.is_connected(),
@@ -424,9 +429,10 @@ impl ChatWindow {
             })
             .inner
             .inner;
+
         if cache_heights {
             self.cached_row_heights
-                .get_mut(&state.active_chat_tab_name)
+                .get_mut(&chat.normalized_name)
                 .unwrap()[message_index] = updated_height + extra_height;
         }
 
@@ -469,7 +475,7 @@ impl ChatWindow {
             })
             .inner;
         self.cached_row_heights
-            .get_mut(&state.active_chat_tab_name)
+            .get_mut(HIGHLIGHTS_TAB_NAME)
             .unwrap()[message_index] = updated_height;
     }
 
@@ -496,9 +502,7 @@ impl ChatWindow {
             .rect
             .height();
 
-        self.cached_row_heights
-            .get_mut(&state.active_chat_tab_name)
-            .unwrap()[message_index] = updated_height;
+        self.cached_row_heights.get_mut(SERVER_TAB_NAME).unwrap()[message_index] = updated_height;
     }
 
     pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
