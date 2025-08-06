@@ -1,9 +1,10 @@
 use eframe::egui::{self, Theme};
-use steel_core::chat::Chat;
+use steel_core::chat::{Chat, Message};
 use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
+use crate::gui::SERVER_TAB_NAME;
 use crate::gui::{self, widgets::error_popup::ErrorPopup};
 
 use crate::gui::state::UIState;
@@ -149,30 +150,33 @@ impl<'chat> ApplicationWindow<'chat> {
         initial_settings: Settings,
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
-        let state = UIState::new(
-            app_queue_handle.clone(),
-            initial_settings.clone(),
-            original_exe_path,
-        );
         set_startup_ui_settings(&cc.egui_ctx, &initial_settings);
 
-        Self {
+        let mut window = Self {
             menu: gui::menu::Menu::new(),
-            chat_view_controller: ChatViewController::new(),
+            chat_view_controller: ChatViewController::default(),
             chat_tabs: gui::chat_tabs::ChatTabs::default(),
             settings: gui::settings::SettingsWindow::new(),
             about: gui::about::About::default(),
             update_window: gui::update_window::UpdateWindow::default(),
             usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
-            s: state,
+            s: UIState::new(
+                app_queue_handle.clone(),
+                initial_settings.clone(),
+                original_exe_path,
+            ),
             filter_ui: gui::filter::FilterWindow::default(),
             error_popup: ErrorPopup::new(CoreClient::new(app_queue_handle)),
-        }
+        };
+
+        window.add_chat_to_controller(SERVER_TAB_NAME, false);
+
+        window
     }
 
-    fn add_chat_to_controller(&mut self, target: String, switch: bool) {
-        self.s.add_new_chat(target.clone(), switch);
+    fn add_chat_to_controller(&mut self, target: &str, switch: bool) {
+        self.s.add_new_chat(target.to_owned(), switch);
         if let Some(chat) = self.s.find_chat(&target) {
             // SAFETY: The chat reference is valid for the lifetime of ApplicationWindow
             // because it comes from self.s which is owned by ApplicationWindow.
@@ -230,7 +234,7 @@ impl<'chat> ApplicationWindow<'chat> {
     fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
         match event {
             UIMessageIn::NewSystemMessage { target, message } => {
-                self.s.push_chat_message(target, message, ctx);
+                self.s.push_chat_message(&target, message, ctx);
             }
 
             UIMessageIn::SettingsChanged(settings) => {
@@ -259,7 +263,7 @@ impl<'chat> ApplicationWindow<'chat> {
             }
 
             UIMessageIn::NewChatRequested { target, switch } => {
-                self.add_chat_to_controller(target, switch);
+                self.add_chat_to_controller(&target, switch);
                 if switch {
                     self.refresh_window_title(ctx);
                 }
@@ -272,16 +276,14 @@ impl<'chat> ApplicationWindow<'chat> {
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
                 let lowercase_name = name.to_lowercase();
                 self.s.read_tracker.mark_as_read(&lowercase_name);
-                if self.s.has_chat(&name) {
-                    // Update chat tracking in ReadTracker
-                    let message_count = self.s.chat_message_count();
+                if let Some(chat) = self.s.find_chat(&lowercase_name) {
                     let previous_chat = self.s.active_chat_tab_name.clone();
 
                     // Update chat tracking and unread marker positions
                     self.s.read_tracker.update_chat_tracking(
                         &previous_chat,
                         &lowercase_name,
-                        message_count,
+                        chat.messages.len(),
                     );
 
                     self.s.active_chat_tab_name = lowercase_name;
@@ -298,12 +300,9 @@ impl<'chat> ApplicationWindow<'chat> {
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {
-                let name_updated = self
+                self
                     .s
-                    .push_chat_message(target.clone(), message.clone(), ctx);
-                if name_updated {
-                    self.refresh_window_title(ctx);
-                }
+                    .push_chat_message(&target, message.clone(), ctx);
 
                 #[cfg(feature = "glass")]
                 match message.username == self.s.settings.chat.irc.username {
@@ -321,7 +320,8 @@ impl<'chat> ApplicationWindow<'chat> {
             }
 
             UIMessageIn::NewServerMessageReceived(text) => {
-                self.s.push_server_message(&text);
+                let message = Message::new_system(&text);
+                self.s.push_chat_message(SERVER_TAB_NAME, message, ctx);
                 ctx.request_repaint();
             }
 
@@ -342,6 +342,10 @@ impl<'chat> ApplicationWindow<'chat> {
                 ] {
                     mods.insert(name.to_lowercase().replace(' ', "_"));
                 }
+            }
+
+            UIMessageIn::WindowTitleRefreshRequested => {
+                self.refresh_window_title(ctx);
             }
 
             UIMessageIn::UIUserMentionRequested(username) => {

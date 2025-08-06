@@ -231,6 +231,7 @@ impl<'chat> ChatView<'chat> {
                                         self.show_server_tab_single_message(
                                             ui,
                                             state,
+                                            self.chat,
                                             row_index,
                                             &server_tab_styles,
                                         )
@@ -483,10 +484,11 @@ impl<'chat> ChatView<'chat> {
         &mut self,
         ui: &mut egui::Ui,
         state: &UIState,
+        chat: &Chat,
         message_index: usize,
         styles: &Option<Vec<TextStyle>>,
     ) {
-        let msg = &state.server_messages[message_index];
+        let msg = &chat.messages[message_index];
         let updated_height = ui
             .horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x /= 2.;

@@ -11,15 +11,15 @@ pub struct ChatViewController<'chat> {
 
 impl<'chat> Default for ChatViewController<'chat> {
     fn default() -> Self {
-        Self::new()
+        Self {
+            views: HashMap::default(),
+        }
     }
 }
 
 impl<'chat> ChatViewController<'chat> {
     pub fn new() -> Self {
-        Self {
-            views: HashMap::default(),
-        }
+        Self::default()
     }
 
     pub fn scroll_chat_to(&mut self, state: &UIState, lowercase_name: &str, message_id: usize) {

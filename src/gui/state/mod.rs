@@ -10,7 +10,7 @@ use crate::core::settings::Settings;
 use crate::gui::read_tracker;
 
 use super::filter::FilterCollection;
-use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME};
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
 #[derive(Debug)]
@@ -31,7 +31,6 @@ pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
     chats: Vec<Chat>,
-    pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
     pub core: CoreClient,
@@ -57,11 +56,11 @@ impl UIState {
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
         let irc_settings = settings.chat.irc.clone();
+
         Self {
             connection: ConnectionStatus::default(),
             settings,
-            chats: Vec::default(),
-            server_messages: Vec::default(),
+            chats: Vec::new(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
             read_tracker: read_tracker::ReadTracker::new(),
@@ -120,18 +119,6 @@ impl UIState {
             .set_highlights(&self.settings.notifications.highlights.words);
     }
 
-    pub fn chat_message_count(&self) -> usize {
-        if let Some(ch) = self.active_chat() {
-            ch.messages.len()
-        } else {
-            match self.active_chat_tab_name.as_str() {
-                super::SERVER_TAB_NAME => self.server_messages.len(),
-                super::HIGHLIGHTS_TAB_NAME => self.read_tracker.ordered_highlights().len(),
-                _ => 0,
-            }
-        }
-    }
-
     pub fn active_chat(&self) -> Option<&Chat> {
         if let Some(pos) = self.name_to_chat(&self.active_chat_tab_name) {
             self.chats.get(pos)
@@ -178,14 +165,13 @@ impl UIState {
 
     pub fn push_chat_message(
         &mut self,
-        target: String,
+        target: &str,
         mut message: Message,
         ctx: &egui::Context,
-    ) -> bool {
+    ) {
         let normalized = target.to_lowercase();
         let is_tab_inactive = !self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
-        let mut name_updated = false;
 
         if let Some(pos) = self.name_to_chat(&normalized) {
             if let Some(ch) = self.chats.get_mut(pos) {
@@ -204,8 +190,8 @@ impl UIState {
 
                 // If the chat was open with an improper case, fix it!
                 if ch.name != target && !is_system_message {
-                    ch.name = target;
-                    name_updated = true;
+                    ch.name = target.to_string();
+                    self.core.update_window_title();
                 }
 
                 message.detect_highlights(self.read_tracker.keywords(), current_username);
@@ -281,7 +267,6 @@ impl UIState {
                 }
             }
         }
-        name_updated
     }
 
     pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
@@ -297,15 +282,6 @@ impl UIState {
                     },
                 },
             },
-        }
-    }
-
-    pub fn push_server_message(&mut self, text: &str) {
-        let mut msg = Message::new_system(text);
-        msg.parse_for_links();
-        self.server_messages.push(msg);
-        if self.active_chat_tab_name != SERVER_TAB_NAME {
-            self.read_tracker.mark_as_unread(SERVER_TAB_NAME);
         }
     }
 

@@ -27,6 +27,7 @@ pub enum UIMessageIn {
         target: String,
         switch: bool,
     },
+    WindowTitleRefreshRequested,
     ChatSwitchRequested(String, Option<usize>),
     ChatClosed(String),
     ChatCleared(String),

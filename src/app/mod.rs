@@ -150,6 +150,10 @@ impl Application {
                     self.ui_handle_filesystem_path_request(path.to_str().unwrap().to_owned());
                 }
 
+                AppMessageIn::UIWindowTitleUpdateRequested => {
+                    self.ui_queue.send(UIMessageIn::WindowTitleRefreshRequested).unwrap();
+                }
+
                 AppMessageIn::UpdateStateChanged(state) => {
                     self.ui_push_update_state(state);
                 }

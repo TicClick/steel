@@ -180,8 +180,8 @@ impl ChatTabs {
             .iter()
             .enumerate()
             .filter(|ch| match mode {
-                ChatType::Channel => ch.1.name.is_channel(),
-                ChatType::Person => !ch.1.name.is_channel(),
+                ChatType::Channel => ch.1.name.is_channel() && !ch.1.name.starts_with('$'),
+                ChatType::Person => !ch.1.name.is_channel() && !ch.1.name.starts_with('$'),
             })
             .collect::<Vec<(usize, &Chat)>>();
         let active_element_bg = ui.style().visuals.selection.bg_fill;

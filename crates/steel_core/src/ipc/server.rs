@@ -43,6 +43,7 @@ pub enum AppMessageIn {
         is_fatal: bool,
     },
     UIUserMentionRequested(String),
+    UIWindowTitleUpdateRequested,
     UISettingsRequested,
     UISettingsUpdated(Box<Settings>),
     UIUsageWindowRequested,

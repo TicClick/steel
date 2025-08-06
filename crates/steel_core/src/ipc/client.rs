@@ -37,6 +37,12 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn update_window_title(&self) {
+        self.server
+            .send(AppMessageIn::UIWindowTitleUpdateRequested)
+            .unwrap();
+    }
+
     pub fn settings_requested(&self) {
         self.server.send(AppMessageIn::UISettingsRequested).unwrap();
     }
