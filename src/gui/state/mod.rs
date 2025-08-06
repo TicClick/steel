@@ -131,9 +131,8 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> &Chat {
-        let chat = Chat::new(&name);
-        self.chats.push(chat);
+    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> Option<&Chat> {
+        self.chats.push(Chat::new(&name));
         if switch_to_chat {
             self.active_chat_tab_name = name.to_lowercase();
 
@@ -141,7 +140,7 @@ impl UIState {
             self.read_tracker
                 .remove_last_read_position(&self.active_chat_tab_name);
         }
-        self.chats.last().unwrap()
+        self.chats.last()
     }
 
     pub fn chat_count(&self) -> usize {

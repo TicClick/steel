@@ -1,5 +1,5 @@
 use eframe::egui::{self, Theme};
-use steel_core::chat::{Chat, Message};
+use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
@@ -176,13 +176,8 @@ impl<'chat> ApplicationWindow<'chat> {
     }
 
     fn add_chat_to_controller(&mut self, target: &str, switch: bool) {
-        self.s.add_new_chat(target.to_owned(), switch);
-        if let Some(chat) = self.s.find_chat(&target) {
-            // SAFETY: The chat reference is valid for the lifetime of ApplicationWindow
-            // because it comes from self.s which is owned by ApplicationWindow.
-            // The lifetime 'chat is tied to the ApplicationWindow itself.
-            let chat_with_correct_lifetime: &'chat Chat = unsafe { std::mem::transmute(chat) };
-            self.chat_view_controller.add(chat_with_correct_lifetime);
+        if let Some(chat) = self.s.add_new_chat(target.to_owned(), switch) {
+            self.chat_view_controller.add(chat);
         }
     }
 

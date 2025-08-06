@@ -25,7 +25,7 @@ pub fn choose_colour(username: &str, settings: &Settings) -> Color32 {
 }
 
 pub struct Username<'msg, 'app> {
-    styles: &'msg Option<Vec<TextStyle>>,
+    styles: Option<&'msg Vec<TextStyle>>,
 
     #[allow(dead_code)] // glass
     chat_name: &'msg str,
@@ -42,7 +42,7 @@ impl<'msg, 'app> Username<'msg, 'app> {
     pub fn new(
         message: &'msg Message,
         chat_name: &'msg str,
-        styles: &'msg Option<Vec<TextStyle>>,
+        styles: Option<&'msg Vec<TextStyle>>,
         core_client: &'app CoreClient,
         is_connected: bool,
 

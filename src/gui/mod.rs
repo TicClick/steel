@@ -25,11 +25,11 @@ const HIGHLIGHTS_SEPARATOR: &str = ", ";
 const CENTRAL_PANEL_INNER_MARGIN_Y: i8 = 4;
 
 pub trait DecoratedText {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText;
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText;
 }
 
 impl DecoratedText for RichText {
-    fn with_styles(mut self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(mut self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         match decorations {
             None => self,
             Some(decorations) => {
@@ -51,13 +51,13 @@ impl DecoratedText for RichText {
 }
 
 impl DecoratedText for String {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         RichText::new(self).with_styles(decorations)
     }
 }
 
 impl DecoratedText for &str {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         RichText::new(self).with_styles(decorations)
     }
 }
