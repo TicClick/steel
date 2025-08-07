@@ -63,7 +63,7 @@ impl ChatView {
                 )
                 .show(ctx, |ui| {
                     ui.vertical_centered_justified(|ui| {
-                        let message_length_exceeded = self.chat_input.len() >= 450;
+                        let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
 
                         // Special tabs (server messages and highlights) are 1) fake and 2) read-only
                         let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
