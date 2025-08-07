@@ -189,6 +189,8 @@ impl ChatView {
                 Some(username_styles),
                 &state.core,
                 &state.settings,
+                #[cfg(feature = "glass")]
+                &state.glass,
             ));
         }
 

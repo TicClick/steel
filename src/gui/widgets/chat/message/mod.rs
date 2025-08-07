@@ -40,6 +40,8 @@ pub enum ChatViewRow<'chat, 'msg> {
         core: &'msg CoreClient,
         settings: &'msg Settings,
         is_user_menu_opened: Cell<bool>,
+        #[cfg(feature = "glass")]
+        glass: &'msg glass::Glass,
     },
 }
 
@@ -67,6 +69,7 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
         username_styles: Option<Vec<TextStyle>>,
         core: &'msg CoreClient,
         settings: &'msg Settings,
+        #[cfg(feature = "glass")] glass: &'msg glass::Glass,
     ) -> Self {
         Self::Message {
             chat,
@@ -76,6 +79,8 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
             core,
             settings,
             is_user_menu_opened: Cell::new(false),
+            #[cfg(feature = "glass")]
+            glass,
         }
     }
 
@@ -123,6 +128,8 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 core,
                 settings,
                 is_user_menu_opened,
+                #[cfg(feature = "glass")]
+                glass,
             } => {
                 let resp = match chat.normalized_name.as_str() {
                     SERVER_TAB_NAME => {
@@ -161,7 +168,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         core,
                                         true, // state.is_connected()
                                         #[cfg(feature = "glass")]
-                                        &state.glass,
+                                        glass,
                                     ));
 
                                     *is_user_menu_opened.get_mut() |=
