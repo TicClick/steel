@@ -39,18 +39,30 @@ fn build_all_targets(channels: usize, private_chats: usize) -> Vec<String> {
     all_targets
 }
 
-fn get_target_for_mode(mode: &Option<MessageMode>, target: &Option<String>, channels: usize, private_chats: usize) -> String {
+fn get_target_for_mode(
+    mode: &Option<MessageMode>,
+    target: &Option<String>,
+    channels: usize,
+    private_chats: usize,
+) -> String {
     match mode {
         Some(MessageMode::Random) => {
             let all_targets = build_all_targets(channels, private_chats);
             let target_idx = rng().random_range(0..all_targets.len());
             all_targets[target_idx].clone()
-        },
-        _ => target.as_ref().map(|s| s.clone()).unwrap_or_else(|| "#test-0".to_string()),
+        }
+        _ => target.clone()
+            .unwrap_or_else(|| "#test-0".to_string()),
     }
 }
 
-fn send_messages(ui_queue: &tokio::sync::mpsc::UnboundedSender<UIMessageIn>, target: &str, count: usize, max_len: usize, _sender_name: &str) {
+fn send_messages(
+    ui_queue: &tokio::sync::mpsc::UnboundedSender<UIMessageIn>,
+    target: &str,
+    count: usize,
+    max_len: usize,
+    _sender_name: &str,
+) {
     for i in 0..count {
         let msg = generate_random_message(max_len);
         ui_queue
@@ -131,7 +143,7 @@ pub fn main() {
 
     if let Some(ref mode) = args.mode {
         match mode {
-            MessageMode::None => {},
+            MessageMode::None => {}
             MessageMode::Random => {
                 let all_targets = build_all_targets(args.ch, args.dm);
                 for i in 0..args.count {
@@ -144,11 +156,13 @@ pub fn main() {
                         })
                         .unwrap();
                 }
-            },
+            }
             MessageMode::Target => {
-                let target = args.target.as_ref().map(|s| s.clone()).unwrap_or_else(|| "#test-0".to_string());
+                let target = args
+                    .target.clone()
+                    .unwrap_or_else(|| "#test-0".to_string());
                 send_messages(&ui_queue_in, &target, args.count, args.len, "batch");
-            },
+            }
         }
     }
 
@@ -159,20 +173,18 @@ pub fn main() {
         let channels = args.ch;
         let private_chats = args.dm;
         let target = args.target.clone();
-        
-        std::thread::spawn(move || {
-            loop {
-                let msg = generate_random_message(max_len);
-                let send_target = get_target_for_mode(&message_mode, &target, channels, private_chats);
 
-                mq.send(UIMessageIn::NewMessageReceived {
-                    target: send_target,
-                    message: Message::new_text("continuous", msg.as_str()),
-                })
-                .unwrap();
-                
-                std::thread::sleep(std::time::Duration::from_secs(1));
-            }
+        std::thread::spawn(move || loop {
+            let msg = generate_random_message(max_len);
+            let send_target = get_target_for_mode(&message_mode, &target, channels, private_chats);
+
+            mq.send(UIMessageIn::NewMessageReceived {
+                target: send_target,
+                message: Message::new_text("continuous", msg.as_str()),
+            })
+            .unwrap();
+
+            std::thread::sleep(std::time::Duration::from_secs(1));
         });
     }
 
