@@ -1,5 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
+use steel_core::chat::Chat;
 use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
@@ -45,70 +46,73 @@ impl ChatView {
         }
     }
 
+    fn show_chat_input(&mut self, ctx: &egui::Context, state: &UIState, chat: &Chat) {
+        egui::TopBottomPanel::bottom("input")
+            .frame(
+                egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
+                    left: 8,
+                    right: 8,
+                    top: 0,
+                    bottom: 2,
+                }),
+            )
+            .show(ctx, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
+
+                    // Special tabs (server messages and highlights) are 1) fake and 2) read-only
+                    let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
+                        .char_limit(MAX_MESSAGE_LENGTH)
+                        .id_source("chat-input")
+                        .hint_text("new message");
+                    if message_length_exceeded {
+                        text_field = text_field.text_color(egui::Color32::RED);
+                    }
+
+                    ui.add_space(8.);
+                    let mut response = ui.add(text_field);
+                    if message_length_exceeded {
+                        response = response.on_hover_text_at_pointer(format!(
+                            "messages longer than {MAX_MESSAGE_LENGTH} characters are truncated"
+                        ));
+                    }
+                    self.response_widget_id = Some(response.id);
+                    ui.add_space(2.);
+
+                    if response.lost_focus()
+                        && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                        && !{
+                            let result = self.command_helper.detect_and_run(
+                                chat,
+                                &state.core,
+                                &mut self.chat_input,
+                            );
+                            if result {
+                                self.return_focus(ctx, state);
+                            }
+                            result
+                        }
+                    {
+                        let trimmed_message = self.chat_input.trim();
+                        if !trimmed_message.is_empty() {
+                            state.core.chat_message_sent(&chat.name, trimmed_message);
+                        }
+                        self.chat_input.clear();
+                        response.request_focus();
+                    }
+                });
+            });
+    }
+
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         let chat = match state.find_chat(&self.chat_name) {
             Some(chat) => chat,
             None => return, // Chat not found, nothing to show
         };
-        let interactive = state.is_connected();
-        if interactive {
-            egui::TopBottomPanel::bottom("input")
-                .frame(
-                    egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
-                        left: 8,
-                        right: 8,
-                        top: 0,
-                        bottom: 2,
-                    }),
-                )
-                .show(ctx, |ui| {
-                    ui.vertical_centered_justified(|ui| {
-                        let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
 
-                        // Special tabs (server messages and highlights) are 1) fake and 2) read-only
-                        let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
-                            .char_limit(MAX_MESSAGE_LENGTH)
-                            .id_source("chat-input")
-                            .hint_text("new message");
-                        if message_length_exceeded {
-                            text_field = text_field.text_color(egui::Color32::RED);
-                        }
-
-                        ui.add_space(8.);
-                        let mut response = ui.add(text_field);
-                        if message_length_exceeded {
-                            response = response.on_hover_text_at_pointer(format!(
-                                "messages longer than {MAX_MESSAGE_LENGTH} characters are truncated"
-                            ));
-                        }
-                        self.response_widget_id = Some(response.id);
-                        ui.add_space(2.);
-
-                        if response.lost_focus()
-                            && ui.input(|i| i.key_pressed(egui::Key::Enter))
-                            && !{
-                                let result = self.command_helper.detect_and_run(
-                                    chat,
-                                    &state.core,
-                                    &mut self.chat_input,
-                                );
-                                if result {
-                                    self.return_focus(ctx, state);
-                                }
-                                result
-                            }
-                        {
-                            let trimmed_message = self.chat_input.trim();
-                            if !trimmed_message.is_empty() {
-                                state.core.chat_message_sent(&chat.name, trimmed_message);
-                            }
-                            self.chat_input.clear();
-                            response.request_focus();
-                        }
-                    });
-                });
-        } else {
-            self.response_widget_id = None;
+        match state.is_connected() {
+            true => self.show_chat_input(ctx, state, chat),
+            false => self.response_widget_id = None
         }
 
         // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
