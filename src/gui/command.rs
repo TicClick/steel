@@ -337,7 +337,7 @@ impl CommandHelper {
                     cmd.action(chat, core_client, args[1..].to_vec());
                     input.clear();
                 }
-                ui.close();
+                // Do not call ui.close() -- doing so will close windows in other chat tabs as well if they're currently open.
                 break;
             }
         }
