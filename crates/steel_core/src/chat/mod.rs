@@ -119,6 +119,7 @@ impl Message {
     pub fn detect_highlights(&mut self, keywords: &HashSet<String>, username: Option<&String>) {
         let full_message_text = self.text_lowercase.trim();
 
+        #[allow(unused_assignments)]
         let mut kw: HashSet<String> = HashSet::new();
         let keywords = if let Some(u) = username {
             kw = keywords.clone();
