@@ -24,6 +24,7 @@ pub enum ChatViewRow<'chat, 'msg> {
     Filler {
         chat: &'chat Chat,
         view_width: f32,
+        view_height: f32,
     },
     UnreadMarker {
         chat: &'chat Chat,
@@ -41,8 +42,12 @@ pub enum ChatViewRow<'chat, 'msg> {
 }
 
 impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
-    pub fn filler(chat: &'chat Chat, view_width: f32) -> Self {
-        Self::Filler { chat, view_width }
+    pub fn filler(chat: &'chat Chat, view_width: f32, view_height: f32) -> Self {
+        Self::Filler {
+            chat,
+            view_width,
+            view_height,
+        }
     }
 
     pub fn unread_marker(chat: &'chat Chat, chat_row_height: f32, color: Color32) -> Self {
@@ -75,10 +80,14 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
 impl Widget for &mut ChatViewRow<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         match self {
-            ChatViewRow::Filler { view_width, .. } => ui.allocate_response(
+            ChatViewRow::Filler {
+                view_width,
+                view_height,
+                ..
+            } => ui.allocate_response(
                 egui::Vec2 {
                     x: *view_width,
-                    y: 0.0,
+                    y: *view_height,
                 },
                 egui::Sense::hover(),
             ),

@@ -23,6 +23,7 @@ const HIGHLIGHTS_SEPARATOR: &str = ", ";
 
 // Overridden value of egui::Frame::central_panel().inner_margin (otherwise chat box generates empty space around it).
 const CENTRAL_PANEL_INNER_MARGIN_Y: i8 = 4;
+const CENTRAL_PANEL_INNER_MARGIN_X: i8 = 8;
 
 pub trait DecoratedText {
     fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText;

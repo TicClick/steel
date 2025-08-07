@@ -10,7 +10,7 @@ use crate::gui::state::UIState;
 use crate::gui::widgets::chat::message::username::choose_colour;
 use crate::gui::widgets::chat::message::ChatViewRow;
 use crate::gui::widgets::chat::shadow::InnerShadow;
-use crate::gui::CENTRAL_PANEL_INNER_MARGIN_Y;
+use crate::gui::{CENTRAL_PANEL_INNER_MARGIN_X, CENTRAL_PANEL_INNER_MARGIN_Y};
 
 use crate::gui::command::{self, CommandHelper};
 
@@ -22,9 +22,6 @@ pub struct ChatView {
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
     cached_row_heights: Vec<f32>,
-
-    // Chat space width -- longer lines will wrap around the window.
-    widget_width: f32,
 
     command_helper: command::CommandHelper,
 
@@ -40,7 +37,6 @@ impl ChatView {
             response_widget_id: None,
             scroll_to: None,
             cached_row_heights: Vec::default(),
-            widget_width: 0.0,
             command_helper: CommandHelper::default(),
             user_context_menu_open: false,
         }
@@ -112,7 +108,7 @@ impl ChatView {
 
         match state.is_connected() {
             true => self.show_chat_input(ctx, state, chat),
-            false => self.response_widget_id = None
+            false => self.response_widget_id = None,
         }
 
         // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
@@ -134,14 +130,20 @@ impl ChatView {
         //     .chat_row_height
         //     .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
         let chat_row_height = 14.0;
-
-        // FIXME: recalculate!
-        let ui_height = 800.0;
+        let chat_view_size = ctx.available_rect().size()
+            - egui::vec2(
+                (2 * CENTRAL_PANEL_INNER_MARGIN_X).into(),
+                (2 * CENTRAL_PANEL_INNER_MARGIN_Y).into(),
+            );
 
         let mut rows: Vec<ChatViewRow> = Vec::new();
 
         if add_filler_space {
-            rows.push(ChatViewRow::filler(chat, ui_height));
+            rows.push(ChatViewRow::filler(
+                chat,
+                chat_view_size.x,
+                chat_view_size.y - chat_row_height - 4.0,
+            ));
         }
 
         for (idx, message) in chat.messages.iter().enumerate() {
@@ -202,10 +204,19 @@ impl ChatView {
             ));
         }
 
+        self.cached_row_heights.resize(rows.len(), chat_row_height);
+        let mut heights = self.cached_row_heights.clone();
+        if add_filler_space {
+            let fake_row_height = chat_view_size.y - chat_row_height - 4.0;
+            heights[0] = fake_row_height;
+        }
+
         egui::CentralPanel::default()
             .frame(
-                egui::Frame::central_panel(&ctx.style())
-                    .inner_margin(egui::Margin::symmetric(8, CENTRAL_PANEL_INNER_MARGIN_Y)),
+                egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(
+                    CENTRAL_PANEL_INNER_MARGIN_X,
+                    CENTRAL_PANEL_INNER_MARGIN_Y,
+                )),
             )
             .show(ctx, |ui| {
                 if self
@@ -234,30 +245,9 @@ impl ChatView {
 
                 // Chat row spacing, which is by default zero for table rows.
                 ui.spacing_mut().item_spacing.y = 2.;
-                self.widget_width = ui.available_width();
-
-                // Add a fake row with the unread marker to the scroll view hosting the table with chat messages.
-                let add_fake_row = matches!(
-                    state.settings.chat.behaviour.chat_position,
-                    ChatPosition::Bottom
-                );
-                let chat_row_count = match add_fake_row {
-                    true => chat.messages.len() + 1,
-                    false => chat.messages.len(),
-                };
-
-                self.cached_row_heights
-                    .resize(chat_row_count, chat_row_height);
-                let mut heights = self.cached_row_heights.clone();
 
                 ui.push_id(&chat.normalized_name, |ui| {
                     let view_height = ui.available_height();
-                    // let view_width = ui.available_width();
-
-                    if add_fake_row {
-                        let fake_row_height = view_height - chat_row_height - 4.0;
-                        heights[0] = fake_row_height;
-                    }
 
                     let mut builder = TableBuilder::new(ui);
                     if let Some(message_id) = self.scroll_to {
@@ -269,7 +259,7 @@ impl ChatView {
 
                     let heights = heights.into_iter();
                     let scroll_area_output = builder
-                        .max_scroll_height(view_height)
+                        .max_scroll_height(chat_view_size.y)
                         .column(Column::remainder())
                         .auto_shrink([false; 2])
                         .body(|body| {
