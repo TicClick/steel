@@ -129,13 +129,14 @@ impl Message {
         };
 
         'iterate_over_keywords: for keyword in keywords {
+            let keyword_lowercase = keyword.to_lowercase();
             let mut starting_pos = 0;
             while starting_pos < full_message_text.len() {
                 let message_substring = &full_message_text[starting_pos..];
-                if let Some(keyword_start_pos) = message_substring.find(keyword) {
+                if let Some(keyword_start_pos) = message_substring.find(&keyword_lowercase) {
                     if Self::highlight_found(
                         full_message_text,
-                        keyword,
+                        &keyword_lowercase,
                         keyword_start_pos + starting_pos,
                     ) {
                         self.highlight = true;
