@@ -22,7 +22,6 @@ pub struct ChatView {
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
     cached_row_heights: Vec<f32>,
-
     command_helper: command::CommandHelper,
 
     // Whether the context menu was open during the previous frame.
@@ -42,8 +41,13 @@ impl ChatView {
         }
     }
 
+    fn egui_id(&self, prefix: &str) -> String {
+        format!("{}-{}", prefix, self.chat_name)
+    }
+
     fn show_chat_input(&mut self, ctx: &egui::Context, state: &UIState, chat: &Chat) {
-        egui::TopBottomPanel::bottom("input")
+        let text_field_id = self.egui_id("chat-input");
+        egui::TopBottomPanel::bottom(self.egui_id("input-panel"))
             .frame(
                 egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
                     left: 8,
@@ -59,7 +63,7 @@ impl ChatView {
                     // Special tabs (server messages and highlights) are 1) fake and 2) read-only
                     let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
                         .char_limit(MAX_MESSAGE_LENGTH)
-                        .id_source("chat-input")
+                        .id_source(text_field_id)
                         .hint_text("new message");
                     if message_length_exceeded {
                         text_field = text_field.text_color(egui::Color32::RED);
@@ -195,6 +199,9 @@ impl ChatView {
             heights[0] = fake_row_height;
         }
 
+        let command_helper_window_id = self.egui_id("command-helper");
+        let chat_view_id = self.egui_id("chat-view");
+
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(
@@ -207,7 +214,7 @@ impl ChatView {
                     .command_helper
                     .has_applicable_commands(&self.chat_input)
                 {
-                    egui::Window::new("chat-command-hint-layer")
+                    egui::Window::new(command_helper_window_id)
                         .title_bar(false)
                         .resizable(false)
                         .pivot(egui::Align2::LEFT_BOTTOM)
@@ -230,7 +237,7 @@ impl ChatView {
                 // Chat row spacing, which is by default zero for table rows.
                 ui.spacing_mut().item_spacing.y = 2.;
 
-                ui.push_id(&chat.normalized_name, |ui| {
+                ui.push_id(&chat_view_id, |ui| {
                     let view_height = ui.available_height();
 
                     let mut builder = TableBuilder::new(ui);
