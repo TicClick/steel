@@ -270,17 +270,8 @@ impl ApplicationWindow {
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
                 let lowercase_name = name.to_lowercase();
-                self.s.read_tracker.mark_as_read(&lowercase_name);
-                if let Some(chat) = self.s.find_chat(&lowercase_name) {
-                    let previous_chat = self.s.active_chat_tab_name.clone();
-
-                    // Update chat tracking and unread marker positions
-                    self.s.read_tracker.update_chat_tracking(
-                        &previous_chat,
-                        &lowercase_name,
-                        chat.messages.len(),
-                    );
-
+                if let Some(chat) = self.s.find_chat_mut(&lowercase_name) {
+                    chat.mark_as_read();
                     self.s.active_chat_tab_name = lowercase_name;
 
                     if let Some(message_id) = message_id {

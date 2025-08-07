@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
@@ -7,10 +9,8 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
 
-use crate::gui::read_tracker;
-
 use super::filter::FilterCollection;
-use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME};
+use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
 #[derive(Debug)]
@@ -34,7 +34,6 @@ pub struct UIState {
     pub active_chat_tab_name: String,
 
     pub core: CoreClient,
-    pub read_tracker: read_tracker::ReadTracker,
 
     pub update_state: UpdateState,
     pub sound_player: crate::core::sound::SoundPlayer,
@@ -44,6 +43,7 @@ pub struct UIState {
     pub glass: glass::Glass,
 
     pub filter: FilterCollection,
+    pub highlights: HashSet<String>,
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
@@ -63,7 +63,6 @@ impl UIState {
             chats: Vec::new(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
-            read_tracker: read_tracker::ReadTracker::new(),
             update_state: UpdateState::default(),
             sound_player: crate::core::sound::SoundPlayer::new(),
             original_exe_path,
@@ -72,6 +71,7 @@ impl UIState {
             glass: glass::Glass::default(),
 
             filter: FilterCollection::default(),
+            highlights: HashSet::new(),
 
             connection_indicator: ConnectionIndicator::new(
                 false,
@@ -101,22 +101,23 @@ impl UIState {
 
     pub fn update_settings(&mut self, settings: &Settings) {
         self.settings = settings.clone();
-
-        // FIXME: Move this to a separate setter.
-        self.read_tracker
-            .set_highlights(&self.settings.notifications.highlights.words);
+        self.update_highlights(
+            &self
+                .settings
+                .notifications
+                .highlights
+                .words
+                .join(HIGHLIGHTS_SEPARATOR),
+        );
     }
 
     pub fn update_highlights(&mut self, words: &str) {
-        self.settings.notifications.highlights.words = words
+        self.highlights = words
             .trim()
             .split(HIGHLIGHTS_SEPARATOR)
             .filter(|s| !s.is_empty())
             .map(|el| el.to_lowercase())
             .collect();
-        self.settings.notifications.highlights.words.sort();
-        self.read_tracker
-            .set_highlights(&self.settings.notifications.highlights.words);
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
@@ -133,12 +134,10 @@ impl UIState {
 
     pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> Option<&Chat> {
         self.chats.push(Chat::new(&name));
-        if switch_to_chat {
-            self.active_chat_tab_name = name.to_lowercase();
-
-            // When reopening a chat, remove the unread marker position
-            self.read_tracker
-                .remove_last_read_position(&self.active_chat_tab_name);
+        if let Some(chat) = self.chats.last() {
+            if switch_to_chat {
+                self.active_chat_tab_name = chat.normalized_name.clone();
+            }
         }
         self.chats.last()
     }
@@ -164,7 +163,7 @@ impl UIState {
 
     pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
         let normalized = target.to_lowercase();
-        let is_tab_inactive = !self.is_active_tab(&normalized);
+        let is_tab_active = self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
 
         if let Some(pos) = self.name_to_chat(&normalized) {
@@ -188,27 +187,10 @@ impl UIState {
                     self.core.update_window_title();
                 }
 
-                message.detect_highlights(self.read_tracker.keywords(), current_username);
+                message.detect_highlights(&self.highlights, current_username);
 
                 let contains_highlight = message.highlight;
-                let requires_attention =
-                    !is_system_message && (contains_highlight || !normalized.is_channel());
-
-                if contains_highlight {
-                    self.read_tracker.add_highlight(&normalized, &message);
-                    if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
-                        self.read_tracker.mark_as_unread(HIGHLIGHTS_TAB_NAME);
-                    }
-                }
-                ch.push(message);
-
-                if is_tab_inactive && !is_system_message {
-                    if requires_attention {
-                        self.read_tracker.mark_as_highlighted(&normalized);
-                    } else {
-                        self.read_tracker.mark_as_unread(&normalized);
-                    }
-                }
+                ch.push(message, is_tab_active);
 
                 let window_unfocused = !ctx.input(|i| i.viewport().focused.unwrap_or(false));
 
@@ -281,14 +263,13 @@ impl UIState {
 
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
-        let was_active = self.active_chat_tab_name == normalized;
+        let is_active_chat = self.is_active_tab(&normalized);
 
         if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
         }
-        self.read_tracker.drop(&normalized);
 
-        if was_active {
+        if is_active_chat {
             self.switch_to_first_chat();
         }
     }
@@ -296,8 +277,6 @@ impl UIState {
     pub fn switch_to_first_chat(&mut self) {
         if let Some(first_chat) = self.chats.first() {
             self.active_chat_tab_name = first_chat.normalized_name.clone();
-            self.read_tracker
-                .remove_last_read_position(&self.active_chat_tab_name);
         } else {
             self.active_chat_tab_name.clear();
         }
@@ -306,16 +285,15 @@ impl UIState {
     pub fn clear_chat(&mut self, target: &str) {
         if let Some(pos) = self.name_to_chat(target) {
             if let Some(chat) = self.chats.get_mut(pos) {
-                chat.messages.clear();
+                chat.clear();
             }
         }
-        self.read_tracker.drop(target);
     }
 
     pub fn filter_chats<F>(
         &self,
         f: F,
-    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, steel_core::chat::Chat>>, F>
+    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, Chat>>, F>
     where
         F: Fn(&(usize, &Chat)) -> bool,
     {
@@ -327,9 +305,13 @@ impl UIState {
     }
 
     pub fn find_chat(&self, target: &str) -> Option<&Chat> {
+        self.chats.iter().find(|ch| ch.normalized_name == target)
+    }
+
+    pub fn find_chat_mut(&mut self, target: &str) -> Option<&mut Chat> {
         self.chats
-            .iter()
-            .find(|c| c.normalized_name == target.to_lowercase())
+            .iter_mut()
+            .find(|ch| ch.normalized_name == target)
     }
 
     #[cfg(feature = "glass")]

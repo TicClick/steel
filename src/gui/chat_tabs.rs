@@ -1,11 +1,10 @@
 use eframe::egui::{self, Frame, Id, Margin, Ui};
 use egui_dnd::DragDropItem;
-use steel_core::chat::Chat;
-use steel_core::settings::Colour;
+use steel_core::chat::{Chat, TabState};
+use steel_core::settings::{Colour, Settings};
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
-use crate::gui::read_tracker::UnreadType;
 use crate::gui::state::UIState;
 
 use super::context_menu::chat::{
@@ -71,19 +70,17 @@ impl ChatTabs {
                 .frame(frame_maker())
                 .show_inside(ui, |ui| {
                     ui.heading("system");
-                    self.show_system_tabs(state, ui);
+                    self.show_chats(state, ui, ChatType::System);
                 });
         });
     }
 }
 
-fn pick_tab_colour(state: &UIState, normalized_chat_name: &str) -> Colour {
-    let colour = match state.read_tracker.unread_type(normalized_chat_name) {
-        None => &state.settings.ui.colours().read_tabs,
-        Some(unread) => match unread {
-            UnreadType::Highlight => &state.settings.ui.colours().highlight,
-            UnreadType::Regular => &state.settings.ui.colours().unread_tabs,
-        },
+fn pick_tab_colour(settings: &Settings, chat: &Chat) -> Colour {
+    let colour = match chat.tab_state() {
+        TabState::Read => &settings.ui.colours().read_tabs,
+        TabState::Unread => &settings.ui.colours().unread_tabs,
+        TabState::Highlight => &settings.ui.colours().highlight,
     };
     colour.clone()
 }
@@ -120,11 +117,13 @@ impl ChatTabs {
         let input: &mut String = match mode {
             ChatType::Channel => &mut self.new_channel_input,
             ChatType::Person => &mut self.new_chat_input,
+            ChatType::System => unreachable!(),
         };
 
         let validation_result = match mode {
             ChatType::Channel => super::validate_channel_name(input),
             ChatType::Person => super::validate_username(input),
+            ChatType::System => unreachable!(),
         };
 
         ui.vertical(|ui| {
@@ -136,6 +135,7 @@ impl ChatTabs {
                 let hint = match mode {
                     ChatType::Channel => "channel",
                     ChatType::Person => "user",
+                    ChatType::System => unreachable!(),
                 };
                 let response = ui.add_sized(
                     ui.available_size(),
@@ -179,10 +179,7 @@ impl ChatTabs {
         let relevant_chats = all_chats
             .iter()
             .enumerate()
-            .filter(|ch| match mode {
-                ChatType::Channel => ch.1.name.is_channel() && !ch.1.name.starts_with('$'),
-                ChatType::Person => !ch.1.name.is_channel() && !ch.1.name.starts_with('$'),
-            })
+            .filter(|ch| ch.1.category == mode)
             .collect::<Vec<(usize, &Chat)>>();
         let active_element_bg = ui.style().visuals.selection.bg_fill;
 
@@ -205,7 +202,7 @@ impl ChatTabs {
                                 false => egui::Color32::TRANSPARENT,
                             };
                             let label = egui::RichText::new(item.item.name.clone())
-                                .color(pick_tab_colour(state, normalized_chat_name));
+                                .color(pick_tab_colour(&state.settings, item.item));
 
                             let chat_tab = ui
                                 .horizontal(|ui| {
@@ -242,26 +239,6 @@ impl ChatTabs {
             };
             egui_dnd::utils::shift_vec(original_idx_from, original_idx_to, &mut all_chats);
             state.update_chats(all_chats);
-        }
-    }
-
-    fn show_system_tabs(&self, state: &mut UIState, ui: &mut Ui) {
-        for label in [
-            super::HIGHLIGHTS_TAB_NAME.to_owned(),
-            super::SERVER_TAB_NAME.to_owned(),
-        ] {
-            let coloured_label =
-                egui::RichText::new(&label[1..]).color(pick_tab_colour(state, &label));
-            let chat_tab = ui.selectable_value(
-                &mut state.active_chat_tab_name,
-                label.to_owned(),
-                coloured_label,
-            );
-            if chat_tab.clicked() {
-                state
-                    .core
-                    .chat_switch_requested(&state.active_chat_tab_name, None);
-            }
         }
     }
 }

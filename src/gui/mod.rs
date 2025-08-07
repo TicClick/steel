@@ -9,7 +9,6 @@ pub mod command;
 pub mod context_menu;
 pub mod filter;
 pub mod menu;
-pub mod read_tracker;
 pub mod settings;
 pub mod state;
 pub mod update_window;

@@ -111,16 +111,6 @@ impl ChatView {
             false => self.response_widget_id = None,
         }
 
-        // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
-        // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination.
-        //
-        // Each of the individual display functions (chat/server message or highlight) report the height
-        // of a rendered text piece ("galley"), which may be wrapped and therefore occupy several non-wrapped rows.
-        //
-        // The values are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
-        // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
-
-        // Add a fake row with the unread marker to the scroll view hosting the table with chat messages.
         let add_filler_space = matches!(
             state.settings.chat.behaviour.chat_position,
             ChatPosition::Bottom
@@ -147,19 +137,13 @@ impl ChatView {
         }
 
         for (idx, message) in chat.messages.iter().enumerate() {
-            if state.active_chat_tab_name == chat.normalized_name {
-                if let Some(unread_idx) = state
-                    .read_tracker
-                    .get_last_read_position(&chat.normalized_name)
-                {
-                    if unread_idx == idx {
-                        rows.push(ChatViewRow::unread_marker(
-                            chat,
-                            chat_row_height,
-                            state.settings.ui.colours().highlight.clone().into(),
-                        ));
-                    }
-                }
+            if state.active_chat_tab_name == chat.normalized_name && chat.prev_unread_pointer == idx
+            {
+                rows.push(ChatViewRow::unread_marker(
+                    chat,
+                    chat_row_height,
+                    state.settings.ui.colours().highlight.clone().into(),
+                ));
             }
 
             let mut username_styles = Vec::new();
@@ -256,6 +240,15 @@ impl ChatView {
                     } else {
                         builder = builder.stick_to_bottom(stick_chat_to_bottom);
                     }
+
+                    // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
+                    // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination.
+                    //
+                    // Each of the individual display functions (chat/server message or highlight) report the height
+                    // of a rendered text piece ("galley"), which may be wrapped and therefore occupy several non-wrapped rows.
+                    //
+                    // The values are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
+                    // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
                     let heights = heights.into_iter();
                     let scroll_area_output = builder
