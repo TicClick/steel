@@ -7,6 +7,7 @@ pub mod chat;
 pub mod chat_tabs;
 pub mod command;
 pub mod context_menu;
+pub mod error;
 pub mod filter;
 pub mod menu;
 pub mod settings;

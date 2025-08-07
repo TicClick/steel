@@ -5,7 +5,7 @@ use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
 
-use crate::core::chat::{ChatLike, Message, MessageType};
+use crate::core::chat::MessageType;
 use crate::gui::state::UIState;
 use crate::gui::widgets::chat::message::username::choose_colour;
 use crate::gui::widgets::chat::message::ChatViewRow;
@@ -325,26 +325,6 @@ impl ChatView {
                     .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
                 state.store(ctx, text_edit_id);
             }
-        }
-    }
-}
-
-fn format_chat_name(ui: &mut egui::Ui, state: &UIState, chat_name: &str, message: &Message) {
-    let chat_button = ui.button(match chat_name.is_channel() {
-        true => chat_name,
-        false => "(PM)",
-    });
-
-    if state.validate_reference(chat_name, message) {
-        let mut switch_requested = chat_button.clicked();
-        chat_button.context_menu(|ui| {
-            if ui.button("Go to message").clicked() {
-                switch_requested = true;
-                ui.close();
-            }
-        });
-        if switch_requested {
-            state.core.chat_switch_requested(chat_name, message.id);
         }
     }
 }

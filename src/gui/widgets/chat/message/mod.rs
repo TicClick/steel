@@ -2,7 +2,7 @@ use eframe::egui;
 
 use egui::{Color32, Widget};
 use steel_core::{
-    chat::{Chat, Message, MessageType},
+    chat::{Chat, ChatLike, Message, MessageType},
     ipc::client::CoreClient,
     settings::Settings,
     TextStyle,
@@ -126,8 +126,6 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                         .response
                     }
 
-                    HIGHLIGHTS_TAB_NAME => ui.response(),
-
                     _ => {
                         ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x /= 2.;
@@ -135,6 +133,10 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                             // ui.set_max_width(self.widget_width);
 
                             ui.add(TimestampLabel::new(&message.time, None));
+
+                            if chat.normalized_name.as_str() == HIGHLIGHTS_TAB_NAME {
+                                insert_original_chat_reference(ui, core, message);
+                            }
 
                             match message.r#type {
                                 MessageType::Action | MessageType::Text => {
@@ -168,5 +170,28 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 }
             }
         }
+    }
+}
+
+fn insert_original_chat_reference(ui: &mut egui::Ui, core_client: &CoreClient, message: &Message) {
+    let original_chat = match &message.original_chat {
+        Some(chat_name) => chat_name,
+        None => return,
+    };
+
+    let chat_button = ui.button(match original_chat.is_channel() {
+        true => original_chat,
+        false => "(PM)",
+    });
+
+    let mut switch_requested = chat_button.clicked();
+    chat_button.context_menu(|ui| {
+        if ui.button("Go to message").clicked() {
+            switch_requested = true;
+            ui.close();
+        }
+    });
+    if switch_requested {
+        core_client.chat_switch_requested(original_chat, message.id);
     }
 }

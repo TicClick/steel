@@ -36,6 +36,8 @@ pub struct Message {
     pub chunks: Option<Vec<MessageChunk>>,
     pub id: Option<usize>,
     pub highlight: bool,
+
+    pub original_chat: Option<String>,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq)]
@@ -88,6 +90,8 @@ impl Message {
             chunks: None,
             id: None,
             highlight: false,
+
+            original_chat: None,
         }
     }
 
@@ -106,6 +110,10 @@ impl Message {
 
     pub fn new_system(text: &str) -> Self {
         Self::new("", text, MessageType::System)
+    }
+
+    pub fn set_original_chat(&mut self, origin: &str) {
+        self.original_chat = Some(origin.to_owned());
     }
 
     pub fn detect_highlights(&mut self, keywords: &HashSet<String>, username: Option<&String>) {

@@ -4,8 +4,9 @@ use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
-use crate::gui::SERVER_TAB_NAME;
+use crate::gui::error::GuiError;
 use crate::gui::{self, widgets::error_popup::ErrorPopup};
+use crate::gui::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
 
 use crate::gui::state::UIState;
 use steel_core::{
@@ -171,6 +172,7 @@ impl ApplicationWindow {
         };
 
         window.add_chat_to_controller(SERVER_TAB_NAME, false);
+        window.add_chat_to_controller(HIGHLIGHTS_TAB_NAME, false);
 
         window
     }
@@ -270,6 +272,14 @@ impl ApplicationWindow {
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
                 let lowercase_name = name.to_lowercase();
+
+                if let Some(mid) = message_id {
+                    if !self.s.validate_reference(&lowercase_name, mid) {
+                        self.error_popup
+                            .push_error(Box::new(GuiError::message_not_found(mid, name)), false);
+                    }
+                }
+
                 if let Some(chat) = self.s.find_chat_mut(&lowercase_name) {
                     chat.mark_as_read();
                     self.s.active_chat_tab_name = lowercase_name;

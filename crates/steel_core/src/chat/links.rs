@@ -355,6 +355,7 @@ mod tests {
             chunks: None,
             id: None,
             highlight: false,
+            original_chat: None,
         };
         m.parse_for_links();
         m
@@ -365,7 +366,7 @@ mod tests {
         let message = m("Test (no links here)");
         match message.chunks.unwrap().first().unwrap() {
             MessageChunk::Text(text) => assert_eq!(text, &message.text),
-            _ => assert!(false),
+            _ => unreachable!(),
         }
     }
 
