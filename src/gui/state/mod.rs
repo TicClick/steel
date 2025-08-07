@@ -162,12 +162,7 @@ impl UIState {
         }
     }
 
-    pub fn push_chat_message(
-        &mut self,
-        target: &str,
-        mut message: Message,
-        ctx: &egui::Context,
-    ) {
+    pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
         let normalized = target.to_lowercase();
         let is_tab_inactive = !self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);

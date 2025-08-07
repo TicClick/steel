@@ -5,16 +5,9 @@ use std::collections::HashMap;
 
 use crate::gui::{chat::chat_view::ChatView, state::UIState};
 
+#[derive(Default)]
 pub struct ChatViewController {
     views: HashMap<String, ChatView>,
-}
-
-impl Default for ChatViewController {
-    fn default() -> Self {
-        Self {
-            views: HashMap::default(),
-        }
-    }
 }
 
 impl ChatViewController {

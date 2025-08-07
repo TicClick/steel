@@ -151,7 +151,9 @@ impl Application {
                 }
 
                 AppMessageIn::UIWindowTitleUpdateRequested => {
-                    self.ui_queue.send(UIMessageIn::WindowTitleRefreshRequested).unwrap();
+                    self.ui_queue
+                        .send(UIMessageIn::WindowTitleRefreshRequested)
+                        .unwrap();
                 }
 
                 AppMessageIn::UpdateStateChanged(state) => {

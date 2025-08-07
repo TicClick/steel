@@ -1,11 +1,20 @@
 use eframe::egui;
 
-use egui::{
-    Widget, Color32
+use egui::{Color32, Widget};
+use steel_core::{
+    chat::{Chat, Message, MessageType},
+    ipc::client::CoreClient,
+    settings::Settings,
+    TextStyle,
 };
-use steel_core::{chat::{Chat, Message, MessageType}, ipc::client::CoreClient, settings::Settings, TextStyle};
 
-use crate::gui::{widgets::chat::{message::{message_text::ChatMessageText, timestamp::TimestampLabel, username::Username}, unread_marker::UnreadMarker}, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+use crate::gui::{
+    widgets::chat::{
+        message::{message_text::ChatMessageText, timestamp::TimestampLabel, username::Username},
+        unread_marker::UnreadMarker,
+    },
+    HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME,
+};
 
 pub mod message_text;
 pub mod timestamp;
@@ -14,7 +23,7 @@ pub mod username;
 pub enum ChatViewRow<'chat, 'msg> {
     Filler {
         chat: &'chat Chat,
-        view_width: f32
+        view_width: f32,
     },
     UnreadMarker {
         chat: &'chat Chat,
@@ -28,7 +37,7 @@ pub enum ChatViewRow<'chat, 'msg> {
         username_styles: Option<Vec<TextStyle>>,
         core: &'msg CoreClient,
         settings: &'msg Settings,
-    }
+    },
 }
 
 impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
@@ -37,7 +46,11 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
     }
 
     pub fn unread_marker(chat: &'chat Chat, chat_row_height: f32, color: Color32) -> Self {
-        Self::UnreadMarker { chat, chat_row_height, color }
+        Self::UnreadMarker {
+            chat,
+            chat_row_height,
+            color,
+        }
     }
 
     pub fn message(
@@ -48,27 +61,37 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
         core: &'msg CoreClient,
         settings: &'msg Settings,
     ) -> Self {
-        Self::Message { chat, message, message_styles, username_styles, core, settings }
+        Self::Message {
+            chat,
+            message,
+            message_styles,
+            username_styles,
+            core,
+            settings,
+        }
     }
 }
 
 impl Widget for &mut ChatViewRow<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
         match self {
-            ChatViewRow::Filler { view_width, .. } => {
-                ui.allocate_response(egui::Vec2 {
+            ChatViewRow::Filler { view_width, .. } => ui.allocate_response(
+                egui::Vec2 {
                     x: *view_width,
                     y: 0.0,
-                }, egui::Sense::hover())
-            }
+                },
+                egui::Sense::hover(),
+            ),
 
-            ChatViewRow::UnreadMarker { chat_row_height, color, .. } => {
-                ui.add(
+            ChatViewRow::UnreadMarker {
+                chat_row_height,
+                color,
+                ..
+            } => ui.add(
                 UnreadMarker::new()
                     .ui_height(*chat_row_height)
-                    .color(*color)
-                )
-            }
+                    .color(*color),
+            ),
 
             ChatViewRow::Message {
                 chat,
@@ -81,23 +104,20 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 match chat.normalized_name.as_str() {
                     SERVER_TAB_NAME => {
                         let styles = vec![TextStyle::Monospace];
-                        ui
-                            .horizontal(|ui| {
-                                ui.spacing_mut().item_spacing.x /= 2.;
-                                ui.add(TimestampLabel::new(&message.time, Some(&styles)));
-                                ui.add(ChatMessageText::new(
-                                    message.chunks.as_ref().unwrap(),
-                                    Some(&styles),
-                                    &settings.chat.behaviour,
-                                    &core,
-                                ))
-                            })
-                            .response
+                        ui.horizontal(|ui| {
+                            ui.spacing_mut().item_spacing.x /= 2.;
+                            ui.add(TimestampLabel::new(&message.time, Some(&styles)));
+                            ui.add(ChatMessageText::new(
+                                message.chunks.as_ref().unwrap(),
+                                Some(&styles),
+                                &settings.chat.behaviour,
+                                core,
+                            ))
+                        })
+                        .response
                     }
 
-                    HIGHLIGHTS_TAB_NAME => {
-                        ui.response()
-                    }
+                    HIGHLIGHTS_TAB_NAME => ui.response(),
 
                     _ => {
                         ui.horizontal_wrapped(|ui| {
@@ -113,7 +133,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         message,
                                         &chat.name,
                                         username_styles.as_ref(),
-                                        &core,
+                                        core,
                                         true, // state.is_connected()
                                         #[cfg(feature = "glass")]
                                         &state.glass,
@@ -125,7 +145,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         message.chunks.as_ref().unwrap(),
                                         message_styles.as_ref(),
                                         &settings.chat.behaviour,
-                                        &core,
+                                        core,
                                     ))
                                 }
 
@@ -133,7 +153,8 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                     ui.add_enabled(false, egui::Button::new(&message.text))
                                 }
                             }
-                        }).inner
+                        })
+                        .inner
                     }
                 }
             }

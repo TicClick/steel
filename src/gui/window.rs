@@ -295,9 +295,7 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {
-                self
-                    .s
-                    .push_chat_message(&target, message.clone(), ctx);
+                self.s.push_chat_message(&target, message.clone(), ctx);
 
                 #[cfg(feature = "glass")]
                 match message.username == self.s.settings.chat.irc.username {
