@@ -265,6 +265,8 @@ impl ChatView {
                             });
                         });
 
+                    self.user_context_menu_open = rows.iter().any(|row| row.is_user_menu_opened());
+
                     // Decide if a shadow should be drawn.
                     let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
                     let offscreen_area_height =

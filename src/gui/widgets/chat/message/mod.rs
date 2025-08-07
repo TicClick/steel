@@ -1,4 +1,5 @@
 use eframe::egui;
+use std::cell::Cell;
 
 use egui::{Color32, Widget};
 use steel_core::{
@@ -38,6 +39,7 @@ pub enum ChatViewRow<'chat, 'msg> {
         username_styles: Option<Vec<TextStyle>>,
         core: &'msg CoreClient,
         settings: &'msg Settings,
+        is_user_menu_opened: Cell<bool>,
     },
 }
 
@@ -73,6 +75,17 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
             username_styles,
             core,
             settings,
+            is_user_menu_opened: Cell::new(false),
+        }
+    }
+
+    pub fn is_user_menu_opened(&self) -> bool {
+        match self {
+            ChatViewRow::Message {
+                is_user_menu_opened,
+                ..
+            } => is_user_menu_opened.get(),
+            _ => false,
         }
     }
 }
@@ -109,8 +122,9 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 username_styles,
                 core,
                 settings,
+                is_user_menu_opened,
             } => {
-                match chat.normalized_name.as_str() {
+                let resp = match chat.normalized_name.as_str() {
                     SERVER_TAB_NAME => {
                         let styles = vec![TextStyle::Monospace];
                         ui.horizontal(|ui| {
@@ -140,7 +154,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
 
                             match message.r#type {
                                 MessageType::Action | MessageType::Text => {
-                                    let _response = ui.add(Username::new(
+                                    let response = ui.add(Username::new(
                                         message,
                                         &chat.name,
                                         username_styles.as_ref(),
@@ -150,7 +164,8 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         &state.glass,
                                     ));
 
-                                    // context_menu_active |= response.context_menu_opened();
+                                    *is_user_menu_opened.get_mut() |=
+                                        response.context_menu_opened();
 
                                     ui.add(ChatMessageText::new(
                                         message.chunks.as_ref().unwrap(),
@@ -167,7 +182,9 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                         })
                         .inner
                     }
-                }
+                };
+
+                resp
             }
         }
     }
