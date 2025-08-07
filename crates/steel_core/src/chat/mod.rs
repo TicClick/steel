@@ -8,7 +8,7 @@ use std::hash::Hash;
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum MessageType {
     Text,
     Action,

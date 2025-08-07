@@ -178,7 +178,10 @@ impl UIState {
         {
             current_username = None;
         }
-        message.detect_highlights(&self.highlights, current_username);
+
+        if message.r#type != MessageType::System {
+            message.detect_highlights(&self.highlights, current_username);
+        }
 
         if let Some(pos) = self.name_to_chat(&normalized) {
             if let Some(ch) = self.chats.get_mut(pos) {
