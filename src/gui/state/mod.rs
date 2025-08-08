@@ -122,11 +122,7 @@ impl UIState {
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
-        if let Some(pos) = self.name_to_chat(&self.active_chat_tab_name) {
-            self.chats.get(pos)
-        } else {
-            None
-        }
+        self.find_chat(&self.active_chat_tab_name)
     }
 
     pub fn is_connected(&self) -> bool {
@@ -153,12 +149,8 @@ impl UIState {
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState) {
         let normalized = target.to_lowercase();
-        if let Some(pos) = self.name_to_chat(&normalized) {
-            if let Some(ch) = self.chats.get_mut(pos) {
-                if ch.state != state {
-                    ch.set_state(state);
-                }
-            }
+        if let Some(ch) = self.find_chat_mut(&normalized) {
+            ch.set_state(state)
         }
     }
 
@@ -183,24 +175,25 @@ impl UIState {
             message.detect_highlights(&self.highlights, current_username);
         }
 
-        if let Some(pos) = self.name_to_chat(&normalized) {
-            if let Some(ch) = self.chats.get_mut(pos) {
-                message.id = Some(ch.messages.len());
-                if ch.name != target && !is_system_message {
-                    ch.name = target.to_string();
-                    self.core.update_window_title();
-                }
-                ch.push(message.clone(), is_tab_active);
+        let mut should_rename_chat = false;
+        if let Some(chat) = self.find_chat_mut(&normalized) {
+            message.id = Some(chat.messages.len());
+            if chat.name != target && !is_system_message {
+                chat.name = target.to_string();
+                should_rename_chat = true;
             }
+            chat.push(message.clone(), is_tab_active);
+        }
+
+        if should_rename_chat {
+            self.core.update_window_title();
         }
 
         if message.highlight {
             self.maybe_notify(ctx, &message, &normalized);
             message.set_original_chat(target);
-            if let Some(pos) = self.name_to_chat(HIGHLIGHTS_TAB_NAME) {
-                if let Some(ch) = self.chats.get_mut(pos) {
-                    ch.push(message, false);
-                }
+            if let Some(highlights) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
+                highlights.push(message, false);
             }
         }
     }
@@ -261,13 +254,8 @@ impl UIState {
     }
 
     pub fn validate_reference(&self, chat_name: &str, message_id: usize) -> bool {
-        match self.name_to_chat(chat_name) {
-            None => false,
-            Some(pos) => match self.chats.get(pos) {
-                None => false,
-                Some(ch) => ch.messages.get(message_id).is_some(),
-            },
-        }
+        self.find_chat(chat_name)
+            .is_some_and(|c| c.messages.get(message_id).is_some())
     }
 
     pub fn remove_chat(&mut self, target: String) {
@@ -292,15 +280,13 @@ impl UIState {
     }
 
     pub fn clear_chat(&mut self, target: &str) {
-        if let Some(pos) = self.name_to_chat(target) {
-            if let Some(chat) = self.chats.get_mut(pos) {
-                chat.clear();
-            }
+        if let Some(chat) = self.find_chat_mut(target) {
+            chat.clear();
         }
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.name_to_chat(&target.to_lowercase()).is_some()
+        self.find_chat(&target.to_lowercase()).is_some()
     }
 
     pub fn find_chat(&self, target: &str) -> Option<&Chat> {
