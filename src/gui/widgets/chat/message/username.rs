@@ -32,7 +32,6 @@ pub struct Username<'msg, 'app> {
 
     message: &'msg Message,
     core_client: &'app CoreClient,
-    is_connected: bool,
 
     #[cfg(feature = "glass")]
     glass: &'app glass::Glass,
@@ -44,7 +43,6 @@ impl<'msg, 'app> Username<'msg, 'app> {
         chat_name: &'msg str,
         styles: Option<&'msg Vec<TextStyle>>,
         core_client: &'app CoreClient,
-        is_connected: bool,
 
         #[cfg(feature = "glass")] glass: &'app glass::Glass,
     ) -> Self {
@@ -53,7 +51,6 @@ impl<'msg, 'app> Username<'msg, 'app> {
             chat_name,
             styles,
             core_client,
-            is_connected,
 
             #[cfg(feature = "glass")]
             glass,
@@ -61,10 +58,7 @@ impl<'msg, 'app> Username<'msg, 'app> {
     }
 
     fn show_context_menu(&self, ui: &mut egui::Ui) {
-        if self.is_connected {
-            menu_item_open_chat(ui, self.core_client, true, &self.message.username);
-        }
-
+        menu_item_open_chat(ui, self.core_client, true, &self.message.username);
         menu_item_open_chat_user_profile(ui, true, &self.message.username);
         menu_item_translate_message(ui, true, &self.message.text);
         menu_item_open_chat_log(ui, self.core_client, true, &self.message.username);
