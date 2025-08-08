@@ -268,10 +268,14 @@ impl ChatView {
                         .auto_shrink([false; 2])
                         .body(|body| {
                             body.heterogeneous_rows(heights, |mut row| {
-                                let r = &mut rows[row.index()];
+                                let chat_row_widget = &mut rows[row.index()];
+                                let row_idx = row.index();
 
                                 row.col(|ui| {
-                                    ui.add(r);
+                                    let chat_row_height = ui.add(chat_row_widget).rect.height();
+                                    if row_idx < self.cached_row_heights.len() {
+                                        self.cached_row_heights[row_idx] = chat_row_height;
+                                    }
                                 });
                             });
                         });
