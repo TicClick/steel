@@ -240,12 +240,15 @@ impl ChatTabs {
                             if chat_tab.clicked() {
                                 channel.chat_switch_requested(normalized_chat_name, None);
                             }
-                            if chat_tab.middle_clicked() {
-                                channel.chat_tab_closed(normalized_chat_name);
+
+                            if mode != ChatType::System {
+                                if chat_tab.middle_clicked() {
+                                    channel.chat_tab_closed(normalized_chat_name);
+                                }
+                                chat_tab.context_menu(|ui| {
+                                    tab_context_menu(ui, state, normalized_chat_name, &mode)
+                                });
                             }
-                            chat_tab.context_menu(|ui| {
-                                tab_context_menu(ui, state, normalized_chat_name, &mode)
-                            });
                         });
                     },
                 );
