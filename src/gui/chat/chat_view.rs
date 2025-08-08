@@ -141,7 +141,9 @@ impl ChatView {
         }
 
         for (idx, message) in chat.messages.iter().enumerate() {
-            if state.active_chat_tab_name == chat.normalized_name && chat.prev_unread_pointer == idx
+            if state.settings.chat.behaviour.track_unread_messages
+                && state.active_chat_tab_name == chat.normalized_name
+                && chat.prev_unread_pointer == idx
             {
                 rows.push(ChatViewRow::unread_marker(
                     chat,
