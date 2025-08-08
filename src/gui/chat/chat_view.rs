@@ -137,6 +137,7 @@ impl ChatView {
             ));
         }
 
+        let mut unread_marker_active = false;
         for (idx, message) in chat.messages.iter().enumerate() {
             if state.settings.chat.behaviour.track_unread_messages
                 && state.active_chat_tab_name == chat.normalized_name
@@ -147,6 +148,7 @@ impl ChatView {
                     chat_row_height,
                     state.settings.ui.colours().highlight.clone().into(),
                 ));
+                unread_marker_active = true;
             }
 
             let mut username_styles = Vec::new();
@@ -227,22 +229,31 @@ impl ChatView {
                         });
                 }
 
-                // Disable scrolling to avoid resetting context menu.
-                let stick_chat_to_bottom = !self.user_context_menu_open;
-                self.user_context_menu_open = false;
-
                 // Chat row spacing, which is by default zero for table rows.
                 ui.spacing_mut().item_spacing.y = 2.;
 
                 ui.push_id(&chat_view_id, |ui| {
                     let view_height = ui.available_height();
 
-                    let mut builder = TableBuilder::new(ui);
+                    let mut builder = TableBuilder::new(ui)
+                        .stick_to_bottom(!self.user_context_menu_open) // Disable scrolling to avoid resetting context menu.
+                        .max_scroll_height(chat_view_size.y)
+                        .column(Column::remainder())
+                        .auto_shrink([false; 2]);
+
                     if let Some(message_id) = self.scroll_to {
-                        builder = builder.scroll_to_row(message_id, Some(egui::Align::Center));
+                        let is_message_past_unread_marker =
+                            unread_marker_active && chat.prev_unread_pointer <= message_id;
+                        let adjusted_row_id = <bool as Into<usize>>::into(add_filler_space)
+                            + message_id
+                            + <bool as Into<usize>>::into(is_message_past_unread_marker);
+
+                        let should_stick_to_bottom = message_id == chat.messages.len();
+                        builder = builder
+                            .scroll_to_row(adjusted_row_id, Some(egui::Align::Center))
+                            .stick_to_bottom(should_stick_to_bottom);
+
                         self.scroll_to = None;
-                    } else {
-                        builder = builder.stick_to_bottom(stick_chat_to_bottom);
                     }
 
                     // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
@@ -252,24 +263,20 @@ impl ChatView {
                     // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
                     let heights = heights.into_iter();
-                    let scroll_area_output = builder
-                        .max_scroll_height(chat_view_size.y)
-                        .column(Column::remainder())
-                        .auto_shrink([false; 2])
-                        .body(|body| {
-                            body.heterogeneous_rows(heights, |mut row| {
-                                let chat_row_widget = &mut rows[row.index()];
-                                let row_idx = row.index();
+                    let scroll_area_output = builder.body(|body| {
+                        body.heterogeneous_rows(heights, |mut row| {
+                            let chat_row_widget = &mut rows[row.index()];
+                            let row_idx = row.index();
 
-                                row.col(|ui| {
-                                    ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
-                                    let chat_row_height = ui.add(chat_row_widget).rect.height();
-                                    if row_idx < self.cached_row_heights.len() {
-                                        self.cached_row_heights[row_idx] = chat_row_height;
-                                    }
-                                });
+                            row.col(|ui| {
+                                ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
+                                let chat_row_height = ui.add(chat_row_widget).rect.height();
+                                if row_idx < self.cached_row_heights.len() {
+                                    self.cached_row_heights[row_idx] = chat_row_height;
+                                }
                             });
                         });
+                    });
 
                     self.user_context_menu_open = rows.iter().any(|row| row.is_user_menu_opened());
 
