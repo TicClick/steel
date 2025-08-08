@@ -51,8 +51,7 @@ fn get_target_for_mode(
             let target_idx = rng().random_range(0..all_targets.len());
             all_targets[target_idx].clone()
         }
-        _ => target.clone()
-            .unwrap_or_else(|| "#test-0".to_string()),
+        _ => target.clone().unwrap_or_else(|| "#test-0".to_string()),
     }
 }
 
@@ -158,9 +157,7 @@ pub fn main() {
                 }
             }
             MessageMode::Target => {
-                let target = args
-                    .target.clone()
-                    .unwrap_or_else(|| "#test-0".to_string());
+                let target = args.target.clone().unwrap_or_else(|| "#test-0".to_string());
                 send_messages(&ui_queue_in, &target, args.count, args.len, "batch");
             }
         }

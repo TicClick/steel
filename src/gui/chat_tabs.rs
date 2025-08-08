@@ -18,6 +18,14 @@ const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
 
 // Stabilize indices of the elements in the drag-and-drop zone with channels.
 // Courtesy of lucasmerlin @ https://github.com/lucasmerlin/hello_egui/blob/main/crates/egui_dnd/examples/index_as_id.rs
+
+struct ChatTabData {
+    original_index: usize,
+    normalized_name: String,
+    name: String,
+    state: ChatState,
+}
+
 struct EnumeratedItem<T> {
     item: T,
     index: usize,
@@ -175,12 +183,18 @@ impl ChatTabs {
         let active_chat_name = state.active_chat_tab_name.to_lowercase();
 
         // Use `relevant_chats` for reordering, and then shift all chats based on the shift within `relevant_chats`.
-        let mut all_chats = state.chats();
-        let relevant_chats = all_chats
+        let relevant_chats = state
+            .chats()
             .iter()
             .enumerate()
             .filter(|ch| ch.1.category == mode)
-            .collect::<Vec<(usize, &Chat)>>();
+            .map(|(i, chat)| ChatTabData {
+                original_index: i,
+                normalized_name: chat.normalized_name.clone(),
+                name: chat.name.clone(),
+                state: chat.state.clone(),
+            })
+            .collect::<Vec<ChatTabData>>();
         let active_element_bg = ui.style().visuals.selection.bg_fill;
 
         let result = egui::ScrollArea::vertical()
@@ -191,7 +205,7 @@ impl ChatTabs {
                 let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show(
                     relevant_chats
                         .iter()
-                        .map(|(i, item)| EnumeratedItem { index: *i, item }),
+                        .map(|item| EnumeratedItem { index: item.original_index, item }),
                     |ui, item, handle, _drag_state| {
                         handle.ui(ui, |ui| {
                             let normalized_chat_name = &item.item.normalized_name;
@@ -201,8 +215,17 @@ impl ChatTabs {
                                 true => active_element_bg,
                                 false => egui::Color32::TRANSPARENT,
                             };
-                            let label = egui::RichText::new(item.item.name.clone())
-                                .color(pick_tab_colour(&state.settings, item.item));
+
+                            // Find the chat for color picking
+                            let chat_for_color = state
+                                .chats()
+                                .iter()
+                                .find(|c| c.normalized_name == *normalized_chat_name);
+                            let label = egui::RichText::new(item.item.name.clone()).color(
+                                chat_for_color.map_or(egui::Color32::WHITE, |chat| {
+                                    pick_tab_colour(&state.settings, chat).into()
+                                }),
+                            );
 
                             let chat_tab = ui
                                 .horizontal(|ui| {
@@ -232,13 +255,12 @@ impl ChatTabs {
             });
 
         if let Some(res) = result.inner {
-            let original_idx_from = relevant_chats[res.from].0;
+            let original_idx_from = relevant_chats[res.from].original_index;
             let original_idx_to = match res.to == relevant_chats.len() {
-                true => all_chats.len(),
-                false => relevant_chats[res.to].0,
+                true => state.chats().len(),
+                false => relevant_chats[res.to].original_index,
             };
-            egui_dnd::utils::shift_vec(original_idx_from, original_idx_to, &mut all_chats);
-            state.update_chats(all_chats);
+            egui_dnd::utils::shift_vec(original_idx_from, original_idx_to, state.chats_mut());
         }
     }
 }

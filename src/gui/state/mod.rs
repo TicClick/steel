@@ -83,12 +83,12 @@ impl UIState {
         }
     }
 
-    pub fn chats(&self) -> Vec<Chat> {
-        self.chats.clone()
+    pub fn chats(&self) -> &Vec<Chat> {
+        &self.chats
     }
 
-    pub fn update_chats(&mut self, chats: Vec<Chat>) {
-        self.chats = chats;
+    pub fn chats_mut(&mut self) -> &mut Vec<Chat> {
+        &mut self.chats
     }
 
     pub fn name_to_chat(&self, name: &str) -> Option<usize> {
@@ -297,16 +297,6 @@ impl UIState {
                 chat.clear();
             }
         }
-    }
-
-    pub fn filter_chats<F>(
-        &self,
-        f: F,
-    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, Chat>>, F>
-    where
-        F: Fn(&(usize, &Chat)) -> bool,
-    {
-        self.chats.iter().enumerate().filter(f)
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
