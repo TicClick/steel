@@ -120,10 +120,7 @@ impl ChatView {
             ChatPosition::Bottom
         );
 
-        // let chat_row_height = *self
-        //     .chat_row_height
-        //     .get_or_insert_with(|| ui.text_style_height(&egui::TextStyle::Body));
-        let chat_row_height = 14.0;
+        let chat_row_height = 18.0; // ui.text_style_height(&egui::TextStyle::Body) + 2x spacing
         let chat_view_size = ctx.available_rect().size()
             - egui::vec2(
                 (2 * CENTRAL_PANEL_INNER_MARGIN_X).into(),
@@ -197,11 +194,7 @@ impl ChatView {
         }
 
         self.cached_row_heights.resize(rows.len(), chat_row_height);
-        let mut heights = self.cached_row_heights.clone();
-        if add_filler_space {
-            let fake_row_height = chat_view_size.y - chat_row_height - 4.0;
-            heights[0] = fake_row_height;
-        }
+        let heights = self.cached_row_heights.clone();
 
         let command_helper_window_id = self.egui_id("command-helper");
         let chat_view_id = self.egui_id("chat-view");
@@ -272,6 +265,7 @@ impl ChatView {
                                 let row_idx = row.index();
 
                                 row.col(|ui| {
+                                    ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
                                     let chat_row_height = ui.add(chat_row_widget).rect.height();
                                     if row_idx < self.cached_row_heights.len() {
                                         self.cached_row_heights[row_idx] = chat_row_height;

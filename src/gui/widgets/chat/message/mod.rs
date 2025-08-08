@@ -151,8 +151,6 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                         ui.horizontal_wrapped(|ui| {
                             ui.spacing_mut().item_spacing.x /= 2.;
 
-                            // ui.set_max_width(self.widget_width);
-
                             ui.add(TimestampLabel::new(&message.time, None));
 
                             if chat.normalized_name.as_str() == HIGHLIGHTS_TAB_NAME {
