@@ -1,6 +1,6 @@
 use eframe::egui::{self, Frame, Id, Margin, Ui};
 use egui_dnd::DragDropItem;
-use steel_core::chat::{Chat, TabState};
+use steel_core::chat::TabState;
 use steel_core::settings::{Colour, Settings};
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
@@ -23,7 +23,8 @@ struct ChatTabData {
     original_index: usize,
     normalized_name: String,
     name: String,
-    state: ChatState,
+    chat_state: ChatState,
+    tab_state: TabState,
 }
 
 struct EnumeratedItem<T> {
@@ -84,8 +85,8 @@ impl ChatTabs {
     }
 }
 
-fn pick_tab_colour(settings: &Settings, chat: &Chat) -> Colour {
-    let colour = match chat.tab_state() {
+fn pick_tab_colour(settings: &Settings, tab_state: &TabState) -> Colour {
+    let colour = match tab_state {
         TabState::Read => &settings.ui.colours().read_tabs,
         TabState::Unread => &settings.ui.colours().unread_tabs,
         TabState::Highlight => &settings.ui.colours().highlight,
@@ -192,7 +193,8 @@ impl ChatTabs {
                 original_index: i,
                 normalized_name: chat.normalized_name.clone(),
                 name: chat.name.clone(),
-                state: chat.state.clone(),
+                chat_state: chat.state.clone(),
+                tab_state: chat.tab_state(),
             })
             .collect::<Vec<ChatTabData>>();
         let active_element_bg = ui.style().visuals.selection.bg_fill;
@@ -202,10 +204,13 @@ impl ChatTabs {
             .auto_shrink([false, true])
             .min_scrolled_height(MIN_CHAT_TABS_SCROLLVIEW_HEIGHT)
             .show(ui, |ui| {
+                let items = relevant_chats.iter().map(|item| EnumeratedItem {
+                    index: item.original_index,
+                    item,
+                });
+
                 let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show(
-                    relevant_chats
-                        .iter()
-                        .map(|item| EnumeratedItem { index: item.original_index, item }),
+                    items,
                     |ui, item, handle, _drag_state| {
                         handle.ui(ui, |ui| {
                             let normalized_chat_name = &item.item.normalized_name;
@@ -215,23 +220,17 @@ impl ChatTabs {
                                 true => active_element_bg,
                                 false => egui::Color32::TRANSPARENT,
                             };
+                            let text_colour =
+                                pick_tab_colour(&state.settings, &item.item.tab_state);
 
-                            // Find the chat for color picking
-                            let chat_for_color = state
-                                .chats()
-                                .iter()
-                                .find(|c| c.normalized_name == *normalized_chat_name);
-                            let label = egui::RichText::new(item.item.name.clone()).color(
-                                chat_for_color.map_or(egui::Color32::WHITE, |chat| {
-                                    pick_tab_colour(&state.settings, chat).into()
-                                }),
-                            );
+                            let label =
+                                egui::RichText::new(item.item.name.clone()).color(text_colour);
 
                             let chat_tab = ui
                                 .horizontal(|ui| {
                                     let button =
                                         ui.add(egui::Button::new(label).fill(background_colour));
-                                    if matches!(item.item.state, ChatState::JoinInProgress) {
+                                    if matches!(item.item.chat_state, ChatState::JoinInProgress) {
                                         ui.spinner();
                                     }
                                     button
