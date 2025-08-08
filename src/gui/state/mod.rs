@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
@@ -6,11 +8,10 @@ use eframe::egui;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
-
-use crate::gui::read_tracker;
+use crate::gui::HIGHLIGHTS_TAB_NAME;
 
 use super::filter::FilterCollection;
-use super::{HIGHLIGHTS_SEPARATOR, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
+use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
 #[derive(Debug)]
@@ -31,11 +32,9 @@ pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
     chats: Vec<Chat>,
-    pub server_messages: Vec<Message>,
     pub active_chat_tab_name: String,
 
     pub core: CoreClient,
-    pub read_tracker: read_tracker::ReadTracker,
 
     pub update_state: UpdateState,
     pub sound_player: crate::core::sound::SoundPlayer,
@@ -45,6 +44,7 @@ pub struct UIState {
     pub glass: glass::Glass,
 
     pub filter: FilterCollection,
+    pub highlights: HashSet<String>,
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
@@ -57,14 +57,13 @@ impl UIState {
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
         let irc_settings = settings.chat.irc.clone();
+
         Self {
             connection: ConnectionStatus::default(),
             settings,
-            chats: Vec::default(),
-            server_messages: Vec::default(),
+            chats: Vec::new(),
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
-            read_tracker: read_tracker::ReadTracker::new(),
             update_state: UpdateState::default(),
             sound_player: crate::core::sound::SoundPlayer::new(),
             original_exe_path,
@@ -73,6 +72,7 @@ impl UIState {
             glass: glass::Glass::default(),
 
             filter: FilterCollection::default(),
+            highlights: HashSet::new(),
 
             connection_indicator: ConnectionIndicator::new(
                 false,
@@ -83,12 +83,12 @@ impl UIState {
         }
     }
 
-    pub fn chats(&self) -> Vec<Chat> {
-        self.chats.clone()
+    pub fn chats(&self) -> &Vec<Chat> {
+        &self.chats
     }
 
-    pub fn update_chats(&mut self, chats: Vec<Chat>) {
-        self.chats = chats;
+    pub fn chats_mut(&mut self) -> &mut Vec<Chat> {
+        &mut self.chats
     }
 
     pub fn name_to_chat(&self, name: &str) -> Option<usize> {
@@ -102,58 +102,41 @@ impl UIState {
 
     pub fn update_settings(&mut self, settings: &Settings) {
         self.settings = settings.clone();
-
-        // FIXME: Move this to a separate setter.
-        self.read_tracker
-            .set_highlights(&self.settings.notifications.highlights.words);
+        self.update_highlights(
+            &self
+                .settings
+                .notifications
+                .highlights
+                .words
+                .join(HIGHLIGHTS_SEPARATOR),
+        );
     }
 
     pub fn update_highlights(&mut self, words: &str) {
-        self.settings.notifications.highlights.words = words
+        self.highlights = words
             .trim()
             .split(HIGHLIGHTS_SEPARATOR)
             .filter(|s| !s.is_empty())
             .map(|el| el.to_lowercase())
             .collect();
-        self.settings.notifications.highlights.words.sort();
-        self.read_tracker
-            .set_highlights(&self.settings.notifications.highlights.words);
-    }
-
-    pub fn chat_message_count(&self) -> usize {
-        if let Some(ch) = self.active_chat() {
-            ch.messages.len()
-        } else {
-            match self.active_chat_tab_name.as_str() {
-                super::SERVER_TAB_NAME => self.server_messages.len(),
-                super::HIGHLIGHTS_TAB_NAME => self.read_tracker.ordered_highlights().len(),
-                _ => 0,
-            }
-        }
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
-        if let Some(pos) = self.name_to_chat(&self.active_chat_tab_name) {
-            self.chats.get(pos)
-        } else {
-            None
-        }
+        self.find_chat(&self.active_chat_tab_name)
     }
 
     pub fn is_connected(&self) -> bool {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
-    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) {
-        let chat = Chat::new(&name);
-        self.chats.push(chat);
-        if switch_to_chat {
-            self.active_chat_tab_name = name.to_lowercase();
-
-            // When reopening a chat, remove the unread marker position
-            self.read_tracker
-                .remove_last_read_position(&self.active_chat_tab_name);
+    pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> Option<&Chat> {
+        self.chats.push(Chat::new(&name));
+        if let Some(chat) = self.chats.last() {
+            if switch_to_chat {
+                self.active_chat_tab_name = chat.normalized_name.clone();
+            }
         }
+        self.chats.last()
     }
 
     pub fn chat_count(&self) -> usize {
@@ -166,158 +149,124 @@ impl UIState {
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState) {
         let normalized = target.to_lowercase();
-        if let Some(pos) = self.name_to_chat(&normalized) {
-            if let Some(ch) = self.chats.get_mut(pos) {
-                if ch.state != state {
-                    ch.set_state(state);
-                }
-            }
+        if let Some(ch) = self.find_chat_mut(&normalized) {
+            ch.set_state(state)
         }
     }
 
-    pub fn push_chat_message(
-        &mut self,
-        target: String,
-        mut message: Message,
-        ctx: &egui::Context,
-    ) -> bool {
+    pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
         let normalized = target.to_lowercase();
-        let is_tab_inactive = !self.is_active_tab(&normalized);
+        let is_tab_active = self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
-        let mut name_updated = false;
 
-        if let Some(pos) = self.name_to_chat(&normalized) {
-            if let Some(ch) = self.chats.get_mut(pos) {
-                message.id = Some(ch.messages.len());
-                message.parse_for_links();
+        message.parse_for_links();
 
-                #[allow(unused_mut)] // glass
-                let mut current_username = Some(&self.settings.chat.irc.username);
-                #[cfg(feature = "glass")]
-                if self
-                    .glass
-                    .is_username_highlight_suppressed(&normalized, &message)
+        #[allow(unused_mut)] // glass
+        let mut current_username = Some(&self.settings.chat.irc.username);
+        #[cfg(feature = "glass")]
+        if self
+            .glass
+            .is_username_highlight_suppressed(&normalized, &message)
+        {
+            current_username = None;
+        }
+
+        if message.r#type != MessageType::System {
+            message.detect_highlights(&self.highlights, current_username);
+        }
+
+        let mut should_rename_chat = false;
+        if let Some(chat) = self.find_chat_mut(&normalized) {
+            message.id = Some(chat.messages.len());
+            if chat.name != target && !is_system_message {
+                chat.name = target.to_string();
+                should_rename_chat = true;
+            }
+            chat.push(message.clone(), is_tab_active);
+        }
+
+        if should_rename_chat {
+            self.core.update_window_title();
+        }
+
+        if message.highlight {
+            self.maybe_notify(ctx, &message, &normalized);
+            message.set_original_chat(target);
+            if let Some(highlights) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
+                highlights.push(message, false);
+            }
+        }
+    }
+
+    pub fn maybe_notify(
+        &mut self,
+        ctx: &egui::Context,
+        message: &Message,
+        normalized_chat_name: &str,
+    ) {
+        let window_unfocused = !ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let should_notify = {
+            let should_flash_for_highlight =
+                self.settings.notifications.notification_events.highlights;
+            let should_flash_for_private_message = normalized_chat_name.is_person()
+                && self
+                    .settings
+                    .notifications
+                    .notification_events
+                    .private_messages;
+
+            should_flash_for_highlight || should_flash_for_private_message
+        };
+
+        if should_notify {
+            if window_unfocused {
+                if cfg!(target_os = "linux") {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                        eframe::egui::UserAttentionType::Informational,
+                    ));
+                } else {
+                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                        eframe::egui::UserAttentionType::Critical,
+                    ));
+                    if matches!(
+                        self.settings.notifications.notification_style,
+                        steel_core::settings::NotificationStyle::Moderate
+                    ) {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                            eframe::egui::UserAttentionType::Informational,
+                        ));
+                    };
+                    self.notification_start_time = Some(std::time::Instant::now());
+                }
+            }
+
+            if let Some(sound) = &self.settings.notifications.highlights.sound {
+                let should_play_sound = match self.settings.notifications.sound_only_when_unfocused
                 {
-                    current_username = None;
-                }
-
-                // If the chat was open with an improper case, fix it!
-                if ch.name != target && !is_system_message {
-                    ch.name = target;
-                    name_updated = true;
-                }
-
-                message.detect_highlights(self.read_tracker.keywords(), current_username);
-
-                let contains_highlight = message.highlight;
-                let requires_attention =
-                    !is_system_message && (contains_highlight || !normalized.is_channel());
-
-                if contains_highlight {
-                    self.read_tracker.add_highlight(&normalized, &message);
-                    if self.active_chat_tab_name != HIGHLIGHTS_TAB_NAME {
-                        self.read_tracker.mark_as_unread(HIGHLIGHTS_TAB_NAME);
-                    }
-                }
-                ch.push(message);
-
-                if is_tab_inactive && !is_system_message {
-                    if requires_attention {
-                        self.read_tracker.mark_as_highlighted(&normalized);
-                    } else {
-                        self.read_tracker.mark_as_unread(&normalized);
-                    }
-                }
-
-                let window_unfocused = !ctx.input(|i| i.viewport().focused.unwrap_or(false));
-
-                let should_notify = {
-                    let is_private_message = !normalized.is_channel();
-                    let should_flash_for_highlight = contains_highlight
-                        && self.settings.notifications.notification_events.highlights;
-                    let should_flash_for_private_message = is_private_message
-                        && self
-                            .settings
-                            .notifications
-                            .notification_events
-                            .private_messages;
-
-                    should_flash_for_highlight || should_flash_for_private_message
+                    true => window_unfocused && message.highlight,
+                    false => message.highlight,
                 };
-
-                if should_notify {
-                    if window_unfocused {
-                        if cfg!(target_os = "linux") {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                                eframe::egui::UserAttentionType::Informational,
-                            ));
-                        } else {
-                            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                                eframe::egui::UserAttentionType::Critical,
-                            ));
-                            if matches!(
-                                self.settings.notifications.notification_style,
-                                steel_core::settings::NotificationStyle::Moderate
-                            ) {
-                                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                                    eframe::egui::UserAttentionType::Informational,
-                                ));
-                            };
-                            self.notification_start_time = Some(std::time::Instant::now());
-                        }
-                    }
-
-                    if let Some(sound) = &self.settings.notifications.highlights.sound {
-                        let should_play_sound =
-                            match self.settings.notifications.sound_only_when_unfocused {
-                                true => window_unfocused && contains_highlight,
-                                false => contains_highlight,
-                            };
-                        if should_play_sound {
-                            self.sound_player.play(sound);
-                        }
-                    }
+                if should_play_sound {
+                    self.sound_player.play(sound);
                 }
             }
         }
-        name_updated
     }
 
-    pub fn validate_reference(&self, chat_name: &str, highlight: &Message) -> bool {
-        match highlight.id {
-            None => false,
-            Some(id) => match self.name_to_chat(chat_name) {
-                None => false,
-                Some(pos) => match self.chats.get(pos) {
-                    None => false,
-                    Some(ch) => match ch.messages.get(id) {
-                        None => false,
-                        Some(msg) => highlight.time == msg.time,
-                    },
-                },
-            },
-        }
-    }
-
-    pub fn push_server_message(&mut self, text: &str) {
-        let mut msg = Message::new_system(text);
-        msg.parse_for_links();
-        self.server_messages.push(msg);
-        if self.active_chat_tab_name != SERVER_TAB_NAME {
-            self.read_tracker.mark_as_unread(SERVER_TAB_NAME);
-        }
+    pub fn validate_reference(&self, chat_name: &str, message_id: usize) -> bool {
+        self.find_chat(chat_name)
+            .is_some_and(|c| c.messages.get(message_id).is_some())
     }
 
     pub fn remove_chat(&mut self, target: String) {
         let normalized = target.to_lowercase();
-        let was_active = self.active_chat_tab_name == normalized;
+        let is_active_chat = self.is_active_tab(&normalized);
 
         if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
         }
-        self.read_tracker.drop(&normalized);
 
-        if was_active {
+        if is_active_chat {
             self.switch_to_first_chat();
         }
     }
@@ -325,34 +274,29 @@ impl UIState {
     pub fn switch_to_first_chat(&mut self) {
         if let Some(first_chat) = self.chats.first() {
             self.active_chat_tab_name = first_chat.normalized_name.clone();
-            self.read_tracker
-                .remove_last_read_position(&self.active_chat_tab_name);
         } else {
             self.active_chat_tab_name.clear();
         }
     }
 
     pub fn clear_chat(&mut self, target: &str) {
-        if let Some(pos) = self.name_to_chat(target) {
-            if let Some(chat) = self.chats.get_mut(pos) {
-                chat.messages.clear();
-            }
+        if let Some(chat) = self.find_chat_mut(target) {
+            chat.clear();
         }
-        self.read_tracker.drop(target);
-    }
-
-    pub fn filter_chats<F>(
-        &self,
-        f: F,
-    ) -> std::iter::Filter<std::iter::Enumerate<std::slice::Iter<'_, steel_core::chat::Chat>>, F>
-    where
-        F: Fn(&(usize, &Chat)) -> bool,
-    {
-        self.chats.iter().enumerate().filter(f)
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.name_to_chat(&target.to_lowercase()).is_some()
+        self.find_chat(&target.to_lowercase()).is_some()
+    }
+
+    pub fn find_chat(&self, target: &str) -> Option<&Chat> {
+        self.chats.iter().find(|ch| ch.normalized_name == target)
+    }
+
+    pub fn find_chat_mut(&mut self, target: &str) -> Option<&mut Chat> {
+        self.chats
+            .iter_mut()
+            .find(|ch| ch.normalized_name == target)
     }
 
     #[cfg(feature = "glass")]

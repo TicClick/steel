@@ -1,13 +1,14 @@
 pub mod irc;
 pub mod links;
 
-use std::collections::BTreeSet;
+use std::collections::HashSet;
 use std::fmt;
+use std::hash::Hash;
 
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum MessageType {
     Text,
     Action,
@@ -35,12 +36,15 @@ pub struct Message {
     pub chunks: Option<Vec<MessageChunk>>,
     pub id: Option<usize>,
     pub highlight: bool,
+
+    pub original_chat: Option<String>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq)]
 pub enum ChatType {
     Channel,
     Person,
+    System,
 }
 
 impl fmt::Display for ChatType {
@@ -51,6 +55,7 @@ impl fmt::Display for ChatType {
             match self {
                 ChatType::Channel => "channel",
                 ChatType::Person => "person",
+                ChatType::System => "system",
             }
         )
     }
@@ -85,6 +90,8 @@ impl Message {
             chunks: None,
             id: None,
             highlight: false,
+
+            original_chat: None,
         }
     }
 
@@ -105,24 +112,32 @@ impl Message {
         Self::new("", text, MessageType::System)
     }
 
-    pub fn detect_highlights(&mut self, keywords: &BTreeSet<String>, username: Option<&String>) {
+    pub fn set_original_chat(&mut self, origin: &str) {
+        self.original_chat = Some(origin.to_owned());
+    }
+
+    pub fn detect_highlights(&mut self, keywords: &HashSet<String>, username: Option<&String>) {
         let full_message_text = self.text_lowercase.trim();
+
+        #[allow(unused_assignments)]
+        let mut kw: HashSet<String> = HashSet::new();
         let keywords = if let Some(u) = username {
-            let mut kw: BTreeSet<String> = keywords.iter().map(|s| s.to_lowercase()).collect();
+            kw = keywords.clone();
             kw.insert(u.to_lowercase());
-            kw
+            &kw
         } else {
-            keywords.iter().map(|s| s.to_lowercase()).collect()
+            keywords
         };
 
-        'iterate_over_keywords: for keyword in &keywords {
+        'iterate_over_keywords: for keyword in keywords {
+            let keyword_lowercase = keyword.to_lowercase();
             let mut starting_pos = 0;
             while starting_pos < full_message_text.len() {
                 let message_substring = &full_message_text[starting_pos..];
-                if let Some(keyword_start_pos) = message_substring.find(keyword) {
+                if let Some(keyword_start_pos) = message_substring.find(&keyword_lowercase) {
                     if Self::highlight_found(
                         full_message_text,
-                        keyword,
+                        &keyword_lowercase,
                         keyword_start_pos + starting_pos,
                     ) {
                         self.highlight = true;
@@ -168,63 +183,139 @@ pub enum ChatState {
     Disconnected,
 }
 
-#[derive(Clone, Debug, Default, Hash)]
+#[derive(Debug)]
+pub enum TabState {
+    Read,
+    Unread,
+    Highlight,
+}
+
+#[derive(Clone, Debug, Hash)]
 pub struct Chat {
     pub name: String,
     pub normalized_name: String,
     pub messages: Box<Vec<Message>>,
     pub state: ChatState,
+    pub category: ChatType,
+
+    pub unread_pointer: usize,
+    pub prev_unread_pointer: usize,
+    pub highlights: Vec<usize>,
 }
 
 impl Chat {
     pub fn new(name: &str) -> Self {
         Self {
-            name: name.to_owned(),
+            name: match name.strip_prefix('$') {
+                Some(trimmed) => trimmed.to_owned(),
+                None => name.to_owned(),
+            },
             normalized_name: name.to_lowercase(),
             messages: Box::new(Vec::new()),
             state: ChatState::Left,
+            category: name.chat_type(),
+            unread_pointer: 0,
+            prev_unread_pointer: 0,
+            highlights: Vec::new(),
         }
     }
 
-    pub fn push(&mut self, msg: Message) {
-        self.messages.push(msg);
-    }
+    pub fn push(&mut self, msg: Message, is_chat_active: bool) {
+        let idx = self.messages.len();
+        let is_highlight = msg.highlight;
 
-    pub fn r#type(&self) -> ChatType {
-        self.name.chat_type()
+        self.messages.push(msg);
+
+        if is_highlight && self.category != ChatType::System {
+            self.highlights.push(idx)
+        }
+        if is_chat_active {
+            if self.unread_pointer == self.prev_unread_pointer {
+                self.prev_unread_pointer += 1;
+            }
+            self.unread_pointer += 1;
+        }
     }
 
     pub fn set_state(&mut self, state: ChatState) {
         self.state = state;
     }
+
+    pub fn tab_state(&self) -> TabState {
+        if self.unread_pointer == self.messages.len() {
+            TabState::Read
+        } else {
+            match self.highlights.last() {
+                None => TabState::Unread,
+                Some(last_highlight) => {
+                    if *last_highlight >= self.unread_pointer {
+                        TabState::Highlight
+                    } else {
+                        TabState::Unread
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn mark_as_read(&mut self) {
+        self.prev_unread_pointer = self.unread_pointer;
+        self.unread_pointer = self.messages.len();
+    }
+
+    pub fn clear(&mut self) {
+        self.unread_pointer = 0;
+        self.messages.clear();
+        self.highlights.clear();
+    }
 }
 
 pub trait ChatLike {
-    fn is_channel(&self) -> bool;
     fn chat_type(&self) -> ChatType;
+    fn is_channel(&self) -> bool;
+    fn is_person(&self) -> bool;
+    fn is_system(&self) -> bool;
 }
 
 impl ChatLike for &str {
-    fn is_channel(&self) -> bool {
-        self.starts_with('#')
-    }
-
     fn chat_type(&self) -> ChatType {
-        if self.is_channel() {
+        if self.starts_with('#') {
             ChatType::Channel
+        } else if self.starts_with('$') {
+            ChatType::System
         } else {
             ChatType::Person
         }
     }
+
+    fn is_channel(&self) -> bool {
+        matches!(self.chat_type(), ChatType::Channel)
+    }
+
+    fn is_person(&self) -> bool {
+        matches!(self.chat_type(), ChatType::Person)
+    }
+
+    fn is_system(&self) -> bool {
+        matches!(self.chat_type(), ChatType::System)
+    }
 }
 
 impl ChatLike for String {
+    fn chat_type(&self) -> ChatType {
+        self.as_str().chat_type()
+    }
+
     fn is_channel(&self) -> bool {
         self.as_str().is_channel()
     }
 
-    fn chat_type(&self) -> ChatType {
-        self.as_str().chat_type()
+    fn is_person(&self) -> bool {
+        self.as_str().is_person()
+    }
+
+    fn is_system(&self) -> bool {
+        self.as_str().is_system()
     }
 }
 
@@ -262,8 +353,8 @@ impl fmt::Display for ConnectionStatus {
 mod tests {
     use super::*;
 
-    fn hls(words: &[&str]) -> BTreeSet<String> {
-        BTreeSet::from_iter(words.iter().map(|w| w.to_string()))
+    fn hls(words: &[&str]) -> HashSet<String> {
+        HashSet::from_iter(words.iter().map(|w| w.to_string()))
     }
 
     #[test]

@@ -1,7 +1,8 @@
 use eframe::egui;
-use steel_core::chat::ChatLike;
-
-use super::state::UIState;
+use steel_core::{
+    chat::{Chat, ChatLike},
+    ipc::client::CoreClient,
+};
 
 pub const COMMAND_PREFIX: char = '/';
 
@@ -38,7 +39,7 @@ trait Command {
         });
     }
     fn ui_title(&self) -> egui::RichText;
-    fn action(&self, state: &UIState, args: Vec<String>);
+    fn action(&self, chat: &Chat, core_client: &CoreClient, args: Vec<String>);
 
     fn should_be_hinted(&self, input_prefix: &str, argcount: usize) -> bool {
         self.aliases()
@@ -77,10 +78,8 @@ impl Command for Me {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new("/me <action>")
     }
-    fn action(&self, state: &UIState, input_parts: Vec<String>) {
-        state
-            .core
-            .chat_action_sent(&state.active_chat_tab_name, input_parts.join(" ").as_str());
+    fn action(&self, chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
+        core_client.chat_action_sent(&chat.normalized_name, args.join(" ").as_str());
     }
 }
 
@@ -109,8 +108,8 @@ impl Command for OpenChat {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new("/chat <user>")
     }
-    fn action(&self, state: &UIState, args: Vec<String>) {
-        state.core.chat_opened(&args[0]);
+    fn action(&self, _chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
+        core_client.chat_opened(&args[0]);
     }
 }
 
@@ -139,13 +138,13 @@ impl Command for JoinChannel {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new("/join <#channel>")
     }
-    fn action(&self, state: &UIState, args: Vec<String>) {
+    fn action(&self, _chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
         let target = if args[0].is_channel() {
             args[0].to_owned()
         } else {
             format!("#{}", &args[0])
         };
-        state.core.chat_opened(&target);
+        core_client.chat_opened(&target);
     }
 }
 
@@ -171,10 +170,8 @@ impl Command for CloseChat {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new(self.preferred_alias())
     }
-    fn action(&self, state: &UIState, _args: Vec<String>) {
-        state
-            .core
-            .chat_tab_closed(&state.active_chat_tab_name.to_lowercase());
+    fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
+        core_client.chat_tab_closed(&chat.normalized_name);
     }
 }
 
@@ -200,10 +197,8 @@ impl Command for ClearChat {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new(self.preferred_alias())
     }
-    fn action(&self, state: &UIState, _args: Vec<String>) {
-        state
-            .core
-            .chat_tab_cleared(&state.active_chat_tab_name.to_lowercase())
+    fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
+        core_client.chat_tab_cleared(&chat.normalized_name);
     }
 }
 
@@ -229,8 +224,8 @@ impl Command for ShowUsage {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new(self.preferred_alias())
     }
-    fn action(&self, state: &UIState, _args: Vec<String>) {
-        state.core.usage_window_requested();
+    fn action(&self, _chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
+        core_client.usage_window_requested();
     }
 }
 
@@ -256,10 +251,8 @@ impl Command for Shrug {
     fn ui_title(&self) -> egui::RichText {
         egui::RichText::new(self.preferred_alias())
     }
-    fn action(&self, state: &UIState, _args: Vec<String>) {
-        state
-            .core
-            .chat_message_sent(&state.active_chat_tab_name, "¯\\_(ツ)_/¯");
+    fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
+        core_client.chat_message_sent(&chat.normalized_name, "¯\\_(ツ)_/¯");
     }
 }
 
@@ -304,7 +297,8 @@ impl CommandHelper {
     pub fn show(
         &self,
         ui: &mut egui::Ui,
-        state: &UIState,
+        chat: &Chat,
+        core_client: &CoreClient,
         input: &mut String,
         chat_input_id: &Option<egui::Id>,
     ) {
@@ -340,23 +334,28 @@ impl CommandHelper {
                 }
 
                 if cmd.argcount() == 0 {
-                    cmd.action(state, args[1..].to_vec());
+                    cmd.action(chat, core_client, args[1..].to_vec());
                     input.clear();
                 }
-                ui.close();
+                // Do not call ui.close() -- doing so will close windows in other chat tabs as well if they're currently open.
                 break;
             }
         }
     }
 
-    pub fn detect_and_run(&self, state: &UIState, input: &mut String) -> bool {
+    pub fn detect_and_run(
+        &self,
+        chat: &Chat,
+        core_client: &CoreClient,
+        input: &mut String,
+    ) -> bool {
         if !self.contains_command(input) {
             return false;
         }
         let args: Vec<String> = input.split_whitespace().map(|i| i.to_owned()).collect();
         for cmd in &self.commands {
             if cmd.is_applicable(&args[0]) {
-                cmd.action(state, args[1..].to_vec());
+                cmd.action(chat, core_client, args[1..].to_vec());
                 input.clear();
                 return true;
             }

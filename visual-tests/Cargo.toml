@@ -11,6 +11,7 @@ glass = { version = "*", path = "../crates/glass", optional = true}
 eframe = { workspace = true }
 tokio = { workspace = true }
 rand = "0.9.2"
+clap = { version = "4.0", features = ["derive"] }
 
 [features]
 default = []

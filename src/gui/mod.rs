@@ -7,9 +7,9 @@ pub mod chat;
 pub mod chat_tabs;
 pub mod command;
 pub mod context_menu;
+pub mod error;
 pub mod filter;
 pub mod menu;
-pub mod read_tracker;
 pub mod settings;
 pub mod state;
 pub mod update_window;
@@ -23,13 +23,14 @@ const HIGHLIGHTS_SEPARATOR: &str = ", ";
 
 // Overridden value of egui::Frame::central_panel().inner_margin (otherwise chat box generates empty space around it).
 const CENTRAL_PANEL_INNER_MARGIN_Y: i8 = 4;
+const CENTRAL_PANEL_INNER_MARGIN_X: i8 = 8;
 
 pub trait DecoratedText {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText;
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText;
 }
 
 impl DecoratedText for RichText {
-    fn with_styles(mut self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(mut self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         match decorations {
             None => self,
             Some(decorations) => {
@@ -51,13 +52,13 @@ impl DecoratedText for RichText {
 }
 
 impl DecoratedText for String {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         RichText::new(self).with_styles(decorations)
     }
 }
 
 impl DecoratedText for &str {
-    fn with_styles(self, decorations: &Option<Vec<TextStyle>>) -> RichText {
+    fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         RichText::new(self).with_styles(decorations)
     }
 }

@@ -23,6 +23,7 @@ impl AutojoinSection {
         let validation_result = match input_type {
             ChatType::Channel => crate::gui::validate_channel_name(input),
             ChatType::Person => crate::gui::validate_username(input),
+            ChatType::System => unreachable!(),
         };
         ui.horizontal(|ui| {
             let add_item = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
@@ -42,6 +43,7 @@ impl AutojoinSection {
                         }
                     }
                     ChatType::Person => input.to_owned(),
+                    ChatType::System => unreachable!(),
                 };
 
                 if !settings.chat.autojoin.contains(&input_string) {
@@ -65,7 +67,8 @@ impl AutojoinSection {
                 .iter()
                 .filter(|item| match input_type {
                     ChatType::Channel => item.is_channel(),
-                    ChatType::Person => !item.is_channel(),
+                    ChatType::Person => item.is_person(),
+                    ChatType::System => unreachable!(),
                 })
             {
                 let item_button = ui

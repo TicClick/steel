@@ -21,7 +21,7 @@ use crate::gui::{
 
 pub struct ChatMessageText<'msg, 'app> {
     chunks: &'msg Vec<MessageChunk>,
-    styles: &'msg Option<Vec<TextStyle>>,
+    styles: Option<&'msg Vec<TextStyle>>,
 
     behaviour: &'app ChatBehaviour,
     core_client: &'app CoreClient,
@@ -30,7 +30,7 @@ pub struct ChatMessageText<'msg, 'app> {
 impl<'msg, 'app> ChatMessageText<'msg, 'app> {
     pub fn new(
         chunks: &'msg Vec<MessageChunk>,
-        styles: &'msg Option<Vec<TextStyle>>,
+        styles: Option<&'msg Vec<TextStyle>>,
         behaviour: &'app ChatBehaviour,
         core_client: &'app CoreClient,
     ) -> Self {

@@ -26,11 +26,11 @@ impl FormattedTimestamp for DateTime<Local> {
 
 pub struct TimestampLabel<'msg> {
     dt: &'msg DateTime<Local>,
-    styles: &'msg Option<Vec<TextStyle>>,
+    styles: Option<&'msg Vec<TextStyle>>,
 }
 
 impl<'msg> TimestampLabel<'msg> {
-    pub fn new(dt: &'msg DateTime<Local>, styles: &'msg Option<Vec<TextStyle>>) -> Self {
+    pub fn new(dt: &'msg DateTime<Local>, styles: Option<&'msg Vec<TextStyle>>) -> Self {
         Self { dt, styles }
     }
 }

@@ -4,11 +4,6 @@ use steel_core::chat::Message;
 
 use super::state::UIState;
 
-// FIXME: This works on a premise that `input` of all filters is always lowercase, which isn't necessarily true
-// (since a user can modify it directly).
-
-// FIXME: A proper solution is keep a copy of all messages in lowercase somewhere to avoid doing that on every iteration.
-
 pub trait FilterCondition: Sized {
     fn matches(&self, message: &Message) -> bool;
     fn reset(&mut self);

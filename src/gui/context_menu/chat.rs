@@ -84,7 +84,9 @@ pub fn menu_item_close_chat(
             true => ICON_CLOSE_CHAT,
             false => CLOSE_CHAT,
         },
+        ChatType::System => return,
     };
+
     if ui.button(text).clicked() {
         state.core.chat_tab_closed(target);
         ui.close();
