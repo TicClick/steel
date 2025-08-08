@@ -246,12 +246,9 @@ impl ChatView {
                     }
 
                     // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
-                    // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination.
+                    // which only understands uniform rows and glitches pretty hard when run in a `show_rows()` + `stick_to_bottom()` combination).
                     //
-                    // Each of the individual display functions (chat/server message or highlight) report the height
-                    // of a rendered text piece ("galley"), which may be wrapped and therefore occupy several non-wrapped rows.
-                    //
-                    // The values are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
+                    // Row heights are saved for the next drawing cycle, when TableBuilder calculates a proper virtual table.
                     // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
                     let heights = heights.into_iter();
