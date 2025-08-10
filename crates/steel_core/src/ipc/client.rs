@@ -124,6 +124,12 @@ impl CoreClient {
             .unwrap();
     }
 
+    pub fn chat_filter_requested(&self) {
+        self.server
+            .send(AppMessageIn::UIChatFilterRequested)
+            .unwrap();
+    }
+
     pub fn open_chat_log(&self, target: &str) {
         self.server
             .send(AppMessageIn::UIFilesystemPathRequested(target.to_owned()))

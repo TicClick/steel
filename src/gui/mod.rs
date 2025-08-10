@@ -8,7 +8,6 @@ pub mod chat_tabs;
 pub mod command;
 pub mod context_menu;
 pub mod error;
-pub mod filter;
 pub mod menu;
 pub mod settings;
 pub mod state;
@@ -43,6 +42,7 @@ impl DecoratedText for RichText {
                         TextStyle::Strikethrough => self = self.strikethrough(),
                         TextStyle::Highlight(c) => self = self.color(*c),
                         TextStyle::Coloured(c) => self = self.color(*c),
+                        TextStyle::SearchResult(c) => self = self.color(*c),
                     }
                 }
                 self

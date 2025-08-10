@@ -30,6 +30,7 @@ pub enum AppMessageIn {
     UIChatClosed(String),
     UIChatCleared(String),
     UIChatSwitchRequested(String, Option<usize>),
+    UIChatFilterRequested,
     UIChatMessageSent {
         target: String,
         text: String,

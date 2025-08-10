@@ -32,41 +32,75 @@ impl SettingsWindow {
 
             ui.heading(format!("chat colours ({suffix})"));
 
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().own.as_u8());
-                ui.label("self")
-                    .on_hover_text_at_pointer("the colour of your username");
+            ui.label("usernames");
+            ui.indent("colours-usernames", |ui| {
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(state.settings.ui.colours_mut().own.as_u8());
+                    ui.label("self")
+                        .on_hover_text_at_pointer("the colour of your username");
+                });
+
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(
+                        state.settings.ui.colours_mut().default_users.as_u8(),
+                    );
+                    ui.label("default users")
+                        .on_hover_text_at_pointer("default colour of all chat users");
+                });
+
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(state.settings.ui.colours_mut().moderators.as_u8());
+                    ui.label("moderators").on_hover_text_at_pointer(
+                        "default colour of all moderators (GMT, NAT, DEV)",
+                    );
+                });
             });
 
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().highlight.as_u8());
-                ui.label("highlights").on_hover_text_at_pointer(
-                    "the colour of chat messages and tabs containing unread highlights",
-                );
+            ui.label("chat messages");
+            ui.indent("colours-messages", |ui| {
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(state.settings.ui.colours_mut().highlight.as_u8());
+                    ui.label("highlights").on_hover_text_at_pointer(
+                        "the colour of chat messages and tabs containing unread highlights",
+                    );
+                });
+
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(
+                        state
+                            .settings
+                            .ui
+                            .colours_mut()
+                            .search_result_current
+                            .as_u8(),
+                    );
+                    ui.label("current search result").on_hover_text_at_pointer(
+                        "colour of the currently selected search result in chat",
+                    );
+                });
+
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(
+                        state.settings.ui.colours_mut().search_result_other.as_u8(),
+                    );
+                    ui.label("other search results")
+                        .on_hover_text_at_pointer("colour of other search results in chat");
+                });
             });
 
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().read_tabs.as_u8());
-                ui.label("read tabs")
-                    .on_hover_text_at_pointer("the colour of read chat tabs");
-            });
+            ui.label("tabs");
+            ui.indent("colours-tabs", |ui| {
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(state.settings.ui.colours_mut().read_tabs.as_u8());
+                    ui.label("read tabs")
+                        .on_hover_text_at_pointer("the colour of read chat tabs");
+                });
 
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().unread_tabs.as_u8());
-                ui.label("unread tabs")
-                    .on_hover_text_at_pointer("the colour of unread chat tabs");
-            });
-
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().default_users.as_u8());
-                ui.label("default users")
-                    .on_hover_text_at_pointer("default colour of all chat users");
-            });
-
-            ui.horizontal(|ui| {
-                ui.color_edit_button_srgb(state.settings.ui.colours_mut().moderators.as_u8());
-                ui.label("moderators")
-                    .on_hover_text_at_pointer("default colour of all moderators (GMT, NAT, DEV)");
+                ui.horizontal(|ui| {
+                    ui.color_edit_button_srgb(state.settings.ui.colours_mut().unread_tabs.as_u8());
+                    ui.label("unread tabs")
+                        .on_hover_text_at_pointer("the colour of unread chat tabs");
+                });
             });
 
             ui.heading(format!("custom user colours ({suffix})")).on_hover_text_at_pointer(

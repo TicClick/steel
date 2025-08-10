@@ -22,9 +22,21 @@ pub struct ChatColours {
     pub default_users: Colour,
     #[serde(default = "Colour::default_moderator_colour")]
     pub moderators: Colour,
+    #[serde(default = "default_search_result_current_dark")]
+    pub search_result_current: Colour,
+    #[serde(default = "default_search_result_other_dark")]
+    pub search_result_other: Colour,
     #[serde(skip)]
     pub mod_users: BTreeSet<String>,
     pub custom_users: BTreeMap<String, Colour>,
+}
+
+fn default_search_result_current_dark() -> Colour {
+    Colour::from_rgb(255, 165, 0)
+}
+
+fn default_search_result_other_dark() -> Colour {
+    Colour::from_rgb(70, 130, 180)
 }
 
 impl Default for ChatColours {
@@ -37,6 +49,8 @@ impl Default for ChatColours {
             unread_tabs: Colour::from_rgb(255, 255, 255),
             default_users: Colour::from_rgb(180, 180, 180),
             moderators: Colour::from_rgb(255, 78, 78),
+            search_result_current: default_search_result_current_dark(),
+            search_result_other: default_search_result_other_dark(),
             mod_users: BTreeSet::default(),
             custom_users: BTreeMap::default(),
         }
@@ -57,6 +71,8 @@ impl ChatColours {
             unread_tabs: Colour::from_rgb(0, 0, 0),
             default_users: Colour::from_rgb(60, 60, 60),
             moderators: Colour::from_rgb(255, 78, 78),
+            search_result_current: Colour::from_rgb(255, 140, 0),
+            search_result_other: Colour::from_rgb(70, 130, 180),
             ..Default::default()
         }
     }

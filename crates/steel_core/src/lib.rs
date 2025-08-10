@@ -48,4 +48,5 @@ pub enum TextStyle {
 
     Highlight(ecolor::Color32),
     Coloured(ecolor::Color32),
+    SearchResult(ecolor::Color32),
 }

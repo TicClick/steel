@@ -138,7 +138,6 @@ pub struct ApplicationWindow {
 
     ui_queue: UnboundedReceiver<UIMessageIn>,
     s: UIState,
-    filter_ui: gui::filter::FilterWindow,
 
     error_popup: gui::widgets::error_popup::ErrorPopup,
 }
@@ -167,7 +166,6 @@ impl ApplicationWindow {
                 initial_settings.clone(),
                 original_exe_path,
             ),
-            filter_ui: gui::filter::FilterWindow::default(),
             error_popup: ErrorPopup::new(CoreClient::new(app_queue_handle)),
         };
 
@@ -351,6 +349,10 @@ impl ApplicationWindow {
                 self.menu.show_usage = true;
             }
 
+            UIMessageIn::ChatFilterRequested => {
+                self.chat_view_controller.enable_filter(&self.s);
+            }
+
             UIMessageIn::UpdateStateChanged(state) => {
                 self.s.update_state = state;
             }
@@ -407,8 +409,6 @@ impl eframe::App for ApplicationWindow {
         );
 
         self.chat_tabs.show(ctx, &mut self.s);
-
-        self.filter_ui.show(ctx, &mut self.s);
 
         self.chat_view_controller.show(ctx, &self.s);
 

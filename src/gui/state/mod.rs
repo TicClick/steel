@@ -10,7 +10,6 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::core::settings::Settings;
 use crate::gui::HIGHLIGHTS_TAB_NAME;
 
-use super::filter::FilterCollection;
 use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
@@ -43,7 +42,6 @@ pub struct UIState {
     #[cfg(feature = "glass")]
     pub glass: glass::Glass,
 
-    pub filter: FilterCollection,
     pub highlights: HashSet<String>,
 
     pub connection_indicator: ConnectionIndicator,
@@ -71,7 +69,6 @@ impl UIState {
             #[cfg(feature = "glass")]
             glass: glass::Glass::default(),
 
-            filter: FilterCollection::default(),
             highlights: HashSet::new(),
 
             connection_indicator: ConnectionIndicator::new(
