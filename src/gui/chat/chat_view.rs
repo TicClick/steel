@@ -12,6 +12,7 @@ use crate::gui::widgets::chat::message::ChatViewRow;
 use crate::gui::widgets::chat::shadow::InnerShadow;
 use crate::gui::{CENTRAL_PANEL_INNER_MARGIN_X, CENTRAL_PANEL_INNER_MARGIN_Y};
 
+use super::filter::ChatFilter;
 use crate::gui::command::{self, CommandHelper};
 
 const MAX_MESSAGE_LENGTH: usize = 450;
@@ -24,7 +25,8 @@ pub struct ChatView {
     cached_row_heights: Vec<f32>,
     command_helper: command::CommandHelper,
 
-    // Whether the context menu was open during the previous frame.
+    filter: ChatFilter,
+
     user_context_menu_open: bool,
 }
 
@@ -37,6 +39,7 @@ impl ChatView {
             scroll_to: None,
             cached_row_heights: Vec::default(),
             command_helper: CommandHelper::default(),
+            filter: ChatFilter::new(),
             user_context_menu_open: false,
         }
     }
@@ -60,7 +63,6 @@ impl ChatView {
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
 
-                    // Special tabs (server messages and highlights) are 1) fake and 2) read-only
                     let mut text_field = egui::TextEdit::singleline(&mut self.chat_input)
                         .char_limit(MAX_MESSAGE_LENGTH)
                         .id_source(text_field_id)
@@ -79,8 +81,22 @@ impl ChatView {
                     self.response_widget_id = Some(response.id);
                     ui.add_space(2.);
 
+                    // Check if filter input fields have focus to avoid intercepting Enter
+                    let filter_has_focus = ctx.memory(|mem| {
+                        if let Some(focused_id) = mem.focused() {
+                            let username_filter_id =
+                                egui::Id::new(format!("username-filter-input-{}", self.chat_name));
+                            let message_filter_id =
+                                egui::Id::new(format!("message-filter-input-{}", self.chat_name));
+                            focused_id == username_filter_id || focused_id == message_filter_id
+                        } else {
+                            false
+                        }
+                    });
+
                     if response.lost_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::Enter))
+                        && !filter_has_focus
                         && !{
                             let result = self.command_helper.detect_and_run(
                                 chat,
@@ -104,11 +120,29 @@ impl ChatView {
             });
     }
 
+    fn show_filter(&mut self, ctx: &egui::Context, state: &UIState, chat: &Chat) {
+        let (activated_now, scroll_to) = self.filter.handle_input(ctx);
+
+        if let Some(message_idx) = scroll_to {
+            self.scroll_to = Some(message_idx);
+        }
+
+        if let Some(message_idx) = self.filter.show_ui(ctx, state, chat, activated_now) {
+            self.scroll_to = Some(message_idx);
+        }
+    }
+
+    pub fn enable_filter(&mut self) {
+        self.filter.enable();
+    }
+
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
         let chat = match state.find_chat(&self.chat_name) {
             Some(chat) => chat,
-            None => return, // Chat not found, nothing to show
+            None => return,
         };
+
+        self.show_filter(ctx, state, chat);
 
         match state.is_connected() {
             true => self.show_chat_input(ctx, state, chat),
@@ -151,7 +185,7 @@ impl ChatView {
                 unread_marker_active = true;
             }
 
-            let mut username_styles = Vec::new();
+            let mut username_styles: Vec<TextStyle> = Vec::new();
             let mut message_styles = Vec::new();
 
             #[cfg(feature = "glass")]
@@ -172,6 +206,14 @@ impl ChatView {
                 message_styles.push(TextStyle::Highlight(
                     state.settings.ui.colours().highlight.clone().into(),
                 ));
+            }
+
+            // Highlight search results
+            if let Some(highlight_style) = self
+                .filter
+                .get_highlight_style(idx, state.settings.ui.colours())
+            {
+                message_styles.push(highlight_style);
             }
 
             if matches!(message.r#type, MessageType::Action) {
@@ -235,8 +277,10 @@ impl ChatView {
                 ui.push_id(&chat_view_id, |ui| {
                     let view_height = ui.available_height();
 
+                    let should_stick_to_bottom =
+                        !(self.user_context_menu_open || self.filter.is_active());
                     let mut builder = TableBuilder::new(ui)
-                        .stick_to_bottom(!self.user_context_menu_open) // Disable scrolling to avoid resetting context menu.
+                        .stick_to_bottom(should_stick_to_bottom) // Disable scrolling when filter is active or context menu is open
                         .max_scroll_height(chat_view_size.y)
                         .column(Column::remainder())
                         .auto_shrink([false; 2]);

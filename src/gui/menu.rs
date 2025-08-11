@@ -156,7 +156,7 @@ impl Menu {
             ui.separator();
 
             if ui.button("find...").clicked() {
-                state.filter.active = true;
+                state.core.chat_filter_requested();
                 ui.close();
             }
         });

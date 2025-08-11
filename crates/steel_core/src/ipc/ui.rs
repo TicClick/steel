@@ -34,6 +34,7 @@ pub enum UIMessageIn {
     ChatModeratorAdded(String),
     UIUserMentionRequested(String),
     UsageWindowRequested,
+    ChatFilterRequested,
     UpdateStateChanged(UpdateState),
     BackendError {
         error: Box<dyn Error + Send + Sync>,

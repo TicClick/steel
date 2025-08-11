@@ -134,6 +134,9 @@ impl Application {
                 AppMessageIn::UIUsageWindowRequested => {
                     self.ui_request_usage_window();
                 }
+                AppMessageIn::UIChatFilterRequested => {
+                    self.ui_request_chat_filter();
+                }
 
                 AppMessageIn::UIShowError { error, is_fatal } => {
                     self.ui_push_backend_error(error, is_fatal);
@@ -380,6 +383,12 @@ impl Application {
     pub fn ui_request_usage_window(&mut self) {
         self.ui_queue
             .send(UIMessageIn::UsageWindowRequested)
+            .unwrap();
+    }
+
+    pub fn ui_request_chat_filter(&mut self) {
+        self.ui_queue
+            .send(UIMessageIn::ChatFilterRequested)
             .unwrap();
     }
 

@@ -30,6 +30,12 @@ impl ChatViewController {
         }
     }
 
+    pub fn enable_filter(&mut self, state: &UIState) {
+        if let Some(chat_view) = self.views.get_mut(&state.active_chat_tab_name) {
+            chat_view.enable_filter();
+        }
+    }
+
     pub fn response_widget_id(&self, active_chat_name: &str) -> Option<egui::Id> {
         if let Some(chat_view) = self.views.get(active_chat_name) {
             return chat_view.response_widget_id;
