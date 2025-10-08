@@ -190,8 +190,12 @@ impl UIState {
             self.core.update_window_title();
         }
 
-        if message.highlight {
+        let should_notify = message.highlight || normalized.is_person();
+        if should_notify {
             self.maybe_notify(ctx, &message, &normalized);
+        }
+
+        if message.highlight {
             message.set_original_chat(target);
             if let Some(highlights) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
                 highlights.push(message, false);
