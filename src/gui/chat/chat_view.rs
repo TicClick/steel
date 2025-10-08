@@ -22,6 +22,7 @@ pub struct ChatView {
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
     pub scroll_to: Option<usize>,
+    scroll_to_attempts: u8,
     cached_row_heights: Vec<f32>,
     command_helper: command::CommandHelper,
 
@@ -37,6 +38,7 @@ impl ChatView {
             chat_input: String::default(),
             response_widget_id: None,
             scroll_to: None,
+            scroll_to_attempts: 0,
             cached_row_heights: Vec::default(),
             command_helper: CommandHelper::default(),
             filter: ChatFilter::new(),
@@ -278,7 +280,7 @@ impl ChatView {
                     let view_height = ui.available_height();
 
                     let should_stick_to_bottom =
-                        !(self.user_context_menu_open || self.filter.is_active());
+                        !(self.user_context_menu_open || self.filter.is_active() || self.scroll_to.is_some());
                     let mut builder = TableBuilder::new(ui)
                         .stick_to_bottom(should_stick_to_bottom) // Disable scrolling when filter is active or context menu is open
                         .max_scroll_height(chat_view_size.y)
@@ -297,7 +299,12 @@ impl ChatView {
                             .scroll_to_row(adjusted_row_id, Some(egui::Align::Center))
                             .stick_to_bottom(should_stick_to_bottom);
 
-                        self.scroll_to = None;
+                        // Keep scroll_to active for multiple frames to ensure it takes effect
+                        self.scroll_to_attempts += 1;
+                        if self.scroll_to_attempts >= 3 {
+                            self.scroll_to = None;
+                            self.scroll_to_attempts = 0;
+                        }
                     }
 
                     // Format the chat view as a table with variable row widths (replacement for `ScrollView::show_rows()`,
