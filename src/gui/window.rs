@@ -410,8 +410,7 @@ impl eframe::App for ApplicationWindow {
 
         self.chat_tabs.show(ctx, &mut self.s);
 
-        self.chat_view_controller.show(ctx, &self.s);
-
+        // Return focus BEFORE showing chat view to prevent tiny chat and input flicker.
         if self.s.is_connected()
             && self.s.settings.chat.behaviour.keep_focus_on_input
             && !self.menu.dialogs_visible()
@@ -419,6 +418,8 @@ impl eframe::App for ApplicationWindow {
             self.chat_view_controller
                 .return_focus(ctx, &active_chat_name);
         }
+
+        self.chat_view_controller.show(ctx, &self.s);
 
         self.refresh_window_geometry_settings(ctx);
     }
