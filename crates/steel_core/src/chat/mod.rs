@@ -245,15 +245,18 @@ impl Chat {
         if self.unread_pointer == self.messages.len() {
             TabState::Read
         } else {
-            match self.highlights.last() {
-                None => TabState::Unread,
-                Some(last_highlight) => {
-                    if *last_highlight >= self.unread_pointer {
-                        TabState::Highlight
-                    } else {
-                        TabState::Unread
+            match self.category {
+                ChatType::Person => TabState::Highlight,
+                ChatType::Channel | ChatType::System => match self.highlights.last() {
+                    None => TabState::Unread,
+                    Some(last_highlight) => {
+                        if *last_highlight >= self.unread_pointer {
+                            TabState::Highlight
+                        } else {
+                            TabState::Unread
+                        }
                     }
-                }
+                },
             }
         }
     }
