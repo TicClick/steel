@@ -223,13 +223,14 @@ impl Chat {
     pub fn push(&mut self, msg: Message, is_chat_active: bool) {
         let idx = self.messages.len();
         let is_highlight = msg.highlight;
+        let is_system_message = msg.r#type == MessageType::System;
 
         self.messages.push(msg);
 
         if is_highlight && self.category != ChatType::System {
             self.highlights.push(idx)
         }
-        if is_chat_active {
+        if is_chat_active || is_system_message {
             if self.unread_pointer == self.prev_unread_pointer {
                 self.prev_unread_pointer += 1;
             }
