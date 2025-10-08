@@ -110,12 +110,16 @@ impl UIState {
     }
 
     pub fn update_highlights(&mut self, words: &str) {
-        self.highlights = words
+        let trimmed_words: Vec<String> = words
             .trim()
             .split(HIGHLIGHTS_SEPARATOR)
             .filter(|s| !s.is_empty())
-            .map(|el| el.to_lowercase())
+            .map(|s| s.to_string())
             .collect();
+
+        self.highlights = trimmed_words.iter().map(|el| el.to_lowercase()).collect();
+
+        self.settings.notifications.highlights.words = trimmed_words;
     }
 
     pub fn active_chat(&self) -> Option<&Chat> {
