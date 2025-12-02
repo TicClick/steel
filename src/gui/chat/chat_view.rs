@@ -106,7 +106,7 @@ impl ChatView {
                                 &mut self.chat_input,
                             );
                             if result {
-                                self.return_focus(ctx, state);
+                                response.request_focus();
                             }
                             result
                         }
@@ -344,18 +344,6 @@ impl ChatView {
                     }
                 });
             });
-    }
-
-    pub fn return_focus(&mut self, ctx: &egui::Context, state: &UIState) {
-        if state.is_connected() {
-            ctx.memory_mut(|mem| {
-                if mem.focused().is_none() {
-                    if let Some(id) = self.response_widget_id {
-                        mem.request_focus(id);
-                    }
-                }
-            });
-        }
     }
 
     pub fn insert_user_mention(&mut self, ctx: &egui::Context, username: String) {

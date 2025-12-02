@@ -46,14 +46,9 @@ impl ChatViewController {
     pub fn return_focus(&self, ctx: &egui::Context, active_chat_name: &str) {
         if let Some(widget_id) = self.response_widget_id(active_chat_name) {
             ctx.memory_mut(|mem| {
-                // Only request focus if nothing is focused OR if something other than this input is focused.
-                // This prevents unnecessary focus requests that cause tiny, but annoying chat and input flicker.
-                let should_request_focus = match mem.focused() {
-                    None => true,
-                    Some(focused_id) => focused_id != widget_id,
-                };
-
-                if should_request_focus {
+                // Only request focus if nothing else is focused. This prevents stealing focus from other inputs
+                // (filters, settings, chat tabs, etc).
+                if mem.focused().is_none() {
                     mem.request_focus(widget_id);
                 }
             });
