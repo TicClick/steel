@@ -190,6 +190,12 @@ impl ChatView {
             let mut username_styles: Vec<TextStyle> = Vec::new();
             let mut message_styles = Vec::new();
 
+            // Add default username color first, so it can be overridden by glass styles
+            username_styles.push(TextStyle::Coloured(choose_colour(
+                &message.username,
+                &state.settings,
+            )));
+
             #[cfg(feature = "glass")]
             {
                 if let Some(st) = state.glass.style_username(
@@ -221,11 +227,6 @@ impl ChatView {
             if matches!(message.r#type, MessageType::Action) {
                 message_styles.push(TextStyle::Italics);
             }
-
-            username_styles.push(TextStyle::Coloured(choose_colour(
-                &message.username,
-                &state.settings,
-            )));
 
             rows.push(ChatViewRow::message(
                 chat,
