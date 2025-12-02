@@ -13,6 +13,13 @@ use crate::gui::HIGHLIGHTS_TAB_NAME;
 use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
+#[derive(Debug, Clone)]
+pub struct ReportDialogState {
+    pub username: String,
+    pub chat_name: String,
+    pub reason: String,
+}
+
 #[derive(Debug)]
 pub enum UIMessageIn {
     SettingsChanged(Box<Settings>),
@@ -46,6 +53,8 @@ pub struct UIState {
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
+
+    pub report_dialog: Option<ReportDialogState>,
 }
 
 impl UIState {
@@ -77,6 +86,8 @@ impl UIState {
                 irc_settings.ping_timeout,
             ),
             notification_start_time: None,
+
+            report_dialog: None,
         }
     }
 

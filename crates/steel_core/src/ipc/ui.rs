@@ -45,4 +45,9 @@ pub enum UIMessageIn {
     GlassSettingsChanged {
         settings_data_yaml: String,
     },
+
+    ReportDialogRequested {
+        username: String,
+        chat_name: String,
+    },
 }

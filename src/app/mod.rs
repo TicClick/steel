@@ -184,6 +184,18 @@ impl Application {
                     #[cfg(feature = "glass")]
                     self.ui_handle_glass_settings_updated(settings_yaml);
                 }
+
+                AppMessageIn::UIReportDialogRequested {
+                    username,
+                    chat_name,
+                } => {
+                    self.ui_queue
+                        .send(UIMessageIn::ReportDialogRequested {
+                            username,
+                            chat_name,
+                        })
+                        .unwrap();
+                }
             }
         }
     }

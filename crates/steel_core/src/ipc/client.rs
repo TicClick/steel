@@ -183,4 +183,13 @@ impl CoreClient {
             .send(AppMessageIn::UIGlassSettingsUpdated(settings_yaml))
             .unwrap();
     }
+
+    pub fn report_dialog_requested(&self, username: &str, chat_name: &str) {
+        self.server
+            .send(AppMessageIn::UIReportDialogRequested {
+                username: username.to_owned(),
+                chat_name: chat_name.to_owned(),
+            })
+            .unwrap();
+    }
 }
