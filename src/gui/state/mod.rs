@@ -18,6 +18,7 @@ pub struct ReportDialogState {
     pub username: String,
     pub chat_name: String,
     pub reason: String,
+    pub just_opened: bool,
 }
 
 #[derive(Debug)]

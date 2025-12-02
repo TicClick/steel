@@ -382,6 +382,7 @@ impl ApplicationWindow {
                     username,
                     chat_name,
                     reason: String::new(),
+                    just_opened: true,
                 });
             }
         }
@@ -426,6 +427,7 @@ impl eframe::App for ApplicationWindow {
         if self.s.is_connected()
             && self.s.settings.chat.behaviour.keep_focus_on_input
             && !self.menu.dialogs_visible()
+            && self.s.report_dialog.is_none()
         {
             self.chat_view_controller
                 .return_focus(ctx, &active_chat_name);
