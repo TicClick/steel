@@ -5,6 +5,7 @@ use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
 use crate::gui::error::GuiError;
+use crate::gui::widgets::report_dialog::show_report_dialog;
 use crate::gui::{self, widgets::error_popup::ErrorPopup};
 use crate::gui::{HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME};
 
@@ -372,6 +373,18 @@ impl ApplicationWindow {
                     }
                 }
             }
+
+            UIMessageIn::ReportDialogRequested {
+                username,
+                chat_name,
+            } => {
+                self.s.report_dialog = Some(crate::gui::state::ReportDialogState {
+                    username,
+                    chat_name,
+                    reason: String::new(),
+                    just_opened: true,
+                });
+            }
         }
     }
 }
@@ -414,12 +427,15 @@ impl eframe::App for ApplicationWindow {
         if self.s.is_connected()
             && self.s.settings.chat.behaviour.keep_focus_on_input
             && !self.menu.dialogs_visible()
+            && self.s.report_dialog.is_none()
         {
             self.chat_view_controller
                 .return_focus(ctx, &active_chat_name);
         }
 
         self.chat_view_controller.show(ctx, &self.s);
+
+        show_report_dialog(ctx, &mut self.s);
 
         self.refresh_window_geometry_settings(ctx);
     }

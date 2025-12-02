@@ -280,8 +280,9 @@ impl ChatView {
                 ui.push_id(&chat_view_id, |ui| {
                     let view_height = ui.available_height();
 
-                    let should_stick_to_bottom =
-                        !(self.user_context_menu_open || self.filter.is_active() || self.scroll_to.is_some());
+                    let should_stick_to_bottom = !(self.user_context_menu_open
+                        || self.filter.is_active()
+                        || self.scroll_to.is_some());
                     let mut builder = TableBuilder::new(ui)
                         .stick_to_bottom(should_stick_to_bottom) // Disable scrolling when filter is active or context menu is open
                         .max_scroll_height(chat_view_size.y)

@@ -61,4 +61,9 @@ pub enum AppMessageIn {
 
     UIGlassSettingsRequested,
     UIGlassSettingsUpdated(String), // YAML data
+
+    UIReportDialogRequested {
+        username: String,
+        chat_name: String,
+    },
 }

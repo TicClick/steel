@@ -16,6 +16,9 @@ const COPY_USERNAME: &str = "Copy username";
 const ICON_COPY_MESSAGE: &str = "📋 Copy message";
 const COPY_MESSAGE: &str = "Copy message";
 
+const ICON_REPORT_TO_MODERATORS: &str = "❗ Report to moderators";
+const REPORT_TO_MODERATORS: &str = "Report to moderators";
+
 pub fn menu_item_open_chat(
     ui: &mut egui::Ui,
     core_client: &CoreClient,
@@ -82,6 +85,24 @@ pub fn menu_item_copy_username(ui: &mut egui::Ui, show_icon: bool, message: &Mes
 
     if ui.button(text).clicked() {
         ui.ctx().copy_text(message.username.clone());
+        ui.close();
+    }
+}
+
+pub fn menu_item_report_to_moderators(
+    ui: &mut egui::Ui,
+    core_client: &CoreClient,
+    show_icon: bool,
+    chat_name: &str,
+    message: &Message,
+) {
+    let text = match show_icon {
+        true => ICON_REPORT_TO_MODERATORS,
+        false => REPORT_TO_MODERATORS,
+    };
+
+    if ui.button(text).clicked() {
+        core_client.report_dialog_requested(&message.username, chat_name);
         ui.close();
     }
 }

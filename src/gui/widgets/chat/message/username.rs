@@ -5,7 +5,8 @@ use crate::gui::{
     context_menu::{
         chat_user::{
             menu_item_copy_message, menu_item_copy_username, menu_item_open_chat,
-            menu_item_open_chat_user_profile, menu_item_translate_message,
+            menu_item_open_chat_user_profile, menu_item_report_to_moderators,
+            menu_item_translate_message,
         },
         shared::menu_item_open_chat_log,
     },
@@ -27,7 +28,6 @@ pub fn choose_colour(username: &str, settings: &Settings) -> Color32 {
 pub struct Username<'msg, 'app> {
     styles: Option<&'msg Vec<TextStyle>>,
 
-    #[allow(dead_code)] // glass
     chat_name: &'msg str,
 
     message: &'msg Message,
@@ -62,6 +62,7 @@ impl<'msg, 'app> Username<'msg, 'app> {
         menu_item_open_chat_user_profile(ui, true, &self.message.username);
         menu_item_translate_message(ui, true, &self.message.text);
         menu_item_open_chat_log(ui, self.core_client, true, &self.message.username);
+        menu_item_report_to_moderators(ui, self.core_client, true, self.chat_name, self.message);
 
         ui.separator();
 
