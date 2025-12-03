@@ -53,6 +53,7 @@ impl IRCActorHandle {
             realname: Some(username.to_owned()),
             use_tls: Some(false),
             ping_timeout: Some(ping_timeout),
+            ping_time: Some(10),
             ..Default::default()
         };
 
