@@ -1,3 +1,4 @@
+pub mod http;
 pub mod irc;
 pub mod logging;
 pub mod os;
