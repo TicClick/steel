@@ -13,7 +13,7 @@ const SEARCH_BUTTON_HINT: &str = "Enter or ⌘+F: Next result\n\
     Shift+Enter or ⌘+Shift+F: Previous result";
 
 #[cfg(not(target_os = "macos"))]
-const SEARCH_BUTTON_HINT: &'static str = "Enter or Ctrl+F: Next result\n\
+const SEARCH_BUTTON_HINT: &str = "Enter or Ctrl+F: Next result\n\
     Shift+Enter or Ctrl+Shift+F: Previous result";
 
 enum FilterAction {

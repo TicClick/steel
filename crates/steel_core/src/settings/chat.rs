@@ -74,8 +74,47 @@ impl Default for IRCChatSettings {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct HTTPChatSettings {}
+pub fn default_api_client_id() -> u64 {
+    32234
+}
+
+fn default_api_client_id_string() -> String {
+    default_api_client_id().to_string()
+}
+
+fn default_api_redirect_uri() -> String {
+    "http://localhost:19181/auth".into()
+}
+
+fn default_api_ws_uri() -> String {
+    "wss://notify.ppy.sh".into()
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct HTTPChatSettings {
+    #[serde(default = "default_api_client_id_string")]
+    pub client_id: String,
+
+    #[serde(default = "String::new")]
+    pub client_secret: String,
+
+    #[serde(default = "default_api_redirect_uri")]
+    pub redirect_uri: String,
+
+    #[serde(default = "default_api_ws_uri")]
+    pub ws_base_uri: String,
+}
+
+impl Default for HTTPChatSettings {
+    fn default() -> Self {
+        Self {
+            client_id: default_api_client_id_string(),
+            client_secret: String::new(),
+            redirect_uri: default_api_redirect_uri(),
+            ws_base_uri: default_api_ws_uri(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ChatBehaviour {

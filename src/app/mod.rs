@@ -11,12 +11,15 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
 
+use crate::core::chat_backend::ChatBackend;
+use crate::core::http::HTTPActorHandle;
 use crate::core::irc::IRCActorHandle;
 use crate::core::logging::{chat_log_path, ChatLoggerHandle};
 use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
+use steel_core::settings::ChatBackend as ChatBackendEnum;
 
 pub mod date_announcer;
 
@@ -32,6 +35,7 @@ pub struct Application {
     events: UnboundedReceiver<AppMessageIn>,
 
     irc: IRCActorHandle,
+    http: HTTPActorHandle,
     chat_logger: Option<ChatLoggerHandle>,
     updater: Option<Updater>,
     _date_announcer: DateAnnouncer,
@@ -48,6 +52,7 @@ impl Application {
             updater: None,
             _date_announcer: DateAnnouncer::new(app_queue.clone()),
             irc: IRCActorHandle::new(app_queue.clone()),
+            http: HTTPActorHandle::new(app_queue.clone()),
             chat_logger: None,
             ui_queue,
             app_queue,
@@ -610,17 +615,18 @@ impl Application {
             .unwrap();
     }
 
+    fn get_backend(&self) -> &dyn ChatBackend {
+        match self.state.settings.chat.backend {
+            ChatBackendEnum::IRC => &self.irc as &dyn ChatBackend,
+            ChatBackendEnum::API => &self.http as &dyn ChatBackend,
+        }
+    }
+
     pub fn connect(&mut self) {
         match self.state.connection {
             ConnectionStatus::Connected | ConnectionStatus::InProgress => {}
             ConnectionStatus::Disconnected { .. } | ConnectionStatus::Scheduled(_) => {
-                let irc_config = self.state.settings.chat.irc.clone();
-                self.irc.connect(
-                    &irc_config.username,
-                    &irc_config.password,
-                    &irc_config.server,
-                    irc_config.ping_timeout,
-                );
+                self.get_backend().connect(&self.state.settings.chat);
             }
         }
     }
@@ -629,7 +635,7 @@ impl Application {
         if !matches!(self.state.connection, ConnectionStatus::Connected) {
             return;
         }
-        self.irc.disconnect();
+        self.get_backend().disconnect();
     }
 
     pub fn ui_handle_close_chat(&mut self, name: &str) {

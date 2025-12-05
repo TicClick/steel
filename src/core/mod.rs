@@ -1,3 +1,4 @@
+pub mod chat_backend;
 pub mod http;
 pub mod irc;
 pub mod logging;

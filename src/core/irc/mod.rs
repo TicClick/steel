@@ -7,6 +7,7 @@ mod actor_test;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use crate::actor::{Actor, ActorHandle};
+use crate::core::chat_backend::ChatBackend;
 
 use steel_core::chat::MessageType;
 use steel_core::ipc::server::AppMessageIn;
@@ -30,6 +31,38 @@ pub struct IRCActorHandle {
 
 impl ActorHandle for IRCActorHandle {}
 
+impl ChatBackend for IRCActorHandle {
+    fn connect(&self, settings: &steel_core::settings::chat::Chat) {
+        let irc_config = &settings.irc;
+        self.connect_irc(
+            &irc_config.username,
+            &irc_config.password,
+            &irc_config.server,
+            irc_config.ping_timeout,
+        );
+    }
+
+    fn disconnect(&self) {
+        self.disconnect_irc();
+    }
+
+    fn send_message(&self, destination: &str, content: &str) {
+        self.send_message(destination, content);
+    }
+
+    fn send_action(&self, destination: &str, action: &str) {
+        self.send_action(destination, action);
+    }
+
+    fn join_channel(&self, channel: &str) {
+        self.join_channel(channel);
+    }
+
+    fn leave_channel(&self, channel: &str) {
+        self.leave_channel(channel);
+    }
+}
+
 impl IRCActorHandle {
     pub fn new(app_event_sender: UnboundedSender<AppMessageIn>) -> Self {
         let (irc_event_sender, irc_event_receiver) = unbounded_channel();
@@ -42,7 +75,7 @@ impl IRCActorHandle {
         }
     }
 
-    pub fn connect(&self, username: &str, password: &str, server: &str, ping_timeout: u32) {
+    pub fn connect_irc(&self, username: &str, password: &str, server: &str, ping_timeout: u32) {
         let config = irc::client::data::Config {
             username: Some(username.to_owned()),
             nickname: Some(username.to_owned()),
@@ -62,7 +95,7 @@ impl IRCActorHandle {
             .expect("failed to queue chat connection");
     }
 
-    pub fn disconnect(&self) {
+    pub fn disconnect_irc(&self) {
         self.actor
             .send(IRCMessageIn::Disconnect)
             .expect("failed to queue disconnecting from chat");
