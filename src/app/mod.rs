@@ -9,7 +9,7 @@ use steel_core::settings::{Loadable, Settings, SETTINGS_FILE_NAME};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
-use steel_core::chat::{ChatLike, ChatState, ConnectionStatus, Message};
+use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message};
 
 use crate::core::chat_backend::ChatBackend;
 use crate::core::http::HTTPActorHandle;
@@ -18,7 +18,10 @@ use crate::core::logging::{chat_log_path, ChatLoggerHandle};
 use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
-use steel_core::ipc::{server::AppMessageIn, ui::UIMessageIn};
+use steel_core::ipc::{
+    server::{AppMessageIn, ChatEvent, HTTPEvent, SystemEvent, UICommand, UpdateEvent},
+    ui::UIMessageIn,
+};
 use steel_core::settings::ChatBackend as ChatBackendEnum;
 
 pub mod date_announcer;
@@ -28,6 +31,7 @@ pub struct ApplicationState {
     pub settings: settings::Settings,
     pub chats: BTreeSet<String>,
     pub connection: ConnectionStatus,
+    pub own_username: Option<String>,
 }
 
 pub struct Application {
@@ -59,147 +63,153 @@ impl Application {
         }
     }
 
+    fn ui_send_or_log(&self, message: UIMessageIn) {
+        if let Err(e) = self.ui_queue.send(message) {
+            log::error!("Failed to send UI message: channel closed ({e})");
+        }
+    }
+
     pub fn run(&mut self) {
         while let Some(event) = self.events.blocking_recv() {
             match event {
-                AppMessageIn::DateChanged(_date, message) => {
-                    for chat in self.state.chats.clone() {
-                        self.send_system_message(&chat, &message);
-                    }
-                }
-                AppMessageIn::ConnectionChanged(status) => {
-                    self.handle_connection_status(status);
-                }
-                AppMessageIn::ConnectionActivity => {
-                    self.ui_queue.send(UIMessageIn::ConnectionActivity).unwrap();
-                }
-                AppMessageIn::ChatMessageReceived { target, message } => {
-                    self.handle_chat_message(&target, message);
-                }
-                AppMessageIn::ServerMessageReceived { content } => {
-                    self.handle_server_message(content);
-                }
-                AppMessageIn::ChatError(e) => {
-                    self.handle_chat_error(e);
-                }
-                AppMessageIn::ChannelJoined(channel) => {
-                    self.handle_channel_join(channel);
-                }
-                AppMessageIn::ChatModeratorAdded(username) => {
-                    self.handle_chat_moderator_added(username);
-                }
+                AppMessageIn::UI(cmd) => self.handle_ui_command(cmd),
+                AppMessageIn::Chat(evt) => self.handle_chat_event(evt),
+                AppMessageIn::HTTP(evt) => self.handle_http_event(evt),
+                AppMessageIn::Update(evt) => self.handle_update_event(evt),
+                AppMessageIn::System(evt) => self.handle_system_event(evt),
+            }
+        }
+    }
 
-                AppMessageIn::UIUserMentionRequested(username) => {
-                    self.ui_handle_user_mention_requested(username);
+    fn handle_ui_command(&mut self, cmd: UICommand) {
+        match cmd {
+            UICommand::ConnectRequested => self.connect(),
+            UICommand::DisconnectRequested => self.disconnect(),
+            UICommand::RestartRequested(path) => {
+                if let Err(e) = crate::core::os::restart(path) {
+                    log::error!("Failed to restart application: {e:?}");
+                    self.ui_push_backend_error(Box::new(e), false);
                 }
-
-                AppMessageIn::UIConnectRequested => {
-                    self.connect();
-                }
-                AppMessageIn::UIDisconnectRequested => {
-                    self.disconnect();
-                }
-
-                AppMessageIn::UIRestartRequested(path) => {
-                    if let Err(e) = crate::core::os::restart(path) {
-                        log::error!("Failed to restart application: {e:?}");
-                        self.ui_push_backend_error(Box::new(e), false);
-                    }
-                }
-
-                AppMessageIn::UIExitRequested(return_code) => {
-                    std::process::exit(return_code);
-                }
-
-                AppMessageIn::UIChatOpened(target) => {
-                    self.ui_handle_chat_opened(&target);
-                }
-
-                AppMessageIn::UIChatSwitchRequested(target, id) => {
-                    self.ui_handle_chat_switch_requested(&target, id);
-                }
-                AppMessageIn::UIChatClosed(target) => {
-                    self.ui_handle_close_chat(&target);
-                }
-                AppMessageIn::UIChatCleared(target) => {
-                    self.ui_handle_clear_chat(&target);
-                }
-                AppMessageIn::UIChatMessageSent { target, text } => {
-                    self.send_text_message(&target, &text);
-                }
-                AppMessageIn::UIChatActionSent { target, text } => {
-                    self.send_action(&target, &text);
-                }
-                AppMessageIn::UISettingsRequested => {
-                    self.ui_handle_settings_requested();
-                }
-                AppMessageIn::UISettingsUpdated(settings) => {
-                    self.ui_handle_settings_updated(*settings);
-                }
-                AppMessageIn::UIUsageWindowRequested => {
-                    self.ui_request_usage_window();
-                }
-                AppMessageIn::UIChatFilterRequested => {
-                    self.ui_request_chat_filter();
-                }
-
-                AppMessageIn::UIShowError { error, is_fatal } => {
-                    self.ui_push_backend_error(error, is_fatal);
-                }
-
-                AppMessageIn::UIFilesystemPathRequested(path) => {
-                    self.ui_handle_filesystem_path_request(path);
-                }
-                AppMessageIn::UIChatLogRequested(target) => {
-                    let path = chat_log_path(
-                        Path::new(&self.state.settings.logging.chat.directory),
-                        &target,
-                    );
-                    self.ui_handle_filesystem_path_request(path.to_str().unwrap().to_owned());
-                }
-
-                AppMessageIn::UIWindowTitleUpdateRequested => {
-                    self.ui_queue
-                        .send(UIMessageIn::WindowTitleRefreshRequested)
-                        .unwrap();
-                }
-
-                AppMessageIn::UpdateStateChanged(state) => {
-                    self.ui_push_update_state(state);
-                }
-                AppMessageIn::UpdateSettingsChanged(s) => {
-                    self.change_updater_settings(s);
-                }
-                AppMessageIn::CheckApplicationUpdates => {
-                    self.check_application_updates();
-                }
-                AppMessageIn::DownloadApplicationUpdate => {
-                    self.download_application_update();
-                }
-                AppMessageIn::AbortApplicationUpdate => {
-                    self.abort_application_update();
-                }
-
-                AppMessageIn::UIGlassSettingsRequested => {
-                    #[cfg(feature = "glass")]
-                    self.ui_handle_glass_settings_requested();
-                }
-                #[allow(unused_variables)] // glass
-                AppMessageIn::UIGlassSettingsUpdated(settings_yaml) => {
-                    #[cfg(feature = "glass")]
-                    self.ui_handle_glass_settings_updated(settings_yaml);
-                }
-
-                AppMessageIn::UIReportDialogRequested {
+            }
+            UICommand::ExitRequested(return_code) => std::process::exit(return_code),
+            UICommand::ChatOpened(target, chat_type) => {
+                self.ui_handle_chat_opened(&target, chat_type);
+            }
+            UICommand::ChatClosed(target, chat_type) => {
+                self.ui_handle_close_chat(&target, chat_type);
+            }
+            UICommand::ChatCleared(target, chat_type) => {
+                self.ui_handle_clear_chat(&target, chat_type);
+            }
+            UICommand::ChatSwitchRequested(target, chat_type, id) => {
+                self.ui_handle_chat_switch_requested(&target, chat_type, id);
+            }
+            UICommand::ChatFilterRequested => self.ui_request_chat_filter(),
+            UICommand::ChatMessageSent {
+                target,
+                chat_type,
+                text,
+            } => {
+                self.send_text_message(&target, chat_type, &text);
+            }
+            UICommand::ChatActionSent {
+                target,
+                chat_type,
+                text,
+            } => {
+                self.send_action(&target, chat_type, &text);
+            }
+            UICommand::UserMentionRequested(username) => {
+                self.ui_handle_user_mention_requested(username);
+            }
+            UICommand::WindowTitleUpdateRequested => {
+                self.ui_send_or_log(UIMessageIn::WindowTitleRefreshRequested);
+            }
+            UICommand::SettingsRequested => self.ui_handle_settings_requested(),
+            UICommand::SettingsUpdated(settings) => self.ui_handle_settings_updated(*settings),
+            UICommand::UsageWindowRequested => self.ui_request_usage_window(),
+            UICommand::FilesystemPathRequested(path) => {
+                self.ui_handle_filesystem_path_request(path);
+            }
+            UICommand::ChatLogRequested(target) => {
+                let path = chat_log_path(
+                    Path::new(&self.state.settings.logging.chat.directory),
+                    &target,
+                );
+                self.ui_handle_filesystem_path_request(path.to_str().unwrap().to_owned());
+            }
+            UICommand::GlassSettingsRequested => {
+                #[cfg(feature = "glass")]
+                self.ui_handle_glass_settings_requested();
+            }
+            #[allow(unused_variables)] // glass
+            UICommand::GlassSettingsUpdated(settings_yaml) => {
+                #[cfg(feature = "glass")]
+                self.ui_handle_glass_settings_updated(settings_yaml);
+            }
+            UICommand::ReportDialogRequested {
+                username,
+                chat_name,
+            } => {
+                self.ui_send_or_log(UIMessageIn::ReportDialogRequested {
                     username,
                     chat_name,
-                } => {
-                    self.ui_queue
-                        .send(UIMessageIn::ReportDialogRequested {
-                            username,
-                            chat_name,
-                        })
-                        .unwrap();
+                });
+            }
+            UICommand::ShowError { error, is_fatal } => {
+                self.ui_push_backend_error(error, is_fatal);
+            }
+        }
+    }
+
+    fn handle_chat_event(&mut self, evt: ChatEvent) {
+        match evt {
+            ChatEvent::ConnectionChanged(status) => self.handle_connection_status(status),
+            ChatEvent::ConnectionActivity => {
+                self.ui_send_or_log(UIMessageIn::ConnectionActivity);
+            }
+            ChatEvent::Error(e) => self.handle_chat_error(e),
+            ChatEvent::MessageReceived { target, message } => {
+                self.handle_chat_message(&target, message);
+            }
+            ChatEvent::ServerMessageReceived { content } => self.handle_server_message(content),
+            ChatEvent::ChannelJoined(channel, chat_type) => {
+                self.handle_channel_join(channel, chat_type);
+            }
+            ChatEvent::ModeratorAdded(username) => self.handle_chat_moderator_added(username),
+            ChatEvent::OwnUsernameDetected(username) => {
+                self.state.own_username = Some(username.clone());
+                self.ui_send_or_log(UIMessageIn::OwnUsernameChanged(username));
+            }
+        }
+    }
+
+    fn handle_http_event(&mut self, evt: HTTPEvent) {
+        match evt {
+            HTTPEvent::AuthRequired => {
+                log::info!("HTTP authentication required - waiting for user to complete OAuth");
+            }
+            HTTPEvent::AuthSuccess => {
+                log::info!("HTTP authentication succeeded");
+            }
+        }
+    }
+
+    fn handle_update_event(&mut self, evt: UpdateEvent) {
+        match evt {
+            UpdateEvent::StateChanged(state) => self.ui_push_update_state(state),
+            UpdateEvent::SettingsChanged(s) => self.change_updater_settings(s),
+            UpdateEvent::CheckRequested => self.check_application_updates(),
+            UpdateEvent::DownloadRequested => self.download_application_update(),
+            UpdateEvent::AbortRequested => self.abort_application_update(),
+        }
+    }
+
+    fn handle_system_event(&mut self, evt: SystemEvent) {
+        match evt {
+            SystemEvent::DateChanged(_date, message) => {
+                for chat in self.state.chats.clone() {
+                    self.send_system_message(&chat, &message);
                 }
             }
         }
@@ -214,13 +224,16 @@ impl Application {
         }
     }
 
-    pub fn ui_handle_chat_switch_requested(&self, chat: &str, message_id: Option<usize>) {
-        self.ui_queue
-            .send(UIMessageIn::ChatSwitchRequested(
-                chat.to_owned(),
-                message_id,
-            ))
-            .unwrap();
+    pub fn ui_handle_chat_switch_requested(
+        &self,
+        chat: &str,
+        _chat_type: ChatType,
+        message_id: Option<usize>,
+    ) {
+        self.ui_send_or_log(UIMessageIn::ChatSwitchRequested(
+            chat.to_owned(),
+            message_id,
+        ));
     }
 
     pub fn start_updater(&mut self) {
@@ -243,15 +256,11 @@ impl Application {
     }
 
     pub fn ui_push_backend_error(&self, error: Box<dyn Error + Send + Sync>, is_fatal: bool) {
-        self.ui_queue
-            .send(UIMessageIn::BackendError { error, is_fatal })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::BackendError { error, is_fatal });
     }
 
     pub fn ui_handle_user_mention_requested(&self, username: String) {
-        self.ui_queue
-            .send(UIMessageIn::UIUserMentionRequested(username))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::UIUserMentionRequested(username));
     }
 
     pub fn check_application_updates(&self) {
@@ -339,20 +348,16 @@ impl Application {
     }
 
     pub fn ui_handle_settings_requested(&self) {
-        self.ui_queue
-            .send(UIMessageIn::SettingsChanged(Box::new(
-                self.state.settings.clone(),
-            )))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::SettingsChanged(Box::new(
+            self.state.settings.clone(),
+        )));
     }
 
     #[cfg(feature = "glass")]
     pub fn ui_send_glass_settings(&self, settings_yaml: String) {
-        self.ui_queue
-            .send(UIMessageIn::GlassSettingsChanged {
-                settings_data_yaml: settings_yaml,
-            })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::GlassSettingsChanged {
+            settings_data_yaml: settings_yaml,
+        });
     }
 
     #[cfg(feature = "glass")]
@@ -398,30 +403,22 @@ impl Application {
     }
 
     pub fn ui_request_usage_window(&mut self) {
-        self.ui_queue
-            .send(UIMessageIn::UsageWindowRequested)
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::UsageWindowRequested);
     }
 
     pub fn ui_request_chat_filter(&mut self) {
-        self.ui_queue
-            .send(UIMessageIn::ChatFilterRequested)
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ChatFilterRequested);
     }
 
     pub fn ui_push_update_state(&mut self, state: UpdateState) {
-        self.ui_queue
-            .send(UIMessageIn::UpdateStateChanged(state))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::UpdateStateChanged(state));
     }
 
     pub fn handle_connection_status(&mut self, status: ConnectionStatus) {
         let cold_start =
             self.state.chats.is_empty() && matches!(status, ConnectionStatus::Connected);
         self.state.connection = status;
-        self.ui_queue
-            .send(UIMessageIn::ConnectionStatusChanged(status))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ConnectionStatusChanged(status));
 
         log::debug!("IRC connection status changed to {status:?}");
         match status {
@@ -477,52 +474,53 @@ impl Application {
         let queue = self.app_queue.clone();
         let delta = chrono::Duration::seconds(15);
         let reconnect_time = chrono::Local::now() + delta;
-        self.ui_queue
-            .send(UIMessageIn::ConnectionStatusChanged(
-                ConnectionStatus::Scheduled(reconnect_time),
-            ))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ConnectionStatusChanged(
+            ConnectionStatus::Scheduled(reconnect_time),
+        ));
 
         std::thread::spawn(move || {
             std::thread::sleep(delta.to_std().unwrap());
-            queue
-                .send(AppMessageIn::UIConnectRequested)
-                .expect("failed to trigger reconnection");
+            if let Err(e) = queue.send(AppMessageIn::ui_connect_requested()) {
+                log::error!("Failed to trigger reconnection: channel closed ({e})");
+            }
         });
     }
 
-    pub fn handle_chat_message(&mut self, target: &str, message: Message) {
+    pub fn handle_chat_message(&mut self, target: &str, mut message: Message) {
         if !self.state.chats.contains(&target.to_lowercase()) {
             self.save_chat(target);
             self.ui_add_chat(target, false);
         }
 
+        message.parse_for_links();
+
         if let Some(chat_logger) = &self.chat_logger {
             chat_logger.log(target, &message);
         }
 
-        self.ui_queue
-            .send(UIMessageIn::NewMessageReceived {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewMessageReceived {
+            target: target.to_owned(),
+            message,
+        });
     }
 
-    fn ui_handle_chat_opened(&mut self, target: &str) {
+    fn ui_handle_chat_opened(&mut self, target: &str, chat_type: ChatType) {
         if !self.state.chats.contains(&target.to_lowercase()) {
             self.save_chat(target);
             self.ui_add_chat(target, true);
         }
-        self.ui_handle_chat_switch_requested(target, None);
+        self.ui_handle_chat_switch_requested(target, chat_type.clone(), None);
 
-        match target.is_channel() {
-            true => {
+        match chat_type {
+            ChatType::Channel => {
                 self.change_chat_state(target, ChatState::JoinInProgress);
                 self.join_channel(target);
             }
-            false => {
+            ChatType::Person => {
                 self.change_chat_state(target, ChatState::Joined);
+            }
+            ChatType::System => {
+                log::error!("Impossible chat type requested for join from ui_handle_chat_opened: {chat_type}");
             }
         }
     }
@@ -533,25 +531,22 @@ impl Application {
     }
 
     fn ui_add_chat(&self, target: &str, switch: bool) {
-        self.ui_queue
-            .send(UIMessageIn::NewChatRequested {
-                target: target.to_owned(),
-                switch,
-            })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewChatRequested {
+            target: target.to_owned(),
+            switch,
+        });
     }
 
     pub fn handle_server_message(&mut self, content: String) {
         log::debug!("IRC server message: {content}");
-        self.ui_queue
-            .send(UIMessageIn::NewServerMessageReceived(content))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewServerMessageReceived(content));
     }
 
     pub fn handle_chat_error(&mut self, e: IRCError) {
+        // FIXME: FIX LOGGING
         log::error!("IRC chat error: {e:?}");
         if matches!(e, IRCError::FatalError(_)) {
-            self.irc.disconnect();
+            self.get_backend().disconnect();
         }
 
         let error_text = e.to_string();
@@ -566,18 +561,14 @@ impl Application {
                 self.change_chat_state(&chat, ChatState::Left);
             }
         }
-        self.ui_queue
-            .send(UIMessageIn::NewServerMessageReceived(error_text))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewServerMessageReceived(error_text));
     }
 
     fn change_chat_state(&mut self, chat: &str, state: ChatState) {
-        self.ui_queue
-            .send(UIMessageIn::NewChatStateReceived {
-                target: chat.to_owned(),
-                state: state.clone(),
-            })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewChatStateReceived {
+            target: chat.to_owned(),
+            state: state.clone(),
+        });
 
         match state {
             ChatState::Left => self.send_system_message(chat, "You have left the chat"),
@@ -592,7 +583,7 @@ impl Application {
         }
     }
 
-    fn handle_channel_join(&mut self, channel: String) {
+    fn handle_channel_join(&mut self, channel: String, _chat_type: ChatType) {
         self.change_chat_state(&channel, ChatState::Joined);
     }
 
@@ -601,18 +592,14 @@ impl Application {
         if let Some(chat_logger) = &self.chat_logger {
             chat_logger.log(target, &message);
         }
-        self.ui_queue
-            .send(UIMessageIn::NewSystemMessage {
-                target: target.to_owned(),
-                message,
-            })
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::NewSystemMessage {
+            target: target.to_owned(),
+            message,
+        });
     }
 
     pub fn handle_chat_moderator_added(&mut self, username: String) {
-        self.ui_queue
-            .send(UIMessageIn::ChatModeratorAdded(username))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ChatModeratorAdded(username));
     }
 
     fn get_backend(&self) -> &dyn ChatBackend {
@@ -638,46 +625,40 @@ impl Application {
         self.get_backend().disconnect();
     }
 
-    pub fn ui_handle_close_chat(&mut self, name: &str) {
+    pub fn ui_handle_close_chat(&mut self, name: &str, chat_type: ChatType) {
         let normalized = name.to_lowercase();
         self.state.chats.remove(&normalized);
-        if name.is_channel() {
-            self.leave_channel(name);
+
+        match chat_type {
+            ChatType::Channel => self.leave_channel(name),
+            ChatType::Person | ChatType::System => (),
         }
 
         if let Some(chat_logger) = &self.chat_logger {
             chat_logger.close_log(normalized);
         }
 
-        self.ui_queue
-            .send(UIMessageIn::ChatClosed(name.to_owned()))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ChatClosed(name.to_owned()));
     }
 
-    pub fn ui_handle_clear_chat(&mut self, name: &str) {
+    pub fn ui_handle_clear_chat(&mut self, name: &str, _chat_type: ChatType) {
         let normalized = name.to_lowercase();
-        self.ui_queue
-            .send(UIMessageIn::ChatCleared(normalized))
-            .unwrap();
+        self.ui_send_or_log(UIMessageIn::ChatCleared(normalized));
     }
 
-    pub fn send_text_message(&mut self, target: &str, text: &str) {
-        self.irc.send_message(target, text);
-        let message = Message::new_text(&self.state.settings.chat.irc.username, text);
-        self.handle_chat_message(target, message);
+    pub fn send_text_message(&mut self, target: &str, chat_type: ChatType, text: &str) {
+        self.get_backend().send_message(target, chat_type, text);
     }
 
-    pub fn send_action(&mut self, target: &str, text: &str) {
-        self.irc.send_action(target, text);
-        let message = Message::new_action(&self.state.settings.chat.irc.username, text);
-        self.handle_chat_message(target, message);
+    pub fn send_action(&mut self, target: &str, chat_type: ChatType, text: &str) {
+        self.get_backend().send_action(target, chat_type, text);
     }
 
     pub fn join_channel(&self, channel: &str) {
-        self.irc.join_channel(channel);
+        self.get_backend().join_channel(channel);
     }
 
     pub fn leave_channel(&self, channel: &str) {
-        self.irc.leave_channel(channel);
+        self.get_backend().leave_channel(channel);
     }
 }

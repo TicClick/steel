@@ -10,7 +10,7 @@ use crate::actor::Actor;
 use crate::core::irc::actor::IRCActor;
 use crate::core::irc::IRCMessageIn;
 use steel_core::chat::ConnectionStatus;
-use steel_core::ipc::server::AppMessageIn;
+use steel_core::ipc::server::{AppMessageIn, ChatEvent};
 
 #[derive(Debug)]
 struct TestState {
@@ -162,7 +162,7 @@ fn run_improved_deadlock_test() {
             let mut state = test_state_monitor.lock().unwrap();
 
             match msg {
-                AppMessageIn::ConnectionChanged(status) => match status {
+                AppMessageIn::Chat(ChatEvent::ConnectionChanged(status)) => match status {
                     ConnectionStatus::Connected => {
                         println!("Connected");
                         state.connection_completed();

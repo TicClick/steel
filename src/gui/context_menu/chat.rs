@@ -1,5 +1,5 @@
 use eframe::egui;
-use steel_core::chat::ChatType;
+use steel_core::chat::{ChatLike, ChatType};
 
 use crate::gui::state::UIState;
 
@@ -63,7 +63,7 @@ pub fn menu_item_clear_chat_tab(ui: &mut egui::Ui, state: &UIState, show_icon: b
     };
 
     if ui.button(text).clicked() {
-        state.core.chat_tab_cleared(target);
+        state.core.chat_tab_cleared(target, target.chat_type());
         ui.close();
     }
 }
@@ -88,7 +88,7 @@ pub fn menu_item_close_chat(
     };
 
     if ui.button(text).clicked() {
-        state.core.chat_tab_closed(target);
+        state.core.chat_tab_closed(target, target.chat_type());
         ui.close();
     }
 }

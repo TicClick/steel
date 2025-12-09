@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use steel_core::chat::Chat;
+use steel_core::chat::{Chat, ChatLike};
 use steel_core::settings::chat::ChatPosition;
 
 use steel_core::TextStyle;
@@ -113,7 +113,11 @@ impl ChatView {
                     {
                         let trimmed_message = self.chat_input.trim();
                         if !trimmed_message.is_empty() {
-                            state.core.chat_message_sent(&chat.name, trimmed_message);
+                            state.core.chat_message_sent(
+                                &chat.name,
+                                chat.name.chat_type(),
+                                trimmed_message,
+                            );
                         }
                         self.chat_input.clear();
                         response.request_focus();
@@ -193,6 +197,7 @@ impl ChatView {
             // Add default username color first, so it can be overridden by glass styles
             username_styles.push(TextStyle::Coloured(choose_colour(
                 &message.username,
+                &state.own_username,
                 &state.settings,
             )));
 

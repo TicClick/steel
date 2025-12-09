@@ -1,5 +1,8 @@
 use eframe::egui;
-use steel_core::{chat::Message, ipc::client::CoreClient};
+use steel_core::{
+    chat::{ChatLike, Message},
+    ipc::client::CoreClient,
+};
 
 const ICON_OPEN_CHAT: &str = "💬 Open chat";
 const OPEN_CHAT: &str = "Open chat";
@@ -31,7 +34,7 @@ pub fn menu_item_open_chat(
     };
 
     if ui.button(text).clicked() {
-        core_client.chat_opened(target);
+        core_client.chat_opened(target, target.chat_type());
         ui.close();
     }
 }

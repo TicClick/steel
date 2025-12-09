@@ -4,7 +4,7 @@ use irc::client::prelude::*;
 use irc_proto::mode::{ChannelMode, Mode};
 
 use steel_core::chat::irc::IRCError;
-use steel_core::chat::{Message, MessageType};
+use steel_core::chat::{ChatType, Message, MessageType};
 use steel_core::ipc::server::AppMessageIn;
 
 static ACTION_PREFIX: &str = "\x01ACTION";
@@ -42,21 +42,21 @@ pub fn privmsg_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::
             None => "(unknown sender)".to_owned(),
         };
         sender
-            .send(AppMessageIn::ChatMessageReceived {
-                target: message_target,
-                message: Message::new(&username, text, message_type),
-            })
-            .unwrap();
+            .send(AppMessageIn::chat_message_received(
+                message_target,
+                Message::new(&username, text, message_type),
+            ))
+            .unwrap_or_else(|e| log::error!("Failed to send message: {e}"));
     }
 }
 
 pub fn motd_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::Message) {
     if let irc::proto::Command::Response(_, args) = msg.command {
         sender
-            .send(AppMessageIn::ServerMessageReceived {
-                content: skip_and_join(&args, 1),
-            })
-            .unwrap();
+            .send(AppMessageIn::server_message_received(skip_and_join(
+                &args, 1,
+            )))
+            .unwrap_or_else(|e| log::error!("Failed to send server message: {e}"));
     }
 }
 
@@ -82,7 +82,9 @@ pub fn default_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::
                     }
                 }
             };
-            sender.send(AppMessageIn::ChatError(error)).unwrap();
+            sender
+                .send(AppMessageIn::chat_error(error))
+                .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
         } else {
             debug_handler(sender, msg);
         }
@@ -94,7 +96,9 @@ pub fn debug_handler(_sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::M
 }
 
 pub fn join_handler(sender: &UnboundedSender<AppMessageIn>, channel: String) {
-    sender.send(AppMessageIn::ChannelJoined(channel)).unwrap();
+    sender
+        .send(AppMessageIn::channel_joined(channel, ChatType::Channel))
+        .unwrap_or_else(|e| log::error!("Failed to send channel join: {e}"));
 }
 
 pub fn dispatch_message(
@@ -102,7 +106,9 @@ pub fn dispatch_message(
     msg: irc_proto::Message,
     own_username: &str,
 ) {
-    sender.send(AppMessageIn::ConnectionActivity).unwrap();
+    sender
+        .send(AppMessageIn::connection_activity())
+        .unwrap_or_else(|e| log::error!("Failed to send activity: {e}"));
 
     match msg.command {
         Command::PRIVMSG(..) => self::privmsg_handler(sender, msg),
@@ -130,21 +136,22 @@ pub fn dispatch_message(
         Command::ChannelMODE(_, modes) => {
             for m in modes {
                 if let Mode::Plus(ChannelMode::Oper, Some(user)) = m {
-                    sender.send(AppMessageIn::ChatModeratorAdded(user)).unwrap();
+                    sender
+                        .send(AppMessageIn::moderator_added(user))
+                        .unwrap_or_else(|e| log::error!("Failed to send moderator: {e}"));
                 }
             }
         }
 
-        Command::Response(
-            Response::RPL_NAMREPLY,
-            cmd
-        ) => {
+        Command::Response(Response::RPL_NAMREPLY, cmd) => {
             if let Some(users) = cmd.get(3) {
                 for user in users.split_ascii_whitespace().filter(|u| u.starts_with('@')) {
-                    sender.send(AppMessageIn::ChatModeratorAdded(user[1..].to_owned())).unwrap();
+                    sender
+                        .send(AppMessageIn::moderator_added(user[1..].to_owned()))
+                        .unwrap_or_else(|e| log::error!("Failed to send moderator: {e}"));
                 }
             }
-        },
+        }
 
         Command::Response(
             Response::RPL_WELCOME |

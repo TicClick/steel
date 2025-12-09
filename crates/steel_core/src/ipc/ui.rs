@@ -50,4 +50,6 @@ pub enum UIMessageIn {
         username: String,
         chat_name: String,
     },
+
+    OwnUsernameChanged(String),
 }

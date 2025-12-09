@@ -1,5 +1,6 @@
 mod actor;
 mod event_handler;
+pub mod state;
 
 #[cfg(test)]
 mod actor_test;
@@ -9,7 +10,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use crate::actor::{Actor, ActorHandle};
 use crate::core::chat_backend::ChatBackend;
 
-use steel_core::chat::MessageType;
+use steel_core::chat::{ChatType, MessageType};
 use steel_core::ipc::server::AppMessageIn;
 
 #[derive(Debug)]
@@ -46,11 +47,11 @@ impl ChatBackend for IRCActorHandle {
         self.disconnect_irc();
     }
 
-    fn send_message(&self, destination: &str, content: &str) {
+    fn send_message(&self, destination: &str, _chat_type: ChatType, content: &str) {
         self.send_message(destination, content);
     }
 
-    fn send_action(&self, destination: &str, action: &str) {
+    fn send_action(&self, destination: &str, _chat_type: ChatType, action: &str) {
         self.send_action(destination, action);
     }
 
@@ -75,6 +76,12 @@ impl IRCActorHandle {
         }
     }
 
+    fn send_or_log(&self, message: IRCMessageIn) {
+        if let Err(e) = self.actor.send(message) {
+            log::error!("Failed to send IRC message: channel closed ({e})");
+        }
+    }
+
     pub fn connect_irc(&self, username: &str, password: &str, server: &str, ping_timeout: u32) {
         let config = irc::client::data::Config {
             username: Some(username.to_owned()),
@@ -90,46 +97,34 @@ impl IRCActorHandle {
             ..Default::default()
         };
 
-        self.actor
-            .send(IRCMessageIn::Connect(Box::new(config)))
-            .expect("failed to queue chat connection");
+        self.send_or_log(IRCMessageIn::Connect(Box::new(config)));
     }
 
     pub fn disconnect_irc(&self) {
-        self.actor
-            .send(IRCMessageIn::Disconnect)
-            .expect("failed to queue disconnecting from chat");
+        self.send_or_log(IRCMessageIn::Disconnect);
     }
 
     pub fn send_action(&self, destination: &str, action: &str) {
-        self.actor
-            .send(IRCMessageIn::SendMessage {
-                r#type: MessageType::Action,
-                destination: destination.to_owned(),
-                content: action.to_owned(),
-            })
-            .expect("failed to queue a chat action");
+        self.send_or_log(IRCMessageIn::SendMessage {
+            r#type: MessageType::Action,
+            destination: destination.to_owned(),
+            content: action.to_owned(),
+        });
     }
 
     pub fn send_message(&self, destination: &str, content: &str) {
-        self.actor
-            .send(IRCMessageIn::SendMessage {
-                r#type: MessageType::Text,
-                destination: destination.to_owned(),
-                content: content.to_owned(),
-            })
-            .expect("failed to queue a chat message")
+        self.send_or_log(IRCMessageIn::SendMessage {
+            r#type: MessageType::Text,
+            destination: destination.to_owned(),
+            content: content.to_owned(),
+        });
     }
 
     pub fn join_channel(&self, channel: &str) {
-        self.actor
-            .send(IRCMessageIn::JoinChannel(channel.to_owned()))
-            .expect("failed to queue joining a channel");
+        self.send_or_log(IRCMessageIn::JoinChannel(channel.to_owned()));
     }
 
     pub fn leave_channel(&self, channel: &str) {
-        self.actor
-            .send(IRCMessageIn::LeaveChannel(channel.to_owned()))
-            .expect("failed to queue leaving a channel");
+        self.send_or_log(IRCMessageIn::LeaveChannel(channel.to_owned()));
     }
 }

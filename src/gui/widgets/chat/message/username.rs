@@ -14,8 +14,13 @@ use crate::gui::{
     DecoratedText,
 };
 
-pub fn choose_colour(username: &str, settings: &Settings) -> Color32 {
-    let colour = match username == settings.chat.irc.username {
+pub fn choose_colour(
+    username: &str,
+    own_username: &Option<String>,
+    settings: &Settings,
+) -> Color32 {
+    let is_own_message = own_username.as_ref().is_some_and(|u| u == username);
+    let colour = match is_own_message {
         true => &settings.ui.colours().own,
         false => settings
             .ui

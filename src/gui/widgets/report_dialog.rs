@@ -1,4 +1,5 @@
 use eframe::egui;
+use steel_core::chat::ChatLike;
 
 use crate::gui::state::UIState;
 
@@ -44,6 +45,7 @@ pub fn show_report_dialog(ctx: &egui::Context, ui_state: &mut UIState) {
                         if ui.button("send report").clicked() || is_enter_pressed {
                             ui_state.core.chat_message_sent(
                                 &dialog.chat_name,
+                                dialog.chat_name.chat_type(),
                                 &format!(
                                     "!report {} {}",
                                     dialog.username.to_lowercase().replace(" ", "_"),
