@@ -88,7 +88,7 @@ winresource = { workspace = true }
 serde_json = { workspace = true }
 winit-test = { workspace = true }
 
-rosu-v2 = { git = "https://github.com/TicClick/rosu-v2.git", branch = "chat-api", features = ["serialize", "local_oauth"] }
+rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2.git", rev = "8a0cfe6fd649e6dc06545c91a3fcc83ba16d8734", features = ["serialize", "local_oauth"] }
 tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 
 [features]
