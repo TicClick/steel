@@ -1,4 +1,6 @@
 pub mod chat_backend;
+pub mod chat_cache;
+pub mod error;
 pub mod http;
 pub mod irc;
 pub mod logging;

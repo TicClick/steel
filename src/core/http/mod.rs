@@ -1,4 +1,4 @@
-use steel_core::chat::MessageType;
+use steel_core::chat::{ChatType, MessageType};
 use steel_core::ipc::server::AppMessageIn;
 use steel_core::settings::chat::default_api_client_id;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
@@ -8,6 +8,8 @@ use crate::core::chat_backend::ChatBackend;
 
 pub mod actor;
 pub mod api;
+pub mod state;
+pub mod token_storage;
 pub mod websocket;
 
 #[derive(Debug)]
@@ -27,6 +29,7 @@ pub enum HTTPMessageIn {
     SendMessage {
         r#type: MessageType,
         destination: String,
+        chat_type: ChatType,
         content: String,
     },
 }
@@ -56,6 +59,7 @@ impl ChatBackend for HTTPActorHandle {
             redirect_uri: api_config.redirect_uri.clone(),
             ws_base_uri: api_config.ws_base_uri.clone(),
         };
+
         self.connect_http(api_settings);
     }
 
@@ -63,12 +67,12 @@ impl ChatBackend for HTTPActorHandle {
         self.disconnect_http();
     }
 
-    fn send_message(&self, destination: &str, content: &str) {
-        self.send_message(destination, content);
+    fn send_message(&self, destination: &str, chat_type: ChatType, content: &str) {
+        self.send_message(destination, chat_type, content);
     }
 
-    fn send_action(&self, destination: &str, action: &str) {
-        self.send_action(destination, action);
+    fn send_action(&self, destination: &str, chat_type: ChatType, action: &str) {
+        self.send_action(destination, chat_type, action);
     }
 
     fn join_channel(&self, channel: &str) {
@@ -92,47 +96,43 @@ impl HTTPActorHandle {
         }
     }
 
+    fn send_or_log(&self, message: HTTPMessageIn) {
+        if let Err(e) = self.actor.send(message) {
+            log::error!("Failed to send HTTP message: channel closed ({e})");
+        }
+    }
+
     pub fn connect_http(&self, settings: APISettings) {
-        self.actor
-            .send(HTTPMessageIn::Connect(settings))
-            .expect("failed to queue chat connection");
+        self.send_or_log(HTTPMessageIn::Connect(settings));
     }
 
     pub fn disconnect_http(&self) {
-        self.actor
-            .send(HTTPMessageIn::Disconnect)
-            .expect("failed to queue disconnecting from chat");
+        self.send_or_log(HTTPMessageIn::Disconnect);
     }
 
-    pub fn send_action(&self, destination: &str, action: &str) {
-        self.actor
-            .send(HTTPMessageIn::SendMessage {
-                r#type: MessageType::Action,
-                destination: destination.to_owned(),
-                content: action.to_owned(),
-            })
-            .expect("failed to queue a chat action");
+    pub fn send_action(&self, destination: &str, chat_type: ChatType, action: &str) {
+        self.send_or_log(HTTPMessageIn::SendMessage {
+            r#type: MessageType::Action,
+            destination: destination.to_owned(),
+            chat_type,
+            content: action.to_owned(),
+        });
     }
 
-    pub fn send_message(&self, destination: &str, content: &str) {
-        self.actor
-            .send(HTTPMessageIn::SendMessage {
-                r#type: MessageType::Text,
-                destination: destination.to_owned(),
-                content: content.to_owned(),
-            })
-            .expect("failed to queue a chat message");
+    pub fn send_message(&self, destination: &str, chat_type: ChatType, content: &str) {
+        self.send_or_log(HTTPMessageIn::SendMessage {
+            r#type: MessageType::Text,
+            destination: destination.to_owned(),
+            chat_type,
+            content: content.to_owned(),
+        });
     }
 
     pub fn join_channel(&self, channel: &str) {
-        self.actor
-            .send(HTTPMessageIn::JoinChannel(channel.to_owned()))
-            .expect("failed to queue joining a channel");
+        self.send_or_log(HTTPMessageIn::JoinChannel(channel.to_owned()));
     }
 
     pub fn leave_channel(&self, channel: &str) {
-        self.actor
-            .send(HTTPMessageIn::LeaveChannel(channel.to_owned()))
-            .expect("failed to queue leaving a channel");
+        self.send_or_log(HTTPMessageIn::LeaveChannel(channel.to_owned()));
     }
 }

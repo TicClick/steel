@@ -142,8 +142,7 @@ impl SettingsWindow {
                 )
                 .on_hover_text_at_pointer(
                     "the system behind the modern web chat.\n\
-                it sends a lot of useful details and context.\n\
-                experimental.",
+                it sends a lot of useful details and context."
                 );
             });
             match state.settings.chat.backend {

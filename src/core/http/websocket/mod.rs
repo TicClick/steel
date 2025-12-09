@@ -39,6 +39,16 @@ pub struct GeneralWebsocketEvent {
     pub error: Option<String>,
 }
 
+impl GeneralWebsocketEvent {
+    pub fn new(event: EventType) -> Self {
+        Self {
+            event: Some(event),
+            data: None,
+            error: None,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 pub struct ChatMessageNewData {
     pub messages: Vec<ChatChannelMessage>,
