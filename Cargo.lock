@@ -1948,18 +1948,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "glass"
-version = "0.4.5"
-dependencies = [
- "chrono",
- "eframe",
- "mod_echo",
- "serde",
- "serde_yaml",
- "steel_core",
-]
-
-[[package]]
 name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2869,17 +2857,6 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "mod_echo"
-version = "0.2.0"
-source = "git+ssh://git@github.com/TicClick/inkwire.git#6e6e7244a795e970d6d3c98e5852a3f87e5be6a4"
-dependencies = [
- "chrono",
- "log",
- "regex",
- "simplelog",
 ]
 
 [[package]]
@@ -4589,7 +4566,6 @@ dependencies = [
  "egui_extras",
  "flate2",
  "futures",
- "glass",
  "irc",
  "irc-proto",
  "log",
@@ -5319,7 +5295,6 @@ version = "0.0.0"
 dependencies = [
  "clap",
  "eframe",
- "glass",
  "rand 0.9.2",
  "steel",
  "tokio",

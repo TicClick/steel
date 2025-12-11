@@ -3,7 +3,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use irc::client::prelude::*;
 use irc_proto::mode::{ChannelMode, Mode};
 
-use steel_core::chat::irc::IRCError;
+use steel_core::error::ChatError;
 use steel_core::chat::{ChatType, Message, MessageType};
 use steel_core::ipc::server::AppMessageIn;
 
@@ -65,18 +65,16 @@ pub fn default_handler(sender: &UnboundedSender<AppMessageIn>, msg: irc::proto::
         if r.is_error() {
             let error = match r {
                 Response::ERR_PASSWDMISMATCH => {
-                    IRCError::FatalError("either your password is invalid, or you need to wait out some time before trying to connect again".to_owned())
+                    ChatError::FatalError("either your password is invalid, or you need to wait out some time before trying to connect again".to_owned())
                 }
                 Response::ERR_NOSUCHCHANNEL | Response::ERR_NOSUCHNICK | Response::ERR_CANNOTSENDTOCHAN | Response::ERR_WASNOSUCHNICK | Response::ERR_NOTONCHANNEL => {
-                    IRCError::ServerError {
-                        code: r,
+                    ChatError::ServerError {
                         chat: Some(args[1].to_owned()),
                         content: skip_and_join(args, 2),
                     }
                 }
                 _ => {
-                    IRCError::ServerError {
-                        code: r,
+                    ChatError::ServerError {
                         chat: None,
                         content: skip_and_join(args, 1),
                     }

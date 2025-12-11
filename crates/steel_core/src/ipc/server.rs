@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use crate::chat::irc::IRCError;
+use crate::error::ChatError;
 use crate::chat::{ChatType, ConnectionStatus, Message};
 use crate::ipc::updater::UpdateState;
 use crate::settings::application::AutoUpdate;
@@ -51,7 +51,7 @@ pub enum UICommand {
 pub enum ChatEvent {
     ConnectionChanged(ConnectionStatus),
     ConnectionActivity,
-    Error(IRCError),
+    Error(ChatError),
     MessageReceived { target: String, message: Message },
     ServerMessageReceived { content: String },
     ChannelJoined(String, ChatType),
@@ -98,7 +98,7 @@ impl AppMessageIn {
         Self::Chat(ChatEvent::ConnectionActivity)
     }
 
-    pub fn chat_error(e: IRCError) -> Self {
+    pub fn chat_error(e: ChatError) -> Self {
         Self::Chat(ChatEvent::Error(e))
     }
 

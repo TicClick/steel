@@ -33,11 +33,11 @@ pub fn setup_logging() {
     log_panics::init();
 }
 
-pub fn run_app(
+pub async fn run_app(
     ui_queue_in: UnboundedSender<UIMessageIn>,
     ui_queue_out: UnboundedReceiver<UIMessageIn>,
     original_exe_path: Option<std::path::PathBuf>,
-) -> std::thread::JoinHandle<()> {
+) -> tokio::task::JoinHandle<()> {
     let mut app = app::Application::new(ui_queue_in);
     let settings = match app.initialize() {
         Ok(()) => app.current_settings().to_owned(),
@@ -51,8 +51,8 @@ pub fn run_app(
     app.ui_handle_glass_settings_requested();
 
     let app_queue = app.app_queue.clone();
-    let app_thread = std::thread::spawn(move || {
-        app.run();
+    let app_thread = tokio::spawn(async move {
+        app.run().await;
     });
 
     let native_options = eframe::NativeOptions {

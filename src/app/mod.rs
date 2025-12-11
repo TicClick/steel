@@ -8,7 +8,7 @@ use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::{Loadable, Settings, SETTINGS_FILE_NAME};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
-use steel_core::chat::irc::IRCError;
+use steel_core::error::ChatError;
 use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message};
 
 use crate::core::chat_backend::ChatBackend;
@@ -69,8 +69,8 @@ impl Application {
         }
     }
 
-    pub fn run(&mut self) {
-        while let Some(event) = self.events.blocking_recv() {
+    pub async fn run(&mut self) {
+        while let Some(event) = self.events.recv().await {
             match event {
                 AppMessageIn::UI(cmd) => self.handle_ui_command(cmd),
                 AppMessageIn::Chat(evt) => self.handle_chat_event(evt),
@@ -542,16 +542,14 @@ impl Application {
         self.ui_send_or_log(UIMessageIn::NewServerMessageReceived(content));
     }
 
-    pub fn handle_chat_error(&mut self, e: IRCError) {
-        // FIXME: FIX LOGGING
-        log::error!("IRC chat error: {e:?}");
-        if matches!(e, IRCError::FatalError(_)) {
+    pub fn handle_chat_error(&mut self, e: ChatError) {
+        log::error!("A chat error has occurred: {e:?}");
+        if matches!(e, ChatError::FatalError(_)) {
             self.get_backend().disconnect();
         }
 
         let error_text = e.to_string();
-        if let IRCError::ServerError {
-            code: _,
+        if let ChatError::ServerError {
             chat: Some(chat),
             content,
         } = e

@@ -7,11 +7,13 @@ use futures::prelude::*;
 use tokio::runtime;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
+use async_trait::async_trait;
 use crate::actor::Actor;
 use crate::core::chat;
 use crate::core::irc::event_handler;
 
-use steel_core::chat::{irc::IRCError, ConnectionStatus};
+use steel_core::error::ChatError;
+use steel_core::chat::ConnectionStatus;
 use steel_core::ipc::server::AppMessageIn;
 
 use super::IRCMessageIn;
@@ -27,6 +29,7 @@ pub struct IRCActor {
     irc_thread: Option<std::thread::JoinHandle<()>>,
 }
 
+#[async_trait]
 impl Actor<IRCMessageIn, AppMessageIn> for IRCActor {
     fn new(input: UnboundedReceiver<IRCMessageIn>, output: UnboundedSender<AppMessageIn>) -> Self {
         IRCActor {
@@ -38,7 +41,7 @@ impl Actor<IRCMessageIn, AppMessageIn> for IRCActor {
         }
     }
 
-    fn handle_message(&mut self, message: IRCMessageIn) {
+    async fn handle_message(&mut self, message: IRCMessageIn) {
         match message {
             IRCMessageIn::Connect(config) => self.connect(*config),
             IRCMessageIn::Disconnect => self.disconnect(),
@@ -52,9 +55,9 @@ impl Actor<IRCMessageIn, AppMessageIn> for IRCActor {
         }
     }
 
-    fn run(&mut self) {
-        while let Some(msg) = self.input.blocking_recv() {
-            self.handle_message(msg);
+    async fn run(&mut self) {
+        while let Some(msg) = self.input.recv().await {
+            self.handle_message(msg).await;
         }
     }
 }
@@ -159,7 +162,7 @@ fn irc_thread_main(
         .unwrap();
     match rt.block_on(irc::client::Client::from_config(config)) {
         Err(e) => {
-            tx.send(AppMessageIn::chat_error(IRCError::FatalError(format!(
+            tx.send(AppMessageIn::chat_error(ChatError::FatalError(format!(
                 "failed to start the IRC client: {e}"
             ))))
             .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
@@ -196,14 +199,14 @@ fn irc_thread_main(
                             event_handler::dispatch_message(&tx, msg, &own_username);
                         }
                         Some(Err(reason)) => {
-                            tx.send(AppMessageIn::chat_error(IRCError::FatalError(format!(
+                            tx.send(AppMessageIn::chat_error(ChatError::FatalError(format!(
                                 "connection broken: {reason}"
                             ))))
                             .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
                             break;
                         }
                         None => {
-                            tx.send(AppMessageIn::chat_error(IRCError::FatalError(
+                            tx.send(AppMessageIn::chat_error(ChatError::FatalError(
                                 "remote server has closed the connection, probably because it went offline".to_owned(),
                             )))
                             .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));

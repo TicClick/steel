@@ -1,4 +1,5 @@
 pub mod chat;
+pub mod error;
 pub mod ipc;
 pub mod settings;
 pub mod string_utils;

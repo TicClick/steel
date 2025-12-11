@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 steel = { path = "../", version = "*" }
-glass = { version = "*", path = "../crates/glass", optional = true}
+# glass = { version = "*", path = "../crates/glass", optional = true}
 
 eframe = { workspace = true }
 tokio = { workspace = true }
@@ -15,4 +15,4 @@ clap = { version = "4.0", features = ["derive"] }
 
 [features]
 default = []
-glass = ["dep:glass"]
+# glass = ["dep:glass"]

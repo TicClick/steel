@@ -5,7 +5,8 @@ use steel::run_app;
 use steel::setup_logging;
 use tokio::sync::mpsc::unbounded_channel;
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Save original executable path before any potential fs::rename operations -- it's not guaranteed to be preserved.
     let original_exe_path = std::env::current_exe().ok();
 
@@ -17,5 +18,5 @@ fn main() {
     let (ui_queue_in, ui_queue_out) = unbounded_channel();
     let app_thread = run_app(ui_queue_in, ui_queue_out, original_exe_path);
 
-    app_thread.join().unwrap();
+    app_thread.await.unwrap();
 }

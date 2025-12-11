@@ -7,6 +7,7 @@ use steel_core::{
     chat::{ChatType, ConnectionStatus, MessageType},
     ipc::server::AppMessageIn,
 };
+use async_trait::async_trait;
 use tokio::{
     runtime::Runtime,
     sync::mpsc::{UnboundedReceiver, UnboundedSender},
@@ -25,58 +26,43 @@ pub struct HTTPActor {
     output: UnboundedSender<AppMessageIn>,
 
     state: Arc<Mutex<HTTPState>>,
-
-    runtime: Runtime,
 }
 
+#[async_trait]
 impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
     fn new(input: UnboundedReceiver<HTTPMessageIn>, output: UnboundedSender<AppMessageIn>) -> Self {
-        let runtime = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .expect("Failed to create tokio runtime for HTTPActor");
         Self {
             input,
             output,
             state: Arc::new(Mutex::new(HTTPState::new())),
-            runtime,
         }
     }
 
-    fn run(&mut self) {
-        while let Some(msg) = self.input.blocking_recv() {
+    async fn run(&mut self) {
+        while let Some(msg) = self.input.recv().await {
             log::debug!("Handling UI message: {msg:?}");
-            self.handle_message(msg);
+            self.handle_message(msg).await;
         }
     }
 
-    fn handle_message(&mut self, message: HTTPMessageIn) {
+    async fn handle_message(&mut self, message: HTTPMessageIn) {
         match message {
             HTTPMessageIn::Connect(settings) => self.connect(settings),
             HTTPMessageIn::Disconnect => self.disconnect(),
             HTTPMessageIn::JoinChannel(channel) => {
-                self.join_channel(channel);
+                self.join_channel(channel).await;
             }
             HTTPMessageIn::LeaveChannel(channel) => {
-                self.leave_channel(channel);
+                self.leave_channel(channel).await;
             }
             HTTPMessageIn::SendMessage {
                 r#type,
                 destination,
                 chat_type,
                 content,
-            } => match chat_type {
-                ChatType::Channel => {
-                    self.channel_send_message(r#type, destination, chat_type, content)
-                }
-                ChatType::Person => self.user_send_message(r#type, destination, chat_type, content),
-                _ => {
-                    self.push_error_to_ui(
-                        &format!("Failed to send message to an unknown channel type {chat_type}"),
-                        false,
-                    );
-                }
-            },
+            } => {
+                self.send_message(r#type, destination, chat_type, content).await;
+            }
         }
     }
 }
@@ -109,9 +95,9 @@ impl HTTPActor {
         let channel = match channel {
             Some(c) => c,
             None => {
-                log::error!("Cannot {operation}: channel not found by name");
+                log::error!("Cannot {operation} in {channel_name}: channel not found");
                 self.push_error_to_ui(
-                    &format!("Cannot {operation}: channel not found by name"),
+                    &format!("Cannot {operation} in {channel_name}: channel not found"),
                     false,
                 );
                 return None;
@@ -139,8 +125,8 @@ impl HTTPActor {
         match api {
             Some(a) => Some(a),
             None => {
-                log::error!("Cannot {operation}: not connected");
-                self.push_error_to_ui(&format!("Cannot {operation}: not connected"), false);
+                log::error!("Cannot {operation}: not connected to the API");
+                self.push_error_to_ui(&format!("Cannot {operation}: not connected to the API"), false);
                 None
             }
         }
@@ -151,7 +137,7 @@ impl HTTPActor {
             .send(AppMessageIn::connection_changed(
                 ConnectionStatus::InProgress,
             ))
-            .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
+            .unwrap_or_else(|e| log::error!("Failed to send InProgress connection status: {e}"));
 
         let tx = self.output.clone();
         let state = self.state.clone();
@@ -175,103 +161,113 @@ impl HTTPActor {
         }
     }
 
-    fn channel_send_message(
+    async fn send_message(
         &mut self,
         r#type: MessageType,
         destination: String,
-        _chat_type: ChatType,
+        chat_type: ChatType,
         content: String,
     ) {
-        let Some((api, channel)) = self.get_api_and_channel(&destination, "send message") else {
-            return;
-        };
+        match chat_type {
+            ChatType::Channel => {
+                let Some((api, channel)) = self.get_api_and_channel(&destination, "send message")
+                else {
+                    return;
+                };
 
-        let tx = self.output.clone();
-        self.runtime.block_on(async move {
-            let is_action = matches!(r#type, MessageType::Action);
-            let result = api
-                .chat_send_message(channel.channel_id, content, is_action)
-                .await;
+                let tx = self.output.clone();
+                tokio::spawn(async move {
+                    let is_action = matches!(r#type, MessageType::Action);
+                    let result = api
+                        .chat_send_message(channel.channel_id, content, is_action)
+                        .await;
 
-            if let Err(e) = result {
-                log::error!("Failed to send message: {e}");
-                tx.send(AppMessageIn::ui_show_error(
-                    Box::new(std::io::Error::other(format!(
-                        "Failed to send message: {e}"
-                    ))),
-                    false,
-                ))
-                .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
-            }
-        });
-    }
-
-    fn user_send_message(
-        &mut self,
-        r#type: MessageType,
-        destination: String,
-        _chat_type: ChatType,
-        content: String,
-    ) {
-        let cached_uid = {
-            let state = self.state.lock().unwrap();
-            state.cache.get_user_by_username(&destination)
-        };
-
-        let Some(api) = self.get_api("send message") else {
-            return;
-        };
-
-        let state = self.state.clone();
-        let tx = self.output.clone();
-        let destination_for_error = destination.clone();
-
-        self.runtime.block_on(async move {
-            let uid = match cached_uid {
-                Some(uid) => uid,
-                None => {
-                    match api
-                        .user(UserId::Name(format!("@{destination}").into()))
-                        .await
-                    {
-                        Ok(u) => {
-                            if let Ok(mut state_guard) = state.lock() {
-                                state_guard.cache.insert_user(u.clone().into());
-                            }
-                            u.user_id
-                        }
-                        Err(e) => {
-                            log::error!(
-                                "Failed to send a message to user {destination_for_error}: failed to look up in API: {e}"
-                            );
-                            tx.send(AppMessageIn::ui_show_error(
-                                Box::new(std::io::Error::other(format!(
-                                    "Cannot send message to user: lookup failed for {destination_for_error}"
-                                ))),
-                                false,
-                            ))
-                            .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
-                            return;
-                        }
+                    if let Err(e) = result {
+                        log::error!("Failed to send message to channel {}: {e}", channel.name);
+                        tx.send(AppMessageIn::ui_show_error(
+                            Box::new(std::io::Error::other(format!(
+                                "Failed to send message to channel {}: {e}",
+                                channel.name
+                            ))),
+                            false,
+                        ))
+                        .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
                     }
-                }
-            };
-
-            let is_action = matches!(r#type, MessageType::Action);
-            let result = api.chat_create_private_channel(uid, content, is_action).await;
-
-            if let Err(e) = result {
-                log::error!("Failed to send message: {e}");
-                tx.send(AppMessageIn::ui_show_error(
-                    Box::new(std::io::Error::other(format!("Failed to send message: {e}"))),
-                    false,
-                ))
-                .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                });
             }
-        });
+            ChatType::Person => {
+                let cached_uid = {
+                    let state = self.state.lock().unwrap();
+                    state.cache.get_user_by_username(&destination)
+                };
+
+                let Some(api) = self.get_api("send message") else {
+                    return;
+                };
+
+                let state = self.state.clone();
+                let tx = self.output.clone();
+                let destination_for_error = destination.clone();
+
+                tokio::spawn(async move {
+                    let uid = match cached_uid {
+                        Some(uid) => uid,
+                        None => {
+                            match api
+                                .user(UserId::Name(format!("@{destination}").into()))
+                                .await
+                            {
+                                Ok(u) => {
+                                    if let Ok(mut state_guard) = state.lock() {
+                                        state_guard.cache.insert_user(u.clone().into());
+                                    }
+                                    u.user_id
+                                }
+                                Err(e) => {
+                                    log::error!(
+                                        "Failed to send a message to user {destination_for_error}: failed to look up in API: {e}"
+                                    );
+                                    tx.send(AppMessageIn::ui_show_error(
+                                        Box::new(std::io::Error::other(format!(
+                                            "Cannot send message to user: lookup failed for {destination_for_error}"
+                                        ))),
+                                        false,
+                                    ))
+                                    .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                                    return;
+                                }
+                            }
+                        }
+                    };
+
+                    let is_action = matches!(r#type, MessageType::Action);
+                    let result = api
+                        .chat_create_private_channel(uid, content, is_action)
+                        .await;
+
+                    if let Err(e) = result {
+                        log::error!("Failed to send private message to user {}: {e}", uid);
+                        tx.send(AppMessageIn::ui_show_error(
+                            Box::new(std::io::Error::other(format!(
+                                "Failed to send private message to user {}: {e}",
+                                uid
+                            ))),
+                            false,
+                        ))
+                        .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                    }
+                });
+            }
+            _ => {
+                self.push_error_to_ui(
+                    &format!("Failed to send message to an unknown channel type {chat_type}"),
+                    false,
+                );
+            }
+        }
     }
 
-    fn join_channel(&mut self, channel_name: String) {
+    async fn join_channel(&mut self, channel_name: String) {
         let own_user_id = {
             let state = self.state.lock().unwrap();
             state.own_user_id
@@ -282,7 +278,7 @@ impl HTTPActor {
         };
 
         let tx = self.output.clone();
-        self.runtime.block_on(async move {
+        tokio::spawn(async move {
             let user_id = if let Some(uid) = own_user_id {
                 uid
             } else {
@@ -327,7 +323,7 @@ impl HTTPActor {
         });
     }
 
-    fn leave_channel(&mut self, channel_name: String) {
+    async fn leave_channel(&mut self, channel_name: String) {
         let own_user_id = {
             let state = self.state.lock().unwrap();
             state.own_user_id
@@ -338,7 +334,7 @@ impl HTTPActor {
         };
 
         let tx = self.output.clone();
-        self.runtime.block_on(async move {
+        tokio::spawn(async move {
             let user_id = if let Some(uid) = own_user_id {
                 uid
             } else {
