@@ -302,6 +302,13 @@ async fn websocket_thread_main_impl(
                                         }
                                     }
 
+                                    // Only send this after fetching information about oneself to avoid cache misses
+                                    // and errors caused by queued join-on-connect requests.
+                                    tx.send(AppMessageIn::connection_changed(
+                                        ConnectionStatus::Connected,
+                                    ))
+                                        .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
+
                                     if let Err(e) = api.chat_keepalive().await {
                                         log::error!("Failed to send keepalive: {e}")
                                     }
@@ -445,10 +452,6 @@ async fn handle_text_message<S>(
 
         Some(EventType::ConnectionReady) => {
             log::info!("WebSocket connection ready");
-            tx.send(AppMessageIn::connection_changed(
-                ConnectionStatus::Connected,
-            ))
-            .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
             is_ready = true;
         }
 
