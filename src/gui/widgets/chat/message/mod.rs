@@ -213,6 +213,6 @@ fn insert_original_chat_reference(ui: &mut egui::Ui, core_client: &CoreClient, m
         }
     });
     if switch_requested {
-        core_client.chat_switch_requested(original_chat, message.id);
+        core_client.chat_switch_requested(original_chat, original_chat.chat_type(), message.id);
     }
 }

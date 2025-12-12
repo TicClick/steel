@@ -94,10 +94,10 @@ impl IRCActor {
         }
 
         self.output
-            .send(AppMessageIn::ConnectionChanged(
+            .send(AppMessageIn::connection_changed(
                 ConnectionStatus::InProgress,
             ))
-            .unwrap();
+            .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
 
         let tx = self.output.clone();
         let arc = Arc::clone(&self.irc_sync);
@@ -159,19 +159,21 @@ fn irc_thread_main(
         .unwrap();
     match rt.block_on(irc::client::Client::from_config(config)) {
         Err(e) => {
-            tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+            tx.send(AppMessageIn::chat_error(IRCError::FatalError(format!(
                 "failed to start the IRC client: {e}"
             ))))
-            .unwrap();
-            tx.send(AppMessageIn::ConnectionChanged(
+            .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
+            tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Disconnected { by_user: false },
             ))
-            .unwrap();
+            .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
         }
         Ok(mut clt) => {
             clt.identify().unwrap();
-            tx.send(AppMessageIn::ConnectionChanged(ConnectionStatus::Connected))
-                .unwrap();
+            tx.send(AppMessageIn::connection_changed(
+                ConnectionStatus::Connected,
+            ))
+            .unwrap_or_else(|e| log::error!("Failed to send connected: {e}"));
             *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
             let mut disconnected_by_user = false;
@@ -194,29 +196,29 @@ fn irc_thread_main(
                             event_handler::dispatch_message(&tx, msg, &own_username);
                         }
                         Some(Err(reason)) => {
-                            tx.send(AppMessageIn::ChatError(IRCError::FatalError(format!(
+                            tx.send(AppMessageIn::chat_error(IRCError::FatalError(format!(
                                 "connection broken: {reason}"
                             ))))
-                            .unwrap();
+                            .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
                             break;
                         }
                         None => {
-                            tx.send(AppMessageIn::ChatError(IRCError::FatalError(
+                            tx.send(AppMessageIn::chat_error(IRCError::FatalError(
                                 "remote server has closed the connection, probably because it went offline".to_owned(),
                             )))
-                            .unwrap();
+                            .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
                             break;
                         }
                     }
                 }
             }
 
-            tx.send(AppMessageIn::ConnectionChanged(
+            tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Disconnected {
                     by_user: disconnected_by_user,
                 },
             ))
-            .unwrap();
+            .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
         }
     }
 }

@@ -135,19 +135,15 @@ impl SettingsWindow {
                 lightweight and battle-tested.",
                     );
 
-                // TODO: implement
-                if false {
-                    ui.radio_value(
-                        &mut state.settings.chat.backend,
-                        ChatBackend::API,
-                        "osu!api",
-                    )
-                    .on_hover_text_at_pointer(
-                        "the system behind the modern web chat.\n\
-                it sends a lot of useful details and context.\n\
-                mostly complete, but still experimental.",
-                    );
-                }
+                ui.radio_value(
+                    &mut state.settings.chat.backend,
+                    ChatBackend::API,
+                    "osu!api",
+                )
+                .on_hover_text_at_pointer(
+                    "the system behind the modern web chat.\n\
+                it sends a lot of useful details and context."
+                );
             });
             match state.settings.chat.backend {
                 ChatBackend::IRC => {
@@ -210,7 +206,61 @@ impl SettingsWindow {
                     });
                 }
                 ChatBackend::API => {
-                    // TODO
+                    ui.vertical(|ui| {
+                        let total_width = ui
+                            .horizontal(|ui| {
+                                let mut sz = ui.label("client ID").rect.width();
+                                sz += ui
+                                    .add(egui::TextEdit::singleline(&mut state.settings.chat.api.client_id))
+                                    .on_hover_text_at_pointer("osu! API application client ID")
+                                    .rect
+                                    .width();
+                                sz
+                            })
+                            .inner;
+
+                        ui.horizontal(|ui| {
+                            let label_width = ui
+                                .hyperlink_to(
+                                    "client secret",
+                                    "https://osu.ppy.sh/home/account/edit#new-oauth-application",
+                                )
+                                .rect
+                                .width();
+                            let input =
+                                egui::TextEdit::singleline(&mut state.settings.chat.api.client_secret)
+                                    .password(!self.visible_password)
+                                    .desired_width(total_width - label_width - 26.);
+                            ui.add(input).on_hover_text_at_pointer(
+                                "if you don't have an OAuth application, click the link on the left",
+                            );
+                            if ui
+                                .button("👁")
+                                .on_hover_text_at_pointer("show/hide secret")
+                                .clicked()
+                            {
+                                self.visible_password = !self.visible_password;
+                            }
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("redirect URI");
+                            let input =
+                                egui::TextEdit::singleline(&mut state.settings.chat.api.redirect_uri);
+                            ui.add(input).on_hover_text_at_pointer(
+                                "OAuth redirect URI (must match application settings)"
+                            );
+                        });
+
+                        ui.horizontal(|ui| {
+                            ui.label("WebSocket URI");
+                            let input =
+                                egui::TextEdit::singleline(&mut state.settings.chat.api.ws_base_uri);
+                            ui.add(input).on_hover_text_at_pointer(
+                                "WebSocket server address (default: wss://notify.ppy.sh)"
+                            );
+                        });
+                    });
                 }
             }
 

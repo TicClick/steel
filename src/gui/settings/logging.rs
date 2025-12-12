@@ -112,7 +112,7 @@ impl SettingsWindow {
 }
 
 fn make_example_chat_log(formats: &ChatLoggingFormats) -> String {
-    let chat_log = vec![
+    let chat_log = [
         (
             chat::Message::new_system("You have joined #sprawl"),
             &formats.system_message,

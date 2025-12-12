@@ -385,6 +385,10 @@ impl ApplicationWindow {
                     just_opened: true,
                 });
             }
+
+            UIMessageIn::OwnUsernameChanged(username) => {
+                self.s.own_username = Some(username);
+            }
         }
     }
 }

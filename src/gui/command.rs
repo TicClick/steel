@@ -79,7 +79,11 @@ impl Command for Me {
         egui::RichText::new("/me <action>")
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
-        core_client.chat_action_sent(&chat.normalized_name, args.join(" ").as_str());
+        core_client.chat_action_sent(
+            &chat.normalized_name,
+            chat.normalized_name.chat_type(),
+            args.join(" ").as_str(),
+        );
     }
 }
 
@@ -109,7 +113,7 @@ impl Command for OpenChat {
         egui::RichText::new("/chat <user>")
     }
     fn action(&self, _chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
-        core_client.chat_opened(&args[0]);
+        core_client.chat_opened(&args[0], args[0].chat_type());
     }
 }
 
@@ -144,7 +148,7 @@ impl Command for JoinChannel {
         } else {
             format!("#{}", &args[0])
         };
-        core_client.chat_opened(&target);
+        core_client.chat_opened(&target, target.chat_type());
     }
 }
 
@@ -171,7 +175,7 @@ impl Command for CloseChat {
         egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
-        core_client.chat_tab_closed(&chat.normalized_name);
+        core_client.chat_tab_closed(&chat.normalized_name, chat.normalized_name.chat_type());
     }
 }
 
@@ -198,7 +202,7 @@ impl Command for ClearChat {
         egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
-        core_client.chat_tab_cleared(&chat.normalized_name);
+        core_client.chat_tab_cleared(&chat.normalized_name, chat.normalized_name.chat_type());
     }
 }
 
@@ -252,7 +256,11 @@ impl Command for Shrug {
         egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
-        core_client.chat_message_sent(&chat.normalized_name, "¯\\_(ツ)_/¯");
+        core_client.chat_message_sent(
+            &chat.normalized_name,
+            chat.normalized_name.chat_type(),
+            "¯\\_(ツ)_/¯",
+        );
     }
 }
 
