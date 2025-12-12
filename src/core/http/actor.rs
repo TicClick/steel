@@ -1,7 +1,4 @@
-use rosu_v2::{
-    model::chat::{ChannelType, ChatChannel},
-    request::UserId,
-};
+use rosu_v2::model::chat::{ChannelType, ChatChannel};
 use std::sync::{Arc, Mutex};
 use steel_core::{
     chat::{ChatType, ConnectionStatus, MessageType},
@@ -100,10 +97,7 @@ impl HTTPActor {
     ) -> Option<(Arc<rosu_v2::Osu>, ChatChannel)> {
         let (api, channel) = {
             let state = self.state.lock().unwrap();
-            (
-                state.api.clone(),
-                state.cache.find_channel(channel_name).cloned(),
-            )
+            (state.api.clone(), state.cache.find_channel(channel_name))
         };
 
         let channel = match channel {
@@ -213,57 +207,45 @@ impl HTTPActor {
         _chat_type: ChatType,
         content: String,
     ) {
-        let cached_uid = {
-            let state = self.state.lock().unwrap();
-            state.cache.get_user_by_username(&destination)
-        };
-
         let Some(api) = self.get_api("send message") else {
             return;
         };
 
-        let state = self.state.clone();
+        let cache = {
+            let state = self.state.lock().unwrap();
+            Arc::clone(&state.cache)
+        };
+
         let tx = self.output.clone();
         let destination_for_error = destination.clone();
 
         self.runtime.block_on(async move {
-            let uid = match cached_uid {
-                Some(uid) => uid,
-                None => {
-                    match api
-                        .user(UserId::Name(format!("@{destination}").into()))
-                        .await
-                    {
-                        Ok(u) => {
-                            if let Ok(mut state_guard) = state.lock() {
-                                state_guard.cache.insert_user(u.clone().into());
-                            }
-                            u.user_id
-                        }
-                        Err(e) => {
-                            log::error!(
-                                "Failed to send a message to user {destination_for_error}: failed to look up in API: {e}"
-                            );
-                            tx.send(AppMessageIn::ui_show_error(
-                                Box::new(std::io::Error::other(format!(
-                                    "Cannot send message to user: lookup failed for {destination_for_error}"
-                                ))),
-                                false,
-                            ))
-                            .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
-                            return;
-                        }
-                    }
+            let uid = match cache.get_or_fetch_user_by_username(&destination).await {
+                Ok(uid) => uid,
+                Err(e) => {
+                    log::error!("Failed to send a message to user {destination_for_error}: {e}");
+                    tx.send(AppMessageIn::ui_show_error(
+                        Box::new(std::io::Error::other(format!(
+                            "Cannot send message to user: lookup failed for {destination_for_error}"
+                        ))),
+                        false,
+                    ))
+                    .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                    return;
                 }
             };
 
             let is_action = matches!(r#type, MessageType::Action);
-            let result = api.chat_create_private_channel(uid, content, is_action).await;
+            let result = api
+                .chat_create_private_channel(uid, content, is_action)
+                .await;
 
             if let Err(e) = result {
                 log::error!("Failed to send message: {e}");
                 tx.send(AppMessageIn::ui_show_error(
-                    Box::new(std::io::Error::other(format!("Failed to send message: {e}"))),
+                    Box::new(std::io::Error::other(format!(
+                        "Failed to send message: {e}"
+                    ))),
                     false,
                 ))
                 .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));

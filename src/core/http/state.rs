@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
 pub struct HTTPState {
-    pub cache: ChatCache,
+    pub cache: Arc<ChatCache>,
     pub own_username: Option<String>,
     pub own_user_id: Option<u32>,
     pub api: Option<Arc<rosu_v2::Osu>>,
@@ -16,7 +16,7 @@ pub struct HTTPState {
 impl HTTPState {
     pub fn new() -> Self {
         Self {
-            cache: ChatCache::new(),
+            cache: Arc::new(ChatCache::new()),
             own_username: None,
             own_user_id: None,
             api: None,
@@ -40,6 +40,7 @@ impl HTTPState {
     }
 
     pub fn set_api_client(&mut self, api: Arc<rosu_v2::Osu>) {
+        self.cache.set_api(api.clone());
         self.api = Some(api);
     }
 

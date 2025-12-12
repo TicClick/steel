@@ -145,7 +145,7 @@ async fn fetch_initial_data(
         Ok(channels) => {
             log::info!("Fetched {} existing channels", channels.len());
 
-            if let Ok(mut state_guard) = state.lock() {
+            if let Ok(state_guard) = state.lock() {
                 state_guard.cache.insert_channels(channels.clone());
             }
 
@@ -378,50 +378,31 @@ async fn handle_text_message<S>(
             if let Some(data) = evt.data {
                 match serde_json::from_value::<ChatMessageNewData>(data) {
                     Ok(chat_update) => {
-                        if let Ok(mut state_guard) = state.lock() {
+                        if let Ok(state_guard) = state.lock() {
                             state_guard.cache.insert_users(chat_update.users.clone());
                         }
 
                         for message in chat_update.messages {
-                            let (cached_name, api_for_fetch) = {
+                            let cache = {
                                 if let Ok(state_guard) = state.lock() {
-                                    let cached =
-                                        state_guard.cache.get_channel_name(message.channel_id);
-                                    let api = if cached.is_none() {
-                                        state_guard.api.clone()
-                                    } else {
-                                        None
-                                    };
-                                    (cached, api)
+                                    Some(Arc::clone(&state_guard.cache))
                                 } else {
-                                    (None, None)
+                                    None
                                 }
                             };
 
-                            let target = match cached_name {
-                                Some(name) => name,
-                                None => {
-                                    if let Some(api) = api_for_fetch {
-                                        match api.chat_channel(message.channel_id).await {
-                                            Ok(chat_info) => {
-                                                if let Ok(mut state_guard) = state.lock() {
-                                                    state_guard
-                                                        .cache
-                                                        .insert_channel(chat_info.channel.clone());
-                                                }
-                                                chat_info.channel.name
-                                            }
-                                            Err(e) => {
-                                                log::error!(
-                                                    "Failed to recall chat name by channel_id: {e}"
-                                                );
-                                                format!("#{}", message.channel_id)
-                                            }
-                                        }
-                                    } else {
+                            let target = if let Some(cache) = cache {
+                                match cache.get_or_fetch_channel(message.channel_id).await {
+                                    Ok(channel) => channel.name,
+                                    Err(e) => {
+                                        log::error!(
+                                            "Failed to recall chat name by channel_id: {e}"
+                                        );
                                         format!("#{}", message.channel_id)
                                     }
                                 }
+                            } else {
+                                format!("#{}", message.channel_id)
                             };
 
                             let username = chat_update
