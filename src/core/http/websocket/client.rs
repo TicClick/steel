@@ -230,6 +230,11 @@ async fn websocket_thread_main_impl(
         log::debug!("WS handshake request: {request:?}");
 
         let ws_config = WebSocketConfig::default();
+
+        // Avoid getting the authentication failed error from the websocket -- apparently it takes time for the token
+        // to get into the Redis cache used by osu-notification-server.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
         let (mut ws, resp) = connect_async_with_config(request, Some(ws_config), true)
             .await
             .unwrap();
