@@ -3,6 +3,8 @@ use crate::core::http::token_storage::PersistedTokenState;
 use chrono::{DateTime, Utc};
 use std::sync::Arc;
 
+pub const API_TOKEN_LIFETIME_SECS: i64 = 24 * 60 * 60;
+
 pub struct HTTPState {
     pub cache: Arc<ChatCache>,
     pub own_username: Option<String>,

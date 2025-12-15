@@ -12,6 +12,8 @@ use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message};
 
 use crate::core::chat_backend::ChatBackend;
+use crate::core::http::state::API_TOKEN_LIFETIME_SECS;
+use crate::core::http::token_storage::{save_token_state, PersistedTokenState};
 use crate::core::http::HTTPActorHandle;
 use crate::core::irc::IRCActorHandle;
 use crate::core::logging::{chat_log_path, ChatLoggerHandle};
@@ -19,7 +21,9 @@ use crate::core::os::open_in_file_explorer;
 use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{
-    server::{AppMessageIn, ChatEvent, HTTPEvent, SystemEvent, UICommand, UpdateEvent},
+    server::{
+        AppMessageIn, ChatEvent, HTTPEvent, OAuthTokens, SystemEvent, UICommand, UpdateEvent,
+    },
     ui::UIMessageIn,
 };
 use steel_core::settings::ChatBackend as ChatBackendEnum;
@@ -191,6 +195,17 @@ impl Application {
             }
             HTTPEvent::AuthSuccess => {
                 log::info!("HTTP authentication succeeded");
+            }
+            HTTPEvent::TokensReceived(tokens) => {
+                log::info!("OAuth tokens received via local listener");
+                self.handle_oauth_tokens_received(tokens);
+            }
+            HTTPEvent::TokenError(error) => {
+                log::error!("OAuth token error: {}", error);
+                self.ui_push_backend_error(
+                    Box::new(std::io::Error::other(format!("OAuth error: {}", error))),
+                    false,
+                );
             }
         }
     }
@@ -660,5 +675,28 @@ impl Application {
 
     pub fn leave_channel(&self, channel: &str) {
         self.get_backend().leave_channel(channel);
+    }
+
+    fn handle_oauth_tokens_received(&mut self, tokens: OAuthTokens) {
+        let token_state = PersistedTokenState::new(
+            tokens.access_token,
+            Some(tokens.refresh_token),
+            API_TOKEN_LIFETIME_SECS,
+        );
+
+        if let Err(e) = save_token_state(&token_state) {
+            log::error!("Failed to save received OAuth tokens: {}", e);
+            self.ui_push_backend_error(
+                Box::new(std::io::Error::other(format!(
+                    "Failed to save tokens: {}",
+                    e
+                ))),
+                false,
+            );
+            return;
+        }
+
+        log::info!("OAuth tokens saved successfully, attempting to connect");
+        self.connect();
     }
 }

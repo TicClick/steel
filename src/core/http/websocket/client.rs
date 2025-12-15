@@ -20,7 +20,7 @@ use ureq::http::HeaderValue;
 use crate::core::{
     error::{SteelApplicationError, SteelApplicationResult},
     http::{
-        state::HTTPState,
+        state::{HTTPState, API_TOKEN_LIFETIME_SECS},
         token_storage::{self, PersistedTokenState},
         websocket::{ChatMessageNewData, EventType, GeneralWebsocketEvent},
         APISettings,
@@ -33,7 +33,6 @@ pub struct WebsocketResult {
 
 async fn try_build_with_stored_token(
     settings: &APISettings,
-    _default_chat_scopes: Scopes,
 ) -> Option<(Arc<rosu_v2::Osu>, PersistedTokenState)> {
     match token_storage::load_token_state() {
         Ok(token_state) => {
@@ -99,7 +98,6 @@ async fn build_with_fresh_oauth(
             .await?,
     );
 
-    let token_lifetime_secs = 24 * 60 * 60;
     let access_token = api
         .token()
         .access()
@@ -108,7 +106,8 @@ async fn build_with_fresh_oauth(
 
     let refresh_token = api.token().refresh().map(|s| s.to_string());
 
-    let token_state = PersistedTokenState::new(access_token, refresh_token, token_lifetime_secs);
+    let token_state =
+        PersistedTokenState::new(access_token, refresh_token, API_TOKEN_LIFETIME_SECS);
 
     if let Err(e) = token_storage::save_token_state(&token_state) {
         log::error!("Failed to save token state: {e}");
@@ -177,23 +176,19 @@ pub async fn websocket_thread_main_with_auth_check(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
     state: Arc<Mutex<HTTPState>>,
+    oauth_scopes: Scopes,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
-    websocket_thread_main_impl(tx, settings, state).await
+    websocket_thread_main_impl(tx, settings, state, oauth_scopes).await
 }
 
 async fn websocket_thread_main_impl(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
     state: Arc<Mutex<HTTPState>>,
+    oauth_scopes: Scopes,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
-    let default_chat_scopes = Scopes::Public
-        | Scopes::Identify
-        | Scopes::ChatRead
-        | Scopes::ChatWrite
-        | Scopes::ChatWriteManage;
-
     let (api, token_state) = {
-        if let Some(result) = try_build_with_stored_token(&settings, default_chat_scopes).await {
+        if let Some(result) = try_build_with_stored_token(&settings).await {
             log::info!("Using stored authentication token");
             result
         } else {
@@ -201,7 +196,7 @@ async fn websocket_thread_main_impl(
             tx.send(AppMessageIn::http_auth_required())
                 .unwrap_or_else(|e| log::error!("Failed to send auth required: {e}"));
 
-            match build_with_fresh_oauth(&settings, default_chat_scopes).await {
+            match build_with_fresh_oauth(&settings, oauth_scopes).await {
                 Ok(result) => {
                     tx.send(AppMessageIn::http_auth_success())
                         .unwrap_or_else(|e| log::error!("Failed to send auth success: {e}"));

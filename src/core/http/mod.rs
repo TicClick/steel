@@ -8,6 +8,8 @@ use crate::core::chat_backend::ChatBackend;
 
 pub mod actor;
 pub mod api;
+pub mod oauth_flow;
+pub mod oauth_listener;
 pub mod state;
 pub mod token_storage;
 pub mod websocket;

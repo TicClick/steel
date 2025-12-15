@@ -1,6 +1,6 @@
 use eframe::egui;
 use std::collections::BTreeSet;
-use steel_core::settings::chat::ChatPosition;
+use steel_core::settings::chat::{ChatPosition, OAuthMode};
 
 use super::SettingsWindow;
 use crate::gui::state::UIState;
@@ -207,48 +207,97 @@ impl SettingsWindow {
                 }
                 ChatBackend::API => {
                     ui.vertical(|ui| {
-                        let total_width = ui
-                            .horizontal(|ui| {
-                                let mut sz = ui.label("client ID").rect.width();
-                                sz += ui
-                                    .add(egui::TextEdit::singleline(&mut state.settings.chat.api.client_id))
-                                    .on_hover_text_at_pointer("osu! API application client ID")
-                                    .rect
-                                    .width();
-                                sz
-                            })
-                            .inner;
-
                         ui.horizontal(|ui| {
-                            let label_width = ui
-                                .hyperlink_to(
-                                    "client secret",
-                                    "https://osu.ppy.sh/home/account/edit#new-oauth-application",
-                                )
-                                .rect
-                                .width();
-                            let input =
-                                egui::TextEdit::singleline(&mut state.settings.chat.api.client_secret)
-                                    .password(!self.visible_password)
-                                    .desired_width(total_width - label_width - 26.);
-                            ui.add(input).on_hover_text_at_pointer(
-                                "if you don't have an OAuth application, click the link on the left",
-                            );
-                            if ui
-                                .button("👁")
-                                .on_hover_text_at_pointer("show/hide secret")
-                                .clicked()
-                            {
-                                self.visible_password = !self.visible_password;
-                            }
+                            ui.label("authentication mode");
+                            egui::ComboBox::from_id_salt("oauth-mode")
+                                .selected_text(state.settings.chat.api.oauth_mode.to_string())
+                                .show_ui(ui, |ui| {
+                                    ui.selectable_value(
+                                        &mut state.settings.chat.api.oauth_mode,
+                                        OAuthMode::Default,
+                                        OAuthMode::Default.to_string(),
+                                    ).on_hover_text_at_pointer(
+                                        "Use the default jump server to authenticate.\n\
+                                        Simpler setup, no need to create your own OAuth application."
+                                    );
+                                    ui.selectable_value(
+                                        &mut state.settings.chat.api.oauth_mode,
+                                        OAuthMode::SelfHosted,
+                                        OAuthMode::SelfHosted.to_string(),
+                                    ).on_hover_text_at_pointer(
+                                        "Use your own OAuth application.\n\
+                                        Requires creating an app at osu.ppy.sh."
+                                    );
+                                });
                         });
 
+                        match state.settings.chat.api.oauth_mode {
+                            OAuthMode::Default => {
+                                ui.horizontal(|ui| {
+                                    ui.label("jump server URL");
+                                    let input =
+                                        egui::TextEdit::singleline(&mut state.settings.chat.api.jump_server_url);
+                                    ui.add(input).on_hover_text_at_pointer(
+                                        "URL of the OAuth jump server that will redirect you to osu! for authentication"
+                                    );
+                                });
+                            }
+                            OAuthMode::SelfHosted => {
+                                let total_width = ui
+                                    .horizontal(|ui| {
+                                        let mut sz = ui.label("client ID").rect.width();
+                                        sz += ui
+                                            .add(egui::TextEdit::singleline(&mut state.settings.chat.api.client_id))
+                                            .on_hover_text_at_pointer("osu! API application client ID")
+                                            .rect
+                                            .width();
+                                        sz
+                                    })
+                                    .inner;
+
+                                ui.horizontal(|ui| {
+                                    let label_width = ui
+                                        .hyperlink_to(
+                                            "client secret",
+                                            "https://osu.ppy.sh/home/account/edit#new-oauth-application",
+                                        )
+                                        .rect
+                                        .width();
+                                    let input =
+                                        egui::TextEdit::singleline(&mut state.settings.chat.api.client_secret)
+                                            .password(!self.visible_password)
+                                            .desired_width(total_width - label_width - 26.);
+                                    ui.add(input).on_hover_text_at_pointer(
+                                        "if you don't have an OAuth application, click the link on the left",
+                                    );
+                                    if ui
+                                        .button("👁")
+                                        .on_hover_text_at_pointer("show/hide secret")
+                                        .clicked()
+                                    {
+                                        self.visible_password = !self.visible_password;
+                                    }
+                                });
+
+                                ui.horizontal(|ui| {
+                                    ui.label("redirect URI");
+                                    let input =
+                                        egui::TextEdit::singleline(&mut state.settings.chat.api.redirect_uri);
+                                    ui.add(input).on_hover_text_at_pointer(
+                                        "OAuth redirect URI (must match application settings)"
+                                    );
+                                });
+                            }
+                        }
+
                         ui.horizontal(|ui| {
-                            ui.label("redirect URI");
-                            let input =
-                                egui::TextEdit::singleline(&mut state.settings.chat.api.redirect_uri);
-                            ui.add(input).on_hover_text_at_pointer(
-                                "OAuth redirect URI (must match application settings)"
+                            ui.label("local port");
+                            ui.add(
+                                egui::DragValue::new(&mut state.settings.chat.api.local_port)
+                                    .range(1024..=65535)
+                            ).on_hover_text_at_pointer(
+                                "Local port to listen for OAuth callback.\n\
+                                The OAuth server will redirect back to this port."
                             );
                         });
 

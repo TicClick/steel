@@ -21,6 +21,10 @@ impl CoreClient {
         Self { server }
     }
 
+    pub fn app_queue_handle(&self) -> &UnboundedSender<AppMessageIn> {
+        &self.server
+    }
+
     fn try_send(&self, message: AppMessageIn) -> IpcResult<()> {
         self.server
             .send(message)

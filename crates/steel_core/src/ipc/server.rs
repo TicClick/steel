@@ -59,10 +59,18 @@ pub enum ChatEvent {
     OwnUsernameDetected(String),
 }
 
+#[derive(Debug, Clone)]
+pub struct OAuthTokens {
+    pub access_token: String,
+    pub refresh_token: String,
+}
+
 #[derive(Debug)]
 pub enum HTTPEvent {
     AuthRequired,
     AuthSuccess,
+    TokensReceived(OAuthTokens),
+    TokenError(String),
 }
 
 #[derive(Debug)]
@@ -154,6 +162,14 @@ impl AppMessageIn {
 
     pub fn http_auth_success() -> Self {
         Self::HTTP(HTTPEvent::AuthSuccess)
+    }
+
+    pub fn http_tokens_received(tokens: OAuthTokens) -> Self {
+        Self::HTTP(HTTPEvent::TokensReceived(tokens))
+    }
+
+    pub fn http_token_error(error: String) -> Self {
+        Self::HTTP(HTTPEvent::TokenError(error))
     }
 
     // Update events
