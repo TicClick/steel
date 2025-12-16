@@ -79,9 +79,15 @@ fn handle_client(
         ));
     }
 
-    match config.mode {
-        OAuthMode::Default => handle_default_mode_callback(&mut stream, &params),
-        OAuthMode::SelfHosted => handle_self_hosted_callback(&mut stream, &params, config),
+    if params.contains_key("access_token") {
+        handle_default_mode_callback(&mut stream, &params)
+    } else if params.contains_key("code") {
+        handle_self_hosted_callback(&mut stream, &params, config)
+    } else {
+        send_error_response(&mut stream, "No valid OAuth parameters found");
+        Err(OAuthListenerError::MissingParameter(
+            "access_token or code".into(),
+        ))
     }
 }
 
