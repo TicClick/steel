@@ -1,7 +1,7 @@
 use futures::{SinkExt, StreamExt};
 use rosu_v2::{
     model::chat::{ChannelMessageType, ChannelType},
-    prelude::{Scopes, Token},
+    prelude::Token,
 };
 
 use std::sync::{Arc, Mutex};
@@ -20,7 +20,7 @@ use ureq::http::HeaderValue;
 use crate::core::{
     error::{SteelApplicationError, SteelApplicationResult},
     http::{
-        state::{HTTPState, API_TOKEN_LIFETIME_SECS},
+        state::HTTPState,
         token_storage::{self, PersistedTokenState},
         websocket::{ChatMessageNewData, EventType, GeneralWebsocketEvent},
         APISettings,
@@ -83,39 +83,6 @@ async fn try_build_with_stored_token(
     None
 }
 
-async fn build_with_fresh_oauth(
-    settings: &APISettings,
-    default_chat_scopes: Scopes,
-) -> Result<(Arc<rosu_v2::Osu>, PersistedTokenState), Box<dyn std::error::Error>> {
-    log::info!("Starting fresh OAuth flow");
-
-    let api = Arc::new(
-        rosu_v2::OsuBuilder::new()
-            .with_local_authorization(settings.redirect_uri.clone(), default_chat_scopes)
-            .client_id(settings.client_id)
-            .client_secret(settings.client_secret.clone())
-            .build()
-            .await?,
-    );
-
-    let access_token = api
-        .token()
-        .access()
-        .ok_or("No access token available")?
-        .to_string();
-
-    let refresh_token = api.token().refresh().map(|s| s.to_string());
-
-    let token_state =
-        PersistedTokenState::new(access_token, refresh_token, API_TOKEN_LIFETIME_SECS);
-
-    if let Err(e) = token_storage::save_token_state(&token_state) {
-        log::error!("Failed to save token state: {e}");
-    }
-
-    Ok((api, token_state))
-}
-
 async fn fetch_initial_data(
     api: &rosu_v2::Osu,
     tx: &UnboundedSender<AppMessageIn>,
@@ -176,16 +143,14 @@ pub async fn websocket_thread_main_with_auth_check(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
     state: Arc<Mutex<HTTPState>>,
-    oauth_scopes: Scopes,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
-    websocket_thread_main_impl(tx, settings, state, oauth_scopes).await
+    websocket_thread_main_impl(tx, settings, state).await
 }
 
 async fn websocket_thread_main_impl(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
     state: Arc<Mutex<HTTPState>>,
-    oauth_scopes: Scopes,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
     let (api, token_state) = {
         if let Some(result) = try_build_with_stored_token(&settings).await {
@@ -193,20 +158,7 @@ async fn websocket_thread_main_impl(
             result
         } else {
             log::info!("No valid stored token, requesting user authentication");
-            tx.send(AppMessageIn::http_auth_required())
-                .unwrap_or_else(|e| log::error!("Failed to send auth required: {e}"));
-
-            match build_with_fresh_oauth(&settings, oauth_scopes).await {
-                Ok(result) => {
-                    tx.send(AppMessageIn::http_auth_success())
-                        .unwrap_or_else(|e| log::error!("Failed to send auth success: {e}"));
-                    result
-                }
-                Err(e) => {
-                    log::error!("OAuth authentication failed: {e}");
-                    return Err(SteelApplicationError::InvalidOAuth);
-                }
-            }
+            return Err(SteelApplicationError::InvalidOAuth);
         }
     };
 

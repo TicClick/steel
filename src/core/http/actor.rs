@@ -12,8 +12,8 @@ use tokio::{
 use crate::{
     actor::Actor,
     core::http::{
-        api::osu_api_default_scopes, state::HTTPState,
-        websocket::client::websocket_thread_main_with_auth_check, APISettings, HTTPMessageIn,
+        state::HTTPState, websocket::client::websocket_thread_main_with_auth_check, APISettings,
+        HTTPMessageIn,
     },
 };
 
@@ -159,7 +159,6 @@ impl HTTPActor {
                     tx.clone(),
                     settings,
                     state,
-                    osu_api_default_scopes(),
                 ))
         });
     }
