@@ -164,7 +164,10 @@ fn irc_thread_main(
             ))))
             .unwrap_or_else(|e| log::error!("Failed to send chat error: {e}"));
             tx.send(AppMessageIn::connection_changed(
-                ConnectionStatus::Disconnected { by_user: false },
+                ConnectionStatus::Disconnected {
+                    by_user: false,
+                    auth_failed: false,
+                },
             ))
             .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
         }
@@ -216,6 +219,7 @@ fn irc_thread_main(
             tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Disconnected {
                     by_user: disconnected_by_user,
+                    auth_failed: false,
                 },
             ))
             .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));

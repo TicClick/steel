@@ -4,20 +4,31 @@ use steel_core::{
     settings::{chat::ChatPosition, ChatBackend},
 };
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::Instant};
 
 use crate::gui::{chat::chat_view::ChatView, state::UIState};
-use crate::{core::http::oauth_flow::OAuthFlowManager, gui::chat::login_screen::LoginScreen};
+use crate::{
+    core::http::{oauth_flow::OAuthFlowManager, token_storage::PersistedTokenState},
+    gui::chat::login_screen::LoginScreen,
+};
 
-#[derive(Default)]
 pub struct ChatViewController {
     views: HashMap<String, ChatView>,
     oauth_flow: OAuthFlowManager,
+    cached_token_state: Option<PersistedTokenState>,
+    last_token_check: Instant,
 }
 
 impl ChatViewController {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn ensure_token_state_loaded(&mut self) {
+        if self.cached_token_state.is_none() || self.last_token_check.elapsed().as_secs() > 2 {
+            self.cached_token_state = crate::core::http::token_storage::load_token_state().ok();
+            self.last_token_check = Instant::now();
+        }
     }
 
     pub fn scroll_chat_to(&mut self, state: &UIState, lowercase_name: &str, message_id: usize) {
@@ -68,14 +79,25 @@ impl ChatViewController {
                 egui::CentralPanel::default().show(ctx, |ui| {
                     if matches!(state.settings.chat.backend, ChatBackend::API) {
                         match state.connection {
-                            ConnectionStatus::Disconnected { .. } => {
-                                LoginScreen::new(state, &self.oauth_flow).ui(ui);
+                            ConnectionStatus::Disconnected { auth_failed, .. } => {
+                                if auth_failed {
+                                    self.cached_token_state = None;
+                                }
+                                self.ensure_token_state_loaded();
+                                LoginScreen::new(
+                                    state,
+                                    &self.oauth_flow,
+                                    self.cached_token_state.as_ref(),
+                                )
+                                .ui(ui);
                             }
                             ConnectionStatus::Scheduled(when) => {
                                 let now = chrono::Local::now();
                                 let progress_pct = (when - now).as_seconds_f32();
                                 ui.horizontal(|ui| {
-                                    ui.label(format!("Waiting {progress_pct:.1} s before reconnecting..."));
+                                    ui.label(format!(
+                                        "Waiting {progress_pct:.1} s before reconnecting..."
+                                    ));
                                     ui.add(egui::Spinner::new());
                                 });
                             }
@@ -100,5 +122,16 @@ impl ChatViewController {
 
     pub fn remove(&mut self, name: &str) {
         self.views.remove(&name.to_lowercase());
+    }
+}
+
+impl Default for ChatViewController {
+    fn default() -> Self {
+        Self {
+            views: HashMap::new(),
+            oauth_flow: OAuthFlowManager::new(),
+            cached_token_state: None,
+            last_token_check: Instant::now(),
+        }
     }
 }

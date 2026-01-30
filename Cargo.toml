@@ -39,6 +39,7 @@ tar = "0.4.44"
 zip = "4.3.0"
 md5 = "0.8.0"
 png = "0.17.16"
+parking_lot = "0.12"
 winresource = "0.1.23"
 winit-test = "0.2.0"
 
@@ -83,6 +84,7 @@ md5 = { workspace = true }
 
 rodio = { workspace = true }
 png = { workspace = true }
+parking_lot = { workspace = true }
 
 winresource = { workspace = true }
 serde_json = { workspace = true }
@@ -92,6 +94,7 @@ rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2.git", rev = "8a0cfe6fd649e6
 tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 url = "2.5"
 html-escape = "0.2.13"
+base64 = "0.22"
 
 [features]
 default = []

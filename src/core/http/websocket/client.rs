@@ -4,7 +4,7 @@ use rosu_v2::{
     prelude::Token,
 };
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use steel_core::{
     chat::{ChatType, ConnectionStatus, MessageType},
     ipc::server::AppMessageIn,
@@ -20,7 +20,7 @@ use ureq::http::HeaderValue;
 use crate::core::{
     error::{SteelApplicationError, SteelApplicationResult},
     http::{
-        state::HTTPState,
+        api::Client,
         token_storage::{self, PersistedTokenState},
         websocket::{ChatMessageNewData, EventType, GeneralWebsocketEvent},
         APISettings,
@@ -31,6 +31,44 @@ pub struct WebsocketResult {
     pub api: Option<Arc<rosu_v2::Osu>>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
+struct JwtClaims {
+    #[serde(default)]
+    #[allow(dead_code)]
+    aud: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    jti: String,
+    iat: f64,
+    nbf: f64,
+    exp: f64,
+    #[serde(default)]
+    #[allow(dead_code)]
+    sub: String,
+    #[serde(default)]
+    #[allow(dead_code)]
+    scopes: Vec<String>,
+}
+
+fn parse_jwt_token(token: &str) -> Option<JwtClaims> {
+    let payload_base64 = token.split('.').nth(1)?;
+
+    let payload_bytes = base64::Engine::decode(
+        &base64::engine::general_purpose::URL_SAFE_NO_PAD,
+        payload_base64,
+    )
+    .map_err(|e| log::warn!("Failed to decode JWT payload: {e}"))
+    .ok()?;
+
+    let payload_str = std::str::from_utf8(&payload_bytes)
+        .map_err(|e| log::warn!("Failed to parse JWT payload as UTF-8: {e}"))
+        .ok()?;
+
+    serde_json::from_str(payload_str)
+        .map_err(|e| log::warn!("Failed to parse JWT claims: {e}"))
+        .ok()
+}
+
 async fn try_build_with_stored_token(
     settings: &APISettings,
 ) -> Option<(Arc<rosu_v2::Osu>, PersistedTokenState)> {
@@ -39,33 +77,34 @@ async fn try_build_with_stored_token(
             if token_state.has_valid_token() {
                 log::info!("Found valid stored token, attempting to use it");
 
-                let access_token = token_state
-                    .access_token
-                    .strip_prefix("Bearer ")
-                    .unwrap_or(&token_state.access_token);
-
                 let refresh_token = token_state
                     .refresh_token
                     .clone()
                     .map(|s| s.into_boxed_str());
 
-                let token = Token::new(access_token, refresh_token);
-                let now = chrono::Utc::now();
-                let expires_in = token_state
-                    .access_expires_at
-                    .signed_duration_since(now)
-                    .num_seconds();
+                let token = Token::new(&token_state.access_token, refresh_token);
+                let expires_in = if token_state.is_access_token_valid() {
+                    let now = chrono::Utc::now();
+                    Some(
+                        token_state
+                            .access_expires_at
+                            .signed_duration_since(now)
+                            .num_seconds(),
+                    )
+                } else {
+                    None
+                };
 
                 match rosu_v2::OsuBuilder::new()
                     .client_id(settings.client_id)
                     .client_secret(settings.client_secret.clone())
-                    .with_token(token, Some(expires_in))
+                    .with_token(token, expires_in)
                     .build()
                     .await
                 {
                     Ok(api) => {
                         log::info!("Successfully built API client with stored token");
-                        return Some((Arc::new(api), token_state));
+                        return Some((Arc::new(api), token_state.clone()));
                     }
                     Err(e) => {
                         log::error!("Failed to build API client with stored token: {e}");
@@ -83,10 +122,126 @@ async fn try_build_with_stored_token(
     None
 }
 
+async fn connect_with_config(
+    request: tokio_tungstenite::tungstenite::http::Request<()>,
+    ws_config: WebSocketConfig,
+) -> Result<
+    (
+        WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+        tokio_tungstenite::tungstenite::http::Response<Option<Vec<u8>>>,
+    ),
+    tokio_tungstenite::tungstenite::Error,
+> {
+    connect_async_with_config(request, Some(ws_config), true).await
+}
+
+async fn try_connect_websocket(
+    settings: &APISettings,
+    token: &str,
+    jwt_claims: &JwtClaims,
+) -> Result<
+    (
+        WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+        tokio_tungstenite::tungstenite::http::Response<Option<Vec<u8>>>,
+    ),
+    SteelApplicationError,
+> {
+    let now = chrono::Utc::now().timestamp() as f64;
+    if now < jwt_claims.nbf {
+        let wait_duration = jwt_claims.nbf - now;
+        log::info!(
+            "Token not yet valid, waiting {:.2} seconds until nbf",
+            wait_duration
+        );
+        tokio::time::sleep(std::time::Duration::from_secs_f64(wait_duration)).await;
+    }
+
+    let base_request = settings.ws_base_uri.clone().into_client_request().unwrap();
+    let token_header = HeaderValue::from_str(token).unwrap();
+
+    log::debug!("WS handshake request base: {base_request:?}");
+
+    let ws_config = WebSocketConfig::default();
+
+    let token_fresh_until = jwt_claims.iat + 2.0;
+    let is_token_fresh = now < token_fresh_until;
+
+    const MAX_FRESH_TOKEN_RETRIES: u32 = 4;
+    const RETRY_DELAY_MS: u64 = 150;
+
+    let num_attempts = if is_token_fresh {
+        log::info!(
+            "Token is fresh (issued {:.2}s ago), will retry on auth errors up to {} times",
+            now - jwt_claims.iat,
+            MAX_FRESH_TOKEN_RETRIES
+        );
+        MAX_FRESH_TOKEN_RETRIES
+    } else {
+        log::info!(
+            "Token is not fresh (issued {:.2}s ago), single connection attempt",
+            now - jwt_claims.iat
+        );
+        1
+    };
+
+    for attempt in 1..=num_attempts {
+        let now_attempt = chrono::Utc::now().timestamp() as f64;
+        if is_token_fresh && now_attempt >= token_fresh_until {
+            log::warn!("Token is no longer fresh, stopping retries");
+            break;
+        }
+
+        let mut request = base_request.clone();
+        request
+            .headers_mut()
+            .insert("Authorization", token_header.clone());
+
+        log::debug!("WebSocket connection attempt {}/{}", attempt, num_attempts);
+
+        match connect_with_config(request, ws_config).await {
+            Ok((ws, resp)) => {
+                log::info!("WebSocket connected successfully on attempt {}", attempt);
+                return Ok((ws, resp));
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+                log::warn!(
+                    "WebSocket connection attempt {} failed: {}",
+                    attempt,
+                    error_msg
+                );
+
+                let is_auth_error = error_msg.contains("authentication failed")
+                    || error_msg.contains("Connection reset");
+
+                if is_auth_error {
+                    if attempt < num_attempts {
+                        log::info!("Auth error detected, retrying in {}ms...", RETRY_DELAY_MS);
+                        tokio::time::sleep(std::time::Duration::from_millis(RETRY_DELAY_MS)).await;
+                        continue;
+                    } else {
+                        log::error!("All retry attempts exhausted for token");
+                        if !is_token_fresh {
+                            log::error!("Authentication failed with old token - need to re-login");
+                        }
+                        return Err(SteelApplicationError::InvalidOAuth);
+                    }
+                } else {
+                    log::error!("Non-auth error during connection: {}", error_msg);
+                    return Err(SteelApplicationError::InvalidOAuth);
+                }
+            }
+        }
+    }
+
+    log::error!("Failed to connect after {} attempts", num_attempts);
+    Err(SteelApplicationError::InvalidOAuth)
+}
+
 async fn fetch_initial_data(
     api: &rosu_v2::Osu,
     tx: &UnboundedSender<AppMessageIn>,
-    state: &Arc<Mutex<HTTPState>>,
+    client: &Client,
 ) -> (Option<String>, Option<u32>) {
     let mut own_username = None;
     let mut own_user_id = None;
@@ -110,9 +265,8 @@ async fn fetch_initial_data(
     match api.chat_channels().await {
         Ok(channels) => {
             log::info!("Fetched {} existing channels", channels.len());
-
-            if let Ok(state_guard) = state.lock() {
-                state_guard.cache.insert_channels(channels.clone());
+            for channel in channels.iter() {
+                client.insert_channel(channel);
             }
 
             for channel in channels {
@@ -142,16 +296,26 @@ async fn fetch_initial_data(
 pub async fn websocket_thread_main_with_auth_check(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
-    state: Arc<Mutex<HTTPState>>,
+    client: Client,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
-    websocket_thread_main_impl(tx, settings, state).await
+    websocket_thread_main_impl(tx, settings, client).await
 }
 
 async fn websocket_thread_main_impl(
     tx: UnboundedSender<AppMessageIn>,
     settings: APISettings,
-    state: Arc<Mutex<HTTPState>>,
+    client: Client,
 ) -> SteelApplicationResult<Arc<rosu_v2::Osu>> {
+    let send_disconnect = |tx: &UnboundedSender<AppMessageIn>, by_user: bool, auth_failed: bool| {
+        tx.send(AppMessageIn::connection_changed(
+            ConnectionStatus::Disconnected {
+                by_user,
+                auth_failed,
+            },
+        ))
+        .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
+    };
+
     let (api, token_state) = {
         if let Some(result) = try_build_with_stored_token(&settings).await {
             log::info!("Using stored authentication token");
@@ -162,53 +326,59 @@ async fn websocket_thread_main_impl(
         }
     };
 
-    if let Ok(mut state_guard) = state.lock() {
-        state_guard.set_token_expiry(&token_state);
-        state_guard.set_api_client(api.clone());
+    if let Some(new_access_token) = api.token().access() {
+        if token_state.access_token != new_access_token {
+            log::info!("Access token has changed (refreshed), saving new state");
+            token_storage::create_and_save_new_state(new_access_token, api.token().refresh())
+                .unwrap_or(token_state);
+        }
+    } else {
+        log::warn!("API client does not have an access token after initialization");
+        return Err(SteelApplicationError::InvalidOAuth);
     }
 
     let token = api.token();
     if let Some(token) = token.access() {
-        let mut request = settings.ws_base_uri.into_client_request().unwrap();
+        let jwt_claims = match parse_jwt_token(token) {
+            Some(claims) => {
+                log::debug!(
+                    "JWT token parsed successfully: iat={}, nbf={}, exp={}",
+                    claims.iat,
+                    claims.nbf,
+                    claims.exp
+                );
+                claims
+            }
+            None => {
+                log::error!("Failed to parse JWT token, cannot proceed with connection");
+                return Err(SteelApplicationError::InvalidOAuth);
+            }
+        };
 
-        let token_header = HeaderValue::from_str(token).unwrap();
-        request.headers_mut().insert("Authorization", token_header);
+        let (mut ws, resp) = match try_connect_websocket(&settings, token, &jwt_claims).await {
+            Ok(result) => result,
+            Err(e) => {
+                log::error!("Failed to connect to WebSocket: {:?}", e);
+                if let Err(clear_err) = token_storage::clear_token_state() {
+                    log::error!("Failed to clear token state: {clear_err}");
+                }
 
-        log::debug!("WS handshake request: {request:?}");
-
-        let ws_config = WebSocketConfig::default();
-
-        // Avoid getting the authentication failed error from the websocket -- apparently it takes time for the token
-        // to get into the Redis cache used by osu-notification-server.
-        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-
-        let (mut ws, resp) = connect_async_with_config(request, Some(ws_config), true)
-            .await
-            .unwrap();
+                send_disconnect(&tx, false, true);
+                return Err(e);
+            }
+        };
 
         log::debug!("WS: Connected with: {resp:?}");
 
         let mut shutdown_interval = tokio::time::interval(std::time::Duration::from_millis(100));
 
         loop {
-            let shutdown_requested = state
-                .lock()
-                .map(|s| s.is_shutdown_requested())
-                .unwrap_or(false);
-
-            if shutdown_requested {
+            if client.is_shutdown_requested() {
                 log::info!("WS: Shutdown requested, closing connection gracefully");
                 if let Err(e) = ws.send(Message::Close(None)).await {
                     log::error!("Failed to send close frame: {e}");
                 }
-                tx.send(AppMessageIn::connection_changed(
-                    ConnectionStatus::Disconnected { by_user: true },
-                ))
-                .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
-
-                if let Ok(mut state_guard) = state.lock() {
-                    state_guard.clear();
-                }
+                send_disconnect(&tx, true, false);
                 break;
             }
 
@@ -220,10 +390,7 @@ async fn websocket_thread_main_impl(
                 msg_result = ws.next() => {
                     let Some(msg) = msg_result else {
                         log::info!("WS: Stream ended");
-                        tx.send(AppMessageIn::connection_changed(
-                            ConnectionStatus::Disconnected { by_user: false },
-                        ))
-                        .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
+                        send_disconnect(&tx, false, false);
                         break;
                     };
 
@@ -234,24 +401,31 @@ async fn websocket_thread_main_impl(
 
                     match msg {
                         Err(e) => {
-                            log::error!("WS: received error from the server, leaving: {e}");
-                            tx.send(AppMessageIn::connection_changed(
-                                ConnectionStatus::Disconnected { by_user: false },
-                            ))
-                            .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
+                            let error_msg = e.to_string();
+                            log::error!("WS: received error from the server, leaving: {error_msg}");
+
+                            let is_auth_error = error_msg.contains("authentication failed")
+                                || error_msg.contains("Connection reset");
+
+                            if is_auth_error {
+                                log::warn!("Authentication error detected - clearing invalid token");
+                                if let Err(clear_err) = token_storage::clear_token_state() {
+                                    log::error!("Failed to clear token state: {clear_err}");
+                                }
+                            }
+
+                            send_disconnect(&tx, false, is_auth_error);
                             break;
                         }
 
                         Ok(msg) => match msg {
                             Message::Text(t) => {
-                                let is_ready = handle_text_message(t, &tx, &mut ws, &state).await;
+                                let is_ready = handle_text_message(t, &tx, &mut ws, &client).await;
                                 if is_ready {
-                                    let (username, user_id) = fetch_initial_data(&api, &tx, &state).await;
+                                    let (username, user_id) = fetch_initial_data(&api, &tx, &client).await;
 
                                     if let (Some(ref username), Some(user_id)) = (username, user_id) {
-                                        if let Ok(mut state_guard) = state.lock() {
-                                            state_guard.set_own_user(username.clone(), user_id);
-                                        }
+                                        client.set_own_user(username.clone(), user_id);
                                     }
 
                                     // Only send this after fetching information about oneself to avoid cache misses
@@ -262,7 +436,7 @@ async fn websocket_thread_main_impl(
                                         .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
 
                                     if let Err(e) = api.chat_keepalive().await {
-                                        log::error!("Failed to send keepalive: {e}")
+                                        log::error!("Failed to send initial keepalive: {e}")
                                     }
 
                                     let chat_start = serde_json::to_string(&GeneralWebsocketEvent::new(
@@ -279,7 +453,7 @@ async fn websocket_thread_main_impl(
 
                             Message::Ping(_) => {
                                 if let Err(e) = api.chat_keepalive().await {
-                                    log::error!("Failed to send keepalive: {e}")
+                                    log::error!("Failed to send keepalive in response to ping: {e}")
                                 }
                             }
 
@@ -287,10 +461,7 @@ async fn websocket_thread_main_impl(
 
                             Message::Close(frame) => {
                                 log::info!("WS: Server closed connection: {frame:?}");
-                                tx.send(AppMessageIn::connection_changed(
-                                    ConnectionStatus::Disconnected { by_user: false },
-                                ))
-                                .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
+                                send_disconnect(&tx, false, false);
                                 break;
                             }
 
@@ -309,7 +480,7 @@ async fn handle_text_message<S>(
     t: Utf8Bytes,
     tx: &UnboundedSender<AppMessageIn>,
     _ws: &mut WebSocketStream<S>,
-    state: &Arc<Mutex<HTTPState>>,
+    client: &Client,
 ) -> bool {
     log::debug!("WS message arrived: {}", t.as_str());
     let evt: GeneralWebsocketEvent = match serde_json::from_str(t.as_str()) {
@@ -337,39 +508,30 @@ async fn handle_text_message<S>(
             if let Some(data) = evt.data {
                 match serde_json::from_value::<ChatMessageNewData>(data) {
                     Ok(chat_update) => {
-                        if let Ok(state_guard) = state.lock() {
-                            state_guard.cache.insert_users(chat_update.users.clone());
+                        for user in chat_update.users.iter() {
+                            client.insert_user(user);
                         }
 
                         for message in chat_update.messages {
-                            let cache = {
-                                if let Ok(state_guard) = state.lock() {
-                                    Some(Arc::clone(&state_guard.cache))
-                                } else {
-                                    None
-                                }
-                            };
-
-                            let target = if let Some(cache) = cache {
-                                match cache.get_or_fetch_channel(message.channel_id).await {
-                                    Ok(channel) => channel.name,
-                                    Err(e) => {
-                                        log::error!(
-                                            "Failed to recall chat name by channel_id: {e}"
-                                        );
-                                        format!("#{}", message.channel_id)
-                                    }
-                                }
-                            } else {
-                                format!("#{}", message.channel_id)
-                            };
-
                             let username = chat_update
                                 .users
                                 .iter()
                                 .find(|u| u.user_id == message.sender_id)
                                 .map(|u| u.username.clone().into_string())
                                 .unwrap_or(format!("(id={})", message.sender_id));
+
+                            let target = match client.get_or_fetch_channel(message.channel_id).await
+                            {
+                                Ok(channel) => channel.name,
+                                Err(e) => {
+                                    log::error!(
+                                        "Failed to read information about a channel #{}: {}",
+                                        message.channel_id,
+                                        e
+                                    );
+                                    format!("(id={})", message.channel_id)
+                                }
+                            };
 
                             let timestamp = chrono::DateTime::from_timestamp(
                                 message.timestamp.unix_timestamp(),
@@ -378,12 +540,11 @@ async fn handle_text_message<S>(
                             .unwrap_or_else(chrono::Utc::now)
                             .with_timezone(&chrono::Local);
 
-                            let message_type = if message.is_action
+                            let message_type = match message.is_action
                                 || matches!(message.message_type, ChannelMessageType::Action)
                             {
-                                MessageType::Action
-                            } else {
-                                MessageType::Text
+                                true => MessageType::Action,
+                                false => MessageType::Text,
                             };
 
                             let msg = steel_core::chat::Message::new(
@@ -411,9 +572,19 @@ async fn handle_text_message<S>(
         Some(EventType::ChatChannelPart) => log::info!("Received part event from server"),
 
         Some(EventType::Logout) => {
-            log::info!("Received logout event from server");
+            log::warn!(
+                "Received logout event from server - authentication failure, clearing token"
+            );
+
+            if let Err(clear_err) = token_storage::clear_token_state() {
+                log::error!("Failed to clear token state: {clear_err}");
+            }
+
             tx.send(AppMessageIn::connection_changed(
-                ConnectionStatus::Disconnected { by_user: false },
+                ConnectionStatus::Disconnected {
+                    by_user: false,
+                    auth_failed: true,
+                },
             ))
             .unwrap_or_else(|e| log::error!("Failed to send logout: {e}"));
         }

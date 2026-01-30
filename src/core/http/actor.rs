@@ -1,5 +1,4 @@
 use rosu_v2::model::chat::{ChannelType, ChatChannel};
-use std::sync::{Arc, Mutex};
 use steel_core::{
     chat::{ChatType, ConnectionStatus, MessageType},
     ipc::server::AppMessageIn,
@@ -12,7 +11,7 @@ use tokio::{
 use crate::{
     actor::Actor,
     core::http::{
-        state::HTTPState, websocket::client::websocket_thread_main_with_auth_check, APISettings,
+        api::Client, websocket::client::websocket_thread_main_with_auth_check, APISettings,
         HTTPMessageIn,
     },
 };
@@ -21,7 +20,7 @@ pub struct HTTPActor {
     input: UnboundedReceiver<HTTPMessageIn>,
     output: UnboundedSender<AppMessageIn>,
 
-    state: Arc<Mutex<HTTPState>>,
+    client: Option<Client>,
 
     runtime: Runtime,
 }
@@ -35,7 +34,7 @@ impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
         Self {
             input,
             output,
-            state: Arc::new(Mutex::new(HTTPState::new())),
+            client: None,
             runtime,
         }
     }
@@ -68,7 +67,8 @@ impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
                 }
                 ChatType::Person => self.user_send_message(r#type, destination, chat_type, content),
                 _ => {
-                    self.push_error_to_ui(
+                    Self::push_error_to_ui(
+                        &self.output,
                         &format!("Failed to send message to an unknown channel type {chat_type}"),
                         false,
                     );
@@ -79,62 +79,50 @@ impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
 }
 
 impl HTTPActor {
-    fn push_error_to_ui(&mut self, error: &str, is_fatal: bool) {
+    fn push_error_to_ui(output: &UnboundedSender<AppMessageIn>, error: &str, is_fatal: bool) {
+        log::error!("{}", error);
         let e = AppMessageIn::ui_show_error(
             Box::new(std::io::Error::other(format!("HTTP chat error: {error}"))),
             is_fatal,
         );
 
-        self.output
+        output
             .send(e)
             .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
     }
 
-    fn get_api_and_channel(
+    fn get_client_and_channel(
         &mut self,
         channel_name: &str,
         operation: &str,
-    ) -> Option<(Arc<rosu_v2::Osu>, ChatChannel)> {
-        let (api, channel) = {
-            let state = self.state.lock().unwrap();
-            (state.api.clone(), state.cache.find_channel(channel_name))
-        };
-
-        let channel = match channel {
-            Some(c) => c,
-            None => {
-                log::error!("Cannot {operation}: channel not found by name");
-                self.push_error_to_ui(
-                    &format!("Cannot {operation}: channel not found by name"),
-                    false,
-                );
-                return None;
-            }
-        };
-
-        let api = match api {
-            Some(a) => a,
-            None => {
-                log::error!("Cannot {operation}: not connected");
-                self.push_error_to_ui(&format!("Cannot {operation}: not connected"), false);
-                return None;
-            }
-        };
-
-        Some((api, channel))
+    ) -> Option<(Client, ChatChannel)> {
+        if let Some(client) = self.get_client(operation) {
+            let channel = match client.get_cached_channel_by_name(channel_name) {
+                Some(c) => c,
+                None => {
+                    Self::push_error_to_ui(
+                        &self.output,
+                        &format!("Cannot {operation}: channel not found by name"),
+                        false,
+                    );
+                    return None;
+                }
+            };
+            Some((client, channel))
+        } else {
+            None
+        }
     }
 
-    fn get_api(&mut self, operation: &str) -> Option<Arc<rosu_v2::Osu>> {
-        let api = {
-            let state = self.state.lock().unwrap();
-            state.api.clone()
-        };
-
-        match api {
-            Some(a) => Some(a),
+    fn get_client(&mut self, operation: &str) -> Option<Client> {
+        match &self.client {
+            Some(c) => Some(c.clone()),
             None => {
-                log::error!("Cannot {operation}: not connected");
-                self.push_error_to_ui(&format!("Cannot {operation}: not connected"), false);
+                Self::push_error_to_ui(
+                    &self.output,
+                    &format!("Cannot {operation}: not connected"),
+                    false,
+                );
                 None
             }
         }
@@ -148,7 +136,23 @@ impl HTTPActor {
             .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
 
         let tx = self.output.clone();
-        let state = self.state.clone();
+
+        let client = match self.runtime.block_on(Client::from_stored_token(
+            settings.client_id,
+            settings.client_secret.clone(),
+        )) {
+            Ok(c) => c,
+            Err(e) => {
+                Self::push_error_to_ui(
+                    &self.output,
+                    &format!("Failed to create client from stored token: {e}"),
+                    true,
+                );
+                return;
+            }
+        };
+
+        self.client = Some(client.clone());
 
         std::thread::spawn(move || {
             tokio::runtime::Builder::new_current_thread()
@@ -158,14 +162,14 @@ impl HTTPActor {
                 .block_on(websocket_thread_main_with_auth_check(
                     tx.clone(),
                     settings,
-                    state,
+                    client,
                 ))
         });
     }
 
     fn disconnect(&mut self) {
-        if let Ok(mut state) = self.state.lock() {
-            state.request_shutdown();
+        if let Some(client) = &self.client {
+            client.shutdown();
         }
     }
 
@@ -176,26 +180,20 @@ impl HTTPActor {
         _chat_type: ChatType,
         content: String,
     ) {
-        let Some((api, channel)) = self.get_api_and_channel(&destination, "send message") else {
+        let Some((client, channel)) = self.get_client_and_channel(&destination, "send message")
+        else {
             return;
         };
 
         let tx = self.output.clone();
         self.runtime.block_on(async move {
             let is_action = matches!(r#type, MessageType::Action);
-            let result = api
+            let result = client
                 .chat_send_message(channel.channel_id, content, is_action)
                 .await;
 
             if let Err(e) = result {
-                log::error!("Failed to send message: {e}");
-                tx.send(AppMessageIn::ui_show_error(
-                    Box::new(std::io::Error::other(format!(
-                        "Failed to send message: {e}"
-                    ))),
-                    false,
-                ))
-                .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                Self::push_error_to_ui(&tx, &format!("Failed to send message: {e}"), false);
             }
         });
     }
@@ -207,40 +205,58 @@ impl HTTPActor {
         _chat_type: ChatType,
         content: String,
     ) {
-        let Some(api) = self.get_api("send message") else {
+        let Some(client) = self.get_client("send message") else {
             return;
-        };
-
-        let cache = {
-            let state = self.state.lock().unwrap();
-            Arc::clone(&state.cache)
         };
 
         let tx = self.output.clone();
         let destination_for_error = destination.clone();
+        let destination_username = destination.clone();
 
         self.runtime.block_on(async move {
-            let uid = match cache.get_or_fetch_user_by_username(&destination).await {
-                Ok(uid) => uid,
+            let uid = match client.get_or_fetch_user(&destination).await {
+                Ok(user) => user.user_id,
                 Err(e) => {
-                    log::error!("Failed to send a message to user {destination_for_error}: {e}");
-                    tx.send(AppMessageIn::ui_show_error(
-                        Box::new(std::io::Error::other(format!(
-                            "Cannot send message to user: lookup failed for {destination_for_error}"
-                        ))),
+                    Self::push_error_to_ui(
+                        &tx,
+                        &format!("Failed to send a message to user {destination_for_error}: {e}"),
                         false,
-                    ))
-                    .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                    );
                     return;
                 }
             };
 
             let is_action = matches!(r#type, MessageType::Action);
-            let result = api
-                .chat_create_private_channel(uid, content, is_action)
-                .await;
 
-            if let Err(e) = result {
+            let maybe_channel = client.get_cached_channel_by_name(&destination_username);
+            let send_result = match maybe_channel {
+                Some(channel) => {
+                    client
+                        .chat_send_message(channel.channel_id, content, is_action)
+                        .await
+                }
+                None => {
+                    match client
+                        .chat_create_private_channel(uid, content, is_action)
+                        .await
+                    {
+                        Ok(channel) => {
+                            log::debug!(
+                                "Created private channel: {} (ID: {})",
+                                channel.name,
+                                channel.channel_id
+                            );
+                            Ok(())
+                        }
+                        Err(e) => {
+                            log::error!("Failed to create a private message channel: {:?}", e);
+                            Err(e)
+                        }
+                    }
+                }
+            };
+
+            if let Err(e) = send_result {
                 log::error!("Failed to send message: {e}");
                 tx.send(AppMessageIn::ui_show_error(
                     Box::new(std::io::Error::other(format!(
@@ -254,21 +270,17 @@ impl HTTPActor {
     }
 
     fn join_channel(&mut self, channel_name: String) {
-        let own_user_id = {
-            let state = self.state.lock().unwrap();
-            state.own_user_id
-        };
-
-        let Some((api, channel)) = self.get_api_and_channel(&channel_name, "join channel") else {
+        let Some((client, channel)) = self.get_client_and_channel(&channel_name, "join channel")
+        else {
             return;
         };
 
         let tx = self.output.clone();
         self.runtime.block_on(async move {
-            let user_id = if let Some(uid) = own_user_id {
+            let user_id = if let Some(uid) = client.get_own_user_id() {
                 uid
             } else {
-                match api.own_data().await {
+                match client.own_data().await {
                     Ok(user) => user.user_id,
                     Err(e) => {
                         log::error!("Failed to get own user data: {e}");
@@ -277,7 +289,7 @@ impl HTTPActor {
                 }
             };
 
-            match api.chat_join_channel(channel.channel_id, user_id).await {
+            match client.chat_join_channel(channel.channel_id, user_id).await {
                 Ok(channel_info) => {
                     log::debug!("Joined channel: {}", channel_info.name);
                     let channel_type = match channel.channel_type {
@@ -296,35 +308,24 @@ impl HTTPActor {
                     .unwrap_or_else(|e| log::error!("Failed to send channel join: {e}"));
                 }
                 Err(e) => {
-                    log::error!("Failed to join channel: {e}");
-                    tx.send(AppMessageIn::ui_show_error(
-                        Box::new(std::io::Error::other(format!(
-                            "Failed to join channel: {e}"
-                        ))),
-                        false,
-                    ))
-                    .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+                    Self::push_error_to_ui(&tx, &format!("Failed to join channel: {e}"), false);
                 }
             }
         });
     }
 
     fn leave_channel(&mut self, channel_name: String) {
-        let own_user_id = {
-            let state = self.state.lock().unwrap();
-            state.own_user_id
-        };
-
-        let Some((api, channel)) = self.get_api_and_channel(&channel_name, "leave channel") else {
+        let Some((client, channel)) = self.get_client_and_channel(&channel_name, "leave channel")
+        else {
             return;
         };
 
         let tx = self.output.clone();
         self.runtime.block_on(async move {
-            let user_id = if let Some(uid) = own_user_id {
+            let user_id = if let Some(uid) = client.get_own_user_id() {
                 uid
             } else {
-                match api.own_data().await {
+                match client.own_data().await {
                     Ok(user) => user.user_id,
                     Err(e) => {
                         log::error!("Failed to get own user data: {e}");
@@ -333,15 +334,8 @@ impl HTTPActor {
                 }
             };
 
-            if let Err(e) = api.chat_leave_channel(channel.channel_id, user_id).await {
-                log::error!("Failed to leave channel: {e}");
-                tx.send(AppMessageIn::ui_show_error(
-                    Box::new(std::io::Error::other(format!(
-                        "Failed to leave channel: {e}"
-                    ))),
-                    false,
-                ))
-                .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+            if let Err(e) = client.chat_leave_channel(channel.channel_id, user_id).await {
+                Self::push_error_to_ui(&tx, &format!("Failed to leave channel: {e}"), false);
             }
         });
     }

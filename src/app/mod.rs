@@ -12,8 +12,9 @@ use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message};
 
 use crate::core::chat_backend::ChatBackend;
-use crate::core::http::state::API_TOKEN_LIFETIME_SECS;
-use crate::core::http::token_storage::{save_token_state, PersistedTokenState};
+use crate::core::http::token_storage::{
+    save_token_state, PersistedTokenState, API_TOKEN_LIFETIME_SECS,
+};
 use crate::core::http::HTTPActorHandle;
 use crate::core::irc::IRCActorHandle;
 use crate::core::logging::{chat_log_path, ChatLoggerHandle};
@@ -462,12 +463,17 @@ impl Application {
                 }
             }
             ConnectionStatus::InProgress | ConnectionStatus::Scheduled(_) => (),
-            ConnectionStatus::Disconnected { by_user } => {
+            ConnectionStatus::Disconnected {
+                by_user,
+                auth_failed,
+            } => {
                 for chat in self.state.chats.iter().cloned().collect::<Vec<String>>() {
                     self.change_chat_state(&chat, ChatState::Disconnected);
                 }
-                if self.state.settings.chat.reconnect && !by_user {
+                if self.state.settings.chat.reconnect && !(by_user || auth_failed) {
                     self.queue_reconnect();
+                } else if auth_failed {
+                    log::warn!("Authentication failed - login required, not attempting automatic reconnect");
                 }
             }
         }

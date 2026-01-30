@@ -4,7 +4,7 @@ use steel_core::settings::OAuthMode;
 use crate::{
     core::http::{
         oauth_flow::{OAuthFlowManager, OAuthFlowParams},
-        token_storage::load_token_state,
+        token_storage::PersistedTokenState,
     },
     gui::state::UIState,
 };
@@ -12,11 +12,20 @@ use crate::{
 pub struct LoginScreen<'a> {
     state: &'a UIState,
     oauth_flow: &'a OAuthFlowManager,
+    token_state: Option<&'a PersistedTokenState>,
 }
 
 impl<'a> LoginScreen<'a> {
-    pub fn new(state: &'a UIState, oauth_flow: &'a OAuthFlowManager) -> Self {
-        Self { state, oauth_flow }
+    pub fn new(
+        state: &'a UIState,
+        oauth_flow: &'a OAuthFlowManager,
+        token_state: Option<&'a PersistedTokenState>,
+    ) -> Self {
+        Self {
+            state,
+            oauth_flow,
+            token_state,
+        }
     }
 
     fn show_login_button(&mut self, ui: &mut egui::Ui, state: &UIState) {
@@ -75,11 +84,11 @@ impl Widget for LoginScreen<'_> {
     fn ui(mut self, ui: &mut egui::Ui) -> egui::Response {
         ui.vertical_centered(|ui| {
             ui.add_space(50.0);
-            ui.heading("osu! API Authentication");
+            ui.heading("osu! API authentication");
             ui.add_space(20.0);
 
-            match load_token_state() {
-                Ok(token_state) => {
+            match self.token_state {
+                Some(token_state) => {
                     if token_state.is_access_token_valid() {
                         ui.label("Token status: valid");
                         let expires_at = token_state.access_expires_at;
@@ -107,7 +116,7 @@ impl Widget for LoginScreen<'_> {
                         self.show_login_button(ui, self.state);
                     }
                 }
-                Err(_) => {
+                None => {
                     ui.label("Token status: not logged in");
                     ui.add_space(10.0);
                     self.show_login_button(ui, self.state);

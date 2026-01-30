@@ -22,12 +22,10 @@ pub fn setup_logging() {
     simplelog::WriteLogger::init(
         simplelog::LevelFilter::Trace,
         simplelog::ConfigBuilder::new()
-
             .add_filter_ignore_str("rustls")
             .add_filter_ignore_str("eframe")
             .add_filter_ignore_str("egui_glow")
             .add_filter_ignore_str("ureq")
-
             .set_time_format_custom(time_format)
             .set_time_offset_to_local()
             // https://github.com/jhpratt/num_threads/issues/18 -- time = "0.3.34" compiled to x86_64-apple-darwin can't determine UTC offset on Apple silicon (aarch64-apple-darwin)

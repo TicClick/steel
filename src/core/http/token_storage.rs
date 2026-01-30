@@ -2,6 +2,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+pub const API_TOKEN_LIFETIME_SECS: i64 = 24 * 60 * 60;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedTokenState {
     // OAuth access token (including "Bearer " prefix)
@@ -53,7 +55,7 @@ impl PersistedTokenState {
 }
 
 pub fn get_token_storage_path() -> PathBuf {
-    PathBuf::from("temporary-state.yaml")
+    PathBuf::from("api-token.yaml")
 }
 
 pub fn save_token_state(state: &PersistedTokenState) -> Result<(), Box<dyn std::error::Error>> {
@@ -64,6 +66,25 @@ pub fn save_token_state(state: &PersistedTokenState) -> Result<(), Box<dyn std::
     std::fs::write(&path, yaml)?;
     log::warn!("Token state saved to {path:?} - this file contains sensitive authentication data");
     Ok(())
+}
+
+pub fn create_and_save_new_state(
+    new_access_token: &str,
+    new_refresh_token: Option<&str>,
+) -> Result<PersistedTokenState, Box<dyn std::error::Error>> {
+    let new_state = PersistedTokenState::new(
+        new_access_token.to_owned(),
+        new_refresh_token.map(|s| s.to_string()),
+        API_TOKEN_LIFETIME_SECS,
+    );
+
+    if let Err(e) = save_token_state(&new_state) {
+        log::error!("Failed to save refreshed token state: {e}");
+        Err(e)
+    } else {
+        log::info!("Successfully saved new token state.");
+        Ok(new_state)
+    }
 }
 
 pub fn load_token_state() -> Result<PersistedTokenState, Box<dyn std::error::Error>> {

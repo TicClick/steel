@@ -167,7 +167,7 @@ fn run_improved_deadlock_test() {
                         println!("Connected");
                         state.connection_completed();
                     }
-                    ConnectionStatus::Disconnected { by_user } => {
+                    ConnectionStatus::Disconnected { by_user, .. } => {
                         println!("Disconnected (requested by user: {by_user})");
                         state.disconnection_completed();
                     }
