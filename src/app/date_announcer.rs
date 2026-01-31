@@ -31,9 +31,9 @@ fn announcer(app_queue: UnboundedSender<AppMessageIn>) {
                 "A new day is born ({})",
                 round_date.format(DEFAULT_DATE_FORMAT),
             );
-            app_queue
-                .send(AppMessageIn::DateChanged(round_date, message))
-                .unwrap();
+            if let Err(e) = app_queue.send(AppMessageIn::date_changed(round_date, message)) {
+                log::error!("Failed to send date change: channel closed ({e})");
+            }
         }
         std::thread::sleep(Duration::from_millis(100));
     }

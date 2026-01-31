@@ -325,7 +325,7 @@ impl ChatLike for String {
 
 #[derive(Clone, Copy, Debug)]
 pub enum ConnectionStatus {
-    Disconnected { by_user: bool },
+    Disconnected { by_user: bool, auth_failed: bool },
     InProgress,
     Connected,
     Scheduled(chrono::DateTime<chrono::Local>),
@@ -333,7 +333,10 @@ pub enum ConnectionStatus {
 
 impl Default for ConnectionStatus {
     fn default() -> Self {
-        Self::Disconnected { by_user: false }
+        Self::Disconnected {
+            by_user: false,
+            auth_failed: false,
+        }
     }
 }
 

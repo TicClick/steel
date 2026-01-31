@@ -45,7 +45,8 @@ impl egui::Widget for ChatLink<'_, '_> {
                     .on_hover_text_at_pointer(title);
 
                 if resp.clicked() {
-                    self.core_client.chat_opened(self.chat_name)
+                    self.core_client
+                        .chat_opened(self.chat_name, self.chat_name.chat_type())
                 }
                 resp
             }

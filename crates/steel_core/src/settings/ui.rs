@@ -40,7 +40,7 @@ fn default_search_result_other_dark() -> Colour {
 }
 
 impl Default for ChatColours {
-    /// `egui::style::Widgets::dark()`
+    // `egui::style::Widgets::dark()`
     fn default() -> Self {
         Self {
             own: Colour::from_rgb(250, 214, 60),
@@ -62,7 +62,7 @@ impl ChatColours {
         Self::default()
     }
 
-    /// `egui::style::Widgets::light()`
+    // `egui::style::Widgets::light()`
     pub fn light() -> Self {
         Self {
             own: Colour::from_rgb(0, 132, 200),

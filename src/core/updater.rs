@@ -92,8 +92,8 @@ fn set_state(
         new_state
     };
 
-    core.send(AppMessageIn::UpdateStateChanged(new_state))
-        .unwrap();
+    core.send(AppMessageIn::update_state_changed(new_state))
+        .unwrap_or_else(|e| log::error!("Failed to send update state: {e}"));
 }
 
 #[derive(Debug)]
@@ -562,8 +562,8 @@ fn download(
                     state.state = State::FetchingRelease(data.len(), total_bytes);
                     state.clone()
                 };
-                core.send(AppMessageIn::UpdateStateChanged(new_state))
-                    .unwrap();
+                core.send(AppMessageIn::update_state_changed(new_state))
+                    .unwrap_or_else(|e| log::error!("Failed to send update state: {e}"));
 
                 let next_chunk_sz = std::cmp::min(bytes_left, chunk_sz);
                 if next_chunk_sz > 0 {

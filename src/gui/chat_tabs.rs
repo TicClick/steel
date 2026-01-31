@@ -167,7 +167,7 @@ impl ChatTabs {
                     } else {
                         input.to_owned()
                     };
-                    state.core.chat_opened(&target);
+                    state.core.chat_opened(&target, target.chat_type());
                     input.clear();
                     response.request_focus();
                 }
@@ -238,12 +238,19 @@ impl ChatTabs {
                                 .inner;
 
                             if chat_tab.clicked() {
-                                channel.chat_switch_requested(normalized_chat_name, None);
+                                channel.chat_switch_requested(
+                                    normalized_chat_name,
+                                    normalized_chat_name.chat_type(),
+                                    None,
+                                );
                             }
 
                             if mode != ChatType::System {
                                 if chat_tab.middle_clicked() {
-                                    channel.chat_tab_closed(normalized_chat_name);
+                                    channel.chat_tab_closed(
+                                        normalized_chat_name,
+                                        normalized_chat_name.chat_type(),
+                                    );
                                 }
                                 chat_tab.context_menu(|ui| {
                                     tab_context_menu(ui, state, normalized_chat_name, &mode)

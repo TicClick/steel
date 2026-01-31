@@ -1,5 +1,5 @@
 use eframe::egui;
-use steel_core::ipc::client::CoreClient;
+use steel_core::{chat::ChatLike, ipc::client::CoreClient};
 
 pub struct ChannelLink<'link, 'app> {
     display_text: &'link egui::RichText,
@@ -30,7 +30,8 @@ impl egui::Widget for ChannelLink<'_, '_> {
             .on_hover_text_at_pointer(on_hover_text);
 
         if resp.clicked() {
-            self.core_client.chat_opened(self.location)
+            self.core_client
+                .chat_opened(self.location, self.location.chat_type())
         }
 
         resp

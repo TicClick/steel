@@ -1,3 +1,6 @@
+pub mod chat_backend;
+pub mod error;
+pub mod http;
 pub mod irc;
 pub mod logging;
 pub mod os;

@@ -1,6 +1,7 @@
 pub mod chat;
 pub mod ipc;
 pub mod settings;
+pub mod string_utils;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 

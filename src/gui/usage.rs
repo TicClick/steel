@@ -2,17 +2,12 @@ use super::state::UIState;
 
 use eframe::egui::{self, global_theme_preference_switch};
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Default)]
 enum Section {
+    #[default]
     Overview,
     ChatTabs,
     Chat,
-}
-
-impl Default for Section {
-    fn default() -> Self {
-        Self::Overview
-    }
 }
 
 #[derive(Default)]

@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use serde_yaml;
 
 pub use application::Application;
-pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings};
+pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings, OAuthMode};
 pub use colour::Colour;
 pub use errors::SettingsError;
 pub use logging::{AppLoggingConfig, LoggingConfig};

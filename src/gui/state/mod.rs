@@ -22,19 +22,6 @@ pub struct ReportDialogState {
 }
 
 #[derive(Debug)]
-pub enum UIMessageIn {
-    SettingsChanged(Box<Settings>),
-    ConnectionStatusChanged(ConnectionStatus),
-    ConnectionActivity,
-    NewMessageReceived { target: String, message: Message },
-    NewServerMessageReceived(String),
-    NewChatRequested(String, ChatState),
-    ChannelJoined(String),
-    ChatClosed(String),
-    DateChanged,
-}
-
-#[derive(Debug)]
 pub struct UIState {
     pub connection: ConnectionStatus,
     pub settings: Settings,
@@ -56,6 +43,8 @@ pub struct UIState {
     notification_start_time: Option<std::time::Instant>,
 
     pub report_dialog: Option<ReportDialogState>,
+
+    pub own_username: Option<String>,
 }
 
 impl UIState {
@@ -89,6 +78,8 @@ impl UIState {
             notification_start_time: None,
 
             report_dialog: None,
+
+            own_username: None,
         }
     }
 
@@ -172,10 +163,12 @@ impl UIState {
         let is_tab_active = self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
 
-        message.parse_for_links();
-
         #[allow(unused_mut)] // glass
-        let mut current_username = Some(&self.settings.chat.irc.username);
+        let mut current_username = self
+            .own_username
+            .as_ref()
+            .or(Some(&self.settings.chat.irc.username));
+
         #[cfg(feature = "glass")]
         if self
             .glass
