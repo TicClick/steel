@@ -2,6 +2,7 @@ use eframe::egui;
 use steel_core::{
     chat::{ChatLike, Message},
     ipc::client::CoreClient,
+    settings::{ChatBackend, Settings},
 };
 
 const ICON_OPEN_CHAT: &str = "💬 Open chat";
@@ -95,6 +96,7 @@ pub fn menu_item_copy_username(ui: &mut egui::Ui, show_icon: bool, message: &Mes
 pub fn menu_item_report_to_moderators(
     ui: &mut egui::Ui,
     core_client: &CoreClient,
+    settings: &Settings,
     show_icon: bool,
     chat_name: &str,
     message: &Message,
@@ -104,7 +106,13 @@ pub fn menu_item_report_to_moderators(
         false => REPORT_TO_MODERATORS,
     };
 
-    if ui.button(text).clicked() {
+    // TODO(https://github.com/TicClick/steel/issues/228): Enable.
+    let is_enabled = matches!(settings.chat.backend, ChatBackend::IRC);
+    if ui
+        .add_enabled(is_enabled, egui::Button::new(text))
+        .on_disabled_hover_text("This feature is not supported by the osu! API yet")
+        .clicked()
+    {
         core_client.report_dialog_requested(&message.username, chat_name);
         ui.close();
     }

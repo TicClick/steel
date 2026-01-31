@@ -37,6 +37,7 @@ pub struct Username<'msg, 'app> {
 
     message: &'msg Message,
     core_client: &'app CoreClient,
+    settings: &'app Settings,
 
     #[cfg(feature = "glass")]
     glass: &'app glass::Glass,
@@ -48,6 +49,7 @@ impl<'msg, 'app> Username<'msg, 'app> {
         chat_name: &'msg str,
         styles: Option<&'msg Vec<TextStyle>>,
         core_client: &'app CoreClient,
+        settings: &'app Settings,
 
         #[cfg(feature = "glass")] glass: &'app glass::Glass,
     ) -> Self {
@@ -56,6 +58,7 @@ impl<'msg, 'app> Username<'msg, 'app> {
             chat_name,
             styles,
             core_client,
+            settings,
 
             #[cfg(feature = "glass")]
             glass,
@@ -67,7 +70,14 @@ impl<'msg, 'app> Username<'msg, 'app> {
         menu_item_open_chat_user_profile(ui, true, &self.message.username);
         menu_item_translate_message(ui, true, &self.message.text);
         menu_item_open_chat_log(ui, self.core_client, true, &self.message.username);
-        menu_item_report_to_moderators(ui, self.core_client, true, self.chat_name, self.message);
+        menu_item_report_to_moderators(
+            ui,
+            self.core_client,
+            self.settings,
+            true,
+            self.chat_name,
+            self.message,
+        );
 
         ui.separator();
 
@@ -75,8 +85,13 @@ impl<'msg, 'app> Username<'msg, 'app> {
         menu_item_copy_username(ui, false, self.message);
 
         #[cfg(feature = "glass")]
-        self.glass
-            .show_user_context_menu(ui, self.core_client, self.chat_name, self.message);
+        self.glass.show_user_context_menu(
+            ui,
+            self.core_client,
+            self.settings,
+            self.chat_name,
+            self.message,
+        );
     }
 }
 

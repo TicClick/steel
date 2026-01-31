@@ -164,6 +164,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         &chat.name,
                                         username_styles.as_ref(),
                                         core,
+                                        settings,
                                         #[cfg(feature = "glass")]
                                         glass,
                                     ));
