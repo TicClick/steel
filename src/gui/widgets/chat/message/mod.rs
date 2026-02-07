@@ -14,7 +14,7 @@ use crate::gui::{
         message::{message_text::ChatMessageText, timestamp::TimestampLabel, username::Username},
         unread_marker::UnreadMarker,
     },
-    HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME,
+    CENTRAL_PANEL_INNER_MARGIN_X, HIGHLIGHTS_TAB_NAME, SERVER_TAB_NAME,
 };
 
 pub mod message_text;
@@ -42,6 +42,8 @@ pub enum ChatViewRow<'chat, 'msg> {
         is_user_menu_opened: Cell<bool>,
         #[cfg(feature = "glass")]
         glass: &'msg glass::Glass,
+        has_highlight: bool,
+        search_result_color: Option<Color32>,
     },
 }
 
@@ -70,6 +72,8 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
         core: &'msg CoreClient,
         settings: &'msg Settings,
         #[cfg(feature = "glass")] glass: &'msg glass::Glass,
+        has_highlight: bool,
+        search_result_color: Option<Color32>,
     ) -> Self {
         Self::Message {
             chat,
@@ -81,6 +85,8 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
             is_user_menu_opened: Cell::new(false),
             #[cfg(feature = "glass")]
             glass,
+            has_highlight,
+            search_result_color,
         }
     }
 
@@ -130,6 +136,8 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 is_user_menu_opened,
                 #[cfg(feature = "glass")]
                 glass,
+                has_highlight,
+                search_result_color,
             } => {
                 let resp = match chat.normalized_name.as_str() {
                     SERVER_TAB_NAME => {
@@ -148,44 +156,90 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                     }
 
                     _ => {
-                        ui.horizontal_wrapped(|ui| {
-                            ui.spacing_mut().item_spacing.x /= 2.;
+                        let has_highlight = *has_highlight;
+                        let search_result_color = *search_result_color;
 
-                            ui.add(TimestampLabel::new(&message.time, None));
+                        let mut inner_ui = |ui: &mut egui::Ui| {
+                            ui.horizontal_wrapped(|ui| {
+                                ui.spacing_mut().item_spacing.x /= 2.;
 
-                            if chat.normalized_name.as_str() == HIGHLIGHTS_TAB_NAME {
-                                insert_original_chat_reference(ui, core, message);
-                            }
+                                ui.add(TimestampLabel::new(&message.time, None));
 
-                            match message.r#type {
-                                MessageType::Action | MessageType::Text => {
-                                    let response = ui.add(Username::new(
-                                        message,
-                                        &chat.name,
-                                        username_styles.as_ref(),
-                                        core,
-                                        settings,
-                                        #[cfg(feature = "glass")]
-                                        glass,
-                                    ));
-
-                                    *is_user_menu_opened.get_mut() |=
-                                        response.context_menu_opened();
-
-                                    ui.add(ChatMessageText::new(
-                                        message.chunks.as_ref(),
-                                        message_styles.as_ref(),
-                                        &settings.chat.behaviour,
-                                        core,
-                                    ))
+                                if chat.normalized_name.as_str() == HIGHLIGHTS_TAB_NAME {
+                                    insert_original_chat_reference(ui, core, message);
                                 }
 
-                                MessageType::System => {
-                                    ui.add_enabled(false, egui::Button::new(&message.text))
+                                match message.r#type {
+                                    MessageType::Action | MessageType::Text => {
+                                        let response = ui.add(Username::new(
+                                            message,
+                                            &chat.name,
+                                            username_styles.as_ref(),
+                                            core,
+                                            settings,
+                                            #[cfg(feature = "glass")]
+                                            glass,
+                                        ));
+
+                                        *is_user_menu_opened.get_mut() |=
+                                            response.context_menu_opened();
+
+                                        ui.add(ChatMessageText::new(
+                                            message.chunks.as_ref(),
+                                            message_styles.as_ref(),
+                                            &settings.chat.behaviour,
+                                            core,
+                                        ))
+                                    }
+
+                                    MessageType::System => {
+                                        ui.add_enabled(false, egui::Button::new(&message.text))
+                                    }
                                 }
-                            }
-                        })
-                        .inner
+                            })
+                            .inner
+                        };
+
+                        // Allocate the full width and add horizontal padding for all messages,
+                        // because the background block on highlighted messages looks terrible otherwise.
+                        let full_width = ui.available_width();
+
+                        let bg_color = if let Some(search_color) = search_result_color {
+                            let search_color: Color32 = search_color;
+                            Color32::from_rgba_unmultiplied(
+                                search_color.r(),
+                                search_color.g(),
+                                search_color.b(),
+                                settings.ui.highlight_bg_opacity,
+                            )
+                        } else if has_highlight {
+                            let highlight_color: Color32 =
+                                settings.ui.colours().highlight.clone().into();
+                            Color32::from_rgba_unmultiplied(
+                                highlight_color.r(),
+                                highlight_color.g(),
+                                highlight_color.b(),
+                                settings.ui.highlight_bg_opacity,
+                            )
+                        } else {
+                            Color32::TRANSPARENT
+                        };
+
+                        egui::Frame::new()
+                            .fill(bg_color)
+                            .inner_margin(egui::Margin {
+                                left: 4,
+                                right: 4,
+                                top: 0,
+                                bottom: 0,
+                            })
+                            .show(ui, |ui| {
+                                ui.set_min_width(
+                                    full_width - 2.0 * CENTRAL_PANEL_INNER_MARGIN_X as f32,
+                                );
+                                inner_ui(ui)
+                            })
+                            .inner
                     }
                 };
 
