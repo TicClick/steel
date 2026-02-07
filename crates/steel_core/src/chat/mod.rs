@@ -79,7 +79,7 @@ impl fmt::Display for Message {
 
 impl Message {
     pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
-        Self {
+        let mut msg = Self {
             time: chrono::Local::now(),
             r#type,
             username: username.to_string(),
@@ -92,7 +92,9 @@ impl Message {
             highlight: false,
 
             original_chat: None,
-        }
+        };
+        msg.parse_for_links();
+        msg
     }
 
     pub fn with_time(mut self, dt: chrono::DateTime<chrono::Local>) -> Self {
