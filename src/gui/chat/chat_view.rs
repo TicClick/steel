@@ -355,32 +355,40 @@ impl ChatView {
     pub fn insert_user_mention(&mut self, ctx: &egui::Context, username: String) {
         if let Some(text_edit_id) = self.response_widget_id {
             if let Some(mut state) = egui::TextEdit::load_state(ctx, text_edit_id) {
-                let pos = match state.cursor.char_range() {
+                let char_pos = match state.cursor.char_range() {
                     None => 0,
                     Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index),
                 };
 
+                let mut chars: Vec<char> = self.chat_input.chars().collect();
+
+                // Delete selected text if any
                 if let Some(cc) = state.cursor.char_range() {
                     let start = std::cmp::min(cc.primary.index, cc.secondary.index);
                     let end = std::cmp::max(cc.primary.index, cc.secondary.index);
                     if start != end {
-                        self.chat_input.replace_range(start..end, "");
+                        chars.drain(start..end);
                     }
                 }
 
-                let insertion = if self.chat_input.is_empty() {
+                let insertion = if chars.is_empty() {
                     format!("{username}: ")
-                } else if pos == self.chat_input.chars().count() {
-                    if self.chat_input.ends_with(' ') {
-                        username.to_owned()
+                } else if char_pos == chars.len() {
+                    if chars.last() == Some(&' ') {
+                        username.clone()
                     } else {
                         format!(" {username}")
                     }
                 } else {
-                    username.to_owned()
+                    username.clone()
                 };
-                self.chat_input.insert_str(pos, &insertion);
-                let ccursor = egui::text::CCursor::new(pos + insertion.len());
+
+                let before: String = chars.iter().take(char_pos).collect();
+                let after: String = chars.iter().skip(char_pos).collect();
+                self.chat_input = format!("{before}{insertion}{after}");
+
+                let new_char_pos = char_pos + insertion.chars().count();
+                let ccursor = egui::text::CCursor::new(new_char_pos);
                 state
                     .cursor
                     .set_char_range(Some(egui::text::CCursorRange::one(ccursor)));
