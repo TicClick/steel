@@ -669,10 +669,30 @@ impl Application {
 
     pub fn send_text_message(&mut self, target: &str, chat_type: ChatType, text: &str) {
         self.get_backend().send_message(target, chat_type, text);
+
+        if matches!(self.state.settings.chat.backend, ChatBackendEnum::IRC) {
+            let username = self
+                .state
+                .own_username
+                .as_deref()
+                .unwrap_or(&self.state.settings.chat.irc.username);
+            let message = Message::new_text(username, text);
+            self.handle_chat_message(target, message);
+        }
     }
 
     pub fn send_action(&mut self, target: &str, chat_type: ChatType, text: &str) {
         self.get_backend().send_action(target, chat_type, text);
+
+        if matches!(self.state.settings.chat.backend, ChatBackendEnum::IRC) {
+            let username = self
+                .state
+                .own_username
+                .as_deref()
+                .unwrap_or(&self.state.settings.chat.irc.username);
+            let message = Message::new_action(username, text);
+            self.handle_chat_message(target, message);
+        }
     }
 
     pub fn join_channel(&self, channel: &str) {

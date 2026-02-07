@@ -177,6 +177,10 @@ fn irc_thread_main(
                 ConnectionStatus::Connected,
             ))
             .unwrap_or_else(|e| log::error!("Failed to send connected: {e}"));
+
+            tx.send(AppMessageIn::own_username_detected(own_username.clone()))
+                .unwrap_or_else(|e| log::error!("Failed to send own username: {e}"));
+
             *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
             let mut disconnected_by_user = false;
