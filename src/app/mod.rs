@@ -526,24 +526,27 @@ impl Application {
     }
 
     fn ui_handle_chat_opened(&mut self, target: &str, chat_type: ChatType) {
-        if !self.state.chats.contains(&target.to_lowercase()) {
+        let chat_already_exists = self.state.chats.contains(&target.to_lowercase());
+
+        if !chat_already_exists {
             self.save_chat(target);
             self.ui_add_chat(target, true);
-        }
-        self.ui_handle_chat_switch_requested(target, chat_type.clone(), None);
 
-        match chat_type {
-            ChatType::Channel => {
-                self.change_chat_state(target, ChatState::JoinInProgress);
-                self.join_channel(target);
-            }
-            ChatType::Person => {
-                self.change_chat_state(target, ChatState::Joined);
-            }
-            ChatType::System => {
-                log::error!("Impossible chat type requested for join from ui_handle_chat_opened: {chat_type}");
+            match chat_type {
+                ChatType::Channel => {
+                    self.change_chat_state(target, ChatState::JoinInProgress);
+                    self.join_channel(target);
+                }
+                ChatType::Person => {
+                    self.change_chat_state(target, ChatState::Joined);
+                }
+                ChatType::System => {
+                    log::error!("Impossible chat type requested for join from ui_handle_chat_opened: {chat_type}");
+                }
             }
         }
+
+        self.ui_handle_chat_switch_requested(target, chat_type.clone(), None);
     }
 
     fn save_chat(&mut self, target: &str) {
