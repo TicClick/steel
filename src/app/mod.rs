@@ -507,13 +507,11 @@ impl Application {
         });
     }
 
-    pub fn handle_chat_message(&mut self, target: &str, mut message: Message) {
+    pub fn handle_chat_message(&mut self, target: &str, message: Message) {
         if !self.state.chats.contains(&target.to_lowercase()) {
             self.save_chat(target);
             self.ui_add_chat(target, false);
         }
-
-        message.parse_for_links();
 
         if let Some(chat_logger) = &self.chat_logger {
             chat_logger.log(target, &message);
