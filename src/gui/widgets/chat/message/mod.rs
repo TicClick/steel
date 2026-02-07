@@ -138,7 +138,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                             ui.spacing_mut().item_spacing.x /= 2.;
                             ui.add(TimestampLabel::new(&message.time, Some(&styles)));
                             ui.add(ChatMessageText::new(
-                                message.chunks.as_ref().unwrap(),
+                                message.chunks.as_ref(),
                                 Some(&styles),
                                 &settings.chat.behaviour,
                                 core,
@@ -173,7 +173,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                                         response.context_menu_opened();
 
                                     ui.add(ChatMessageText::new(
-                                        message.chunks.as_ref().unwrap(),
+                                        message.chunks.as_ref(),
                                         message_styles.as_ref(),
                                         &settings.chat.behaviour,
                                         core,
