@@ -95,6 +95,12 @@ pub struct UI {
     pub theme: ThemeMode,
     pub light_colours: ChatColours,
     pub dark_colours: ChatColours,
+    #[serde(default = "default_highlight_bg_opacity")]
+    pub highlight_bg_opacity: u8,
+}
+
+fn default_highlight_bg_opacity() -> u8 {
+    25
 }
 
 impl Default for UI {
@@ -104,6 +110,7 @@ impl Default for UI {
             scaling: 1.0,
             light_colours: ChatColours::light(),
             dark_colours: ChatColours::dark(),
+            highlight_bg_opacity: default_highlight_bg_opacity(),
         }
     }
 }

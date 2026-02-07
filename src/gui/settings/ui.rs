@@ -86,6 +86,18 @@ impl SettingsWindow {
                     ui.label("other search results")
                         .on_hover_text_at_pointer("colour of other search results in chat");
                 });
+
+                ui.horizontal(|ui| {
+                    ui.add(
+                        egui::Slider::new(&mut state.settings.ui.highlight_bg_opacity, 5..=100)
+                            .integer()
+                            .suffix("%")
+                            .text("background opacity"),
+                    )
+                    .on_hover_text_at_pointer(
+                        "opacity of the background for highlighted messages and search results",
+                    );
+                });
             });
 
             ui.label("tabs");

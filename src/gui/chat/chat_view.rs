@@ -215,23 +215,13 @@ impl ChatView {
                 }
             }
 
-            if message.highlight {
-                message_styles.push(TextStyle::Highlight(
-                    state.settings.ui.colours().highlight.clone().into(),
-                ));
-            }
-
-            // Highlight search results
-            if let Some(highlight_style) = self
-                .filter
-                .get_highlight_style(idx, state.settings.ui.colours())
-            {
-                message_styles.push(highlight_style);
-            }
-
             if matches!(message.r#type, MessageType::Action) {
                 message_styles.push(TextStyle::Italics);
             }
+
+            let search_result_color = self
+                .filter
+                .get_highlight_color(idx, state.settings.ui.colours());
 
             rows.push(ChatViewRow::message(
                 chat,
@@ -242,6 +232,8 @@ impl ChatView {
                 &state.settings,
                 #[cfg(feature = "glass")]
                 &state.glass,
+                message.highlight,
+                search_result_color,
             ));
         }
 

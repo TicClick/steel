@@ -1,7 +1,6 @@
 use eframe::egui;
 use steel_core::chat::{Chat, MessageType};
 use steel_core::settings::ui::ChatColours;
-use steel_core::TextStyle;
 
 use crate::gui::state::UIState;
 
@@ -71,18 +70,14 @@ impl ChatFilter {
         Some(is_current_result)
     }
 
-    pub fn get_highlight_style(
+    pub fn get_highlight_color(
         &self,
         message_idx: usize,
         colours: &ChatColours,
-    ) -> Option<TextStyle> {
+    ) -> Option<egui::Color32> {
         match self.is_message_highlighted(message_idx) {
-            Some(true) => Some(TextStyle::SearchResult(
-                colours.search_result_current.clone().into(),
-            )),
-            Some(false) => Some(TextStyle::SearchResult(
-                colours.search_result_other.clone().into(),
-            )),
+            Some(true) => Some(colours.search_result_current.clone().into()),
+            Some(false) => Some(colours.search_result_other.clone().into()),
             None => None,
         }
     }
