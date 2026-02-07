@@ -153,7 +153,7 @@ async fn try_connect_websocket(
             "Token not yet valid, waiting {:.2} seconds until nbf",
             wait_duration
         );
-        tokio::time::sleep(std::time::Duration::from_secs_f64(wait_duration)).await;
+        tokio::time::sleep(std::time::Duration::from_secs_f64(2.0 * wait_duration)).await;
     }
 
     let base_request = settings.ws_base_uri.clone().into_client_request().unwrap();
