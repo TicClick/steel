@@ -41,24 +41,26 @@ impl SettingsWindow {
             );
 
             ui.heading("logs directory");
-            ui.horizontal(|ui| {
-                ui.label("location (will be created)");
-                ui.text_edit_singleline(&mut state.settings.logging.chat.directory)
-                    .on_hover_text_at_pointer("both relative and absolute paths are supported");
 
-                if ui
-                    .button("open")
-                    .on_hover_text_at_pointer(
-                        "open the directory. if it doesn't exist yet, nothing will happen",
-                    )
-                    .clicked()
-                    && std::path::Path::new(&state.settings.logging.chat.directory).exists()
-                {
-                    state
-                        .core
-                        .open_fs_path(&state.settings.logging.chat.directory);
-                }
-            });
+            ui.label("location (will be created)");
+            let logs_location =
+                egui::TextEdit::multiline(&mut state.settings.logging.chat.directory)
+                    .desired_width(f32::INFINITY);
+            ui.add(logs_location)
+                .on_hover_text_at_pointer("both relative and absolute paths are supported");
+
+            if ui
+                .button("open")
+                .on_hover_text_at_pointer(
+                    "open the directory. if it doesn't exist yet, nothing will happen",
+                )
+                .clicked()
+                && std::path::Path::new(&state.settings.logging.chat.directory).exists()
+            {
+                state
+                    .core
+                    .open_fs_path(&state.settings.logging.chat.directory);
+            }
 
             ui.heading("formats");
 
