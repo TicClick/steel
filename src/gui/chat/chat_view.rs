@@ -17,6 +17,14 @@ use crate::gui::command::{self, CommandHelper};
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
+enum RowMetadata {
+    Filler,
+    UnreadMarker,
+    Message {
+        message_idx: usize,
+    },
+}
+
 pub struct ChatView {
     chat_name: String,
     chat_input: String,
@@ -167,77 +175,26 @@ impl ChatView {
                 (2 * CENTRAL_PANEL_INNER_MARGIN_Y).into(),
             );
 
-        let mut rows: Vec<ChatViewRow> = Vec::new();
+        let mut row_metadata: Vec<RowMetadata> = Vec::new();
 
         if add_filler_space {
-            rows.push(ChatViewRow::filler(
-                chat,
-                chat_view_size.x,
-                chat_view_size.y - chat_row_height - 4.0,
-            ));
+            row_metadata.push(RowMetadata::Filler);
         }
 
         let mut unread_marker_active = false;
-        for (idx, message) in chat.messages.iter().enumerate() {
+        for (idx, _message) in chat.messages.iter().enumerate() {
             if state.settings.chat.behaviour.track_unread_messages
                 && state.active_chat_tab_name == chat.normalized_name
                 && chat.prev_unread_pointer == idx
             {
-                rows.push(ChatViewRow::unread_marker(
-                    chat,
-                    chat_row_height,
-                    state.settings.ui.colours().highlight.clone().into(),
-                ));
+                row_metadata.push(RowMetadata::UnreadMarker);
                 unread_marker_active = true;
             }
 
-            let mut username_styles: Vec<TextStyle> = Vec::new();
-            let mut message_styles = Vec::new();
-
-            // Add default username color first, so it can be overridden by glass styles
-            username_styles.push(TextStyle::Coloured(choose_colour(
-                &message.username,
-                &state.own_username,
-                &state.settings,
-            )));
-
-            #[cfg(feature = "glass")]
-            {
-                if let Some(st) = state.glass.style_username(
-                    &chat.normalized_name,
-                    message,
-                    &state.settings.ui.theme,
-                ) {
-                    username_styles.push(st);
-                }
-                if let Some(st) = state.glass.style_message(&chat.normalized_name, message) {
-                    message_styles.push(st);
-                }
-            }
-
-            if matches!(message.r#type, MessageType::Action) {
-                message_styles.push(TextStyle::Italics);
-            }
-
-            let search_result_color = self
-                .filter
-                .get_highlight_color(idx, state.settings.ui.colours());
-
-            rows.push(ChatViewRow::message(
-                chat,
-                message,
-                Some(message_styles),
-                Some(username_styles),
-                &state.core,
-                &state.settings,
-                #[cfg(feature = "glass")]
-                &state.glass,
-                message.highlight,
-                search_result_color,
-            ));
+            row_metadata.push(RowMetadata::Message { message_idx: idx });
         }
 
-        self.cached_row_heights.resize(rows.len(), chat_row_height);
+        self.cached_row_heights.resize(row_metadata.len(), chat_row_height);
         let heights = self.cached_row_heights.clone();
 
         let command_helper_window_id = self.egui_id("command-helper");
@@ -313,22 +270,89 @@ impl ChatView {
                     // Source of wisdom: https://github.com/emilk/egui/blob/c86bfb6e67abf208dccd7e006ccd9c3675edcc2f/crates/egui_demo_lib/src/demo/table_demo.rs
 
                     let heights = heights.into_iter();
+                    let mut user_context_menu_open = false;
                     let scroll_area_output = builder.body(|body| {
                         body.heterogeneous_rows(heights, |mut row| {
-                            let chat_row_widget = &mut rows[row.index()];
                             let row_idx = row.index();
 
                             row.col(|ui| {
                                 ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
-                                let chat_row_height = ui.add(chat_row_widget).rect.height();
+
+                                // Create ChatViewRow on-demand for visible rows only
+                                let mut chat_row_widget = match &row_metadata[row_idx] {
+                                    RowMetadata::Filler => ChatViewRow::filler(
+                                        chat,
+                                        chat_view_size.x,
+                                        chat_view_size.y - chat_row_height - 4.0,
+                                    ),
+                                    RowMetadata::UnreadMarker => ChatViewRow::unread_marker(
+                                        chat,
+                                        chat_row_height,
+                                        state.settings.ui.colours().highlight.clone().into(),
+                                    ),
+                                    RowMetadata::Message { message_idx } => {
+                                        let message = &chat.messages[*message_idx];
+
+                                        let mut username_styles: Vec<TextStyle> = Vec::new();
+                                        let mut message_styles = Vec::new();
+
+                                        // Add default username color first, so it can be overridden by glass styles
+                                        username_styles.push(TextStyle::Coloured(choose_colour(
+                                            &message.username,
+                                            &state.own_username,
+                                            &state.settings,
+                                        )));
+
+                                        #[cfg(feature = "glass")]
+                                        {
+                                            if let Some(st) = state.glass.style_username(
+                                                &chat.normalized_name,
+                                                message,
+                                                &state.settings.ui.theme,
+                                            ) {
+                                                username_styles.push(st);
+                                            }
+                                            if let Some(st) = state.glass.style_message(&chat.normalized_name, message) {
+                                                message_styles.push(st);
+                                            }
+                                        }
+
+                                        if matches!(message.r#type, MessageType::Action) {
+                                            message_styles.push(TextStyle::Italics);
+                                        }
+
+                                        let search_result_color = self
+                                            .filter
+                                            .get_highlight_color(*message_idx, state.settings.ui.colours());
+
+                                        ChatViewRow::message(
+                                            chat,
+                                            message,
+                                            Some(message_styles),
+                                            Some(username_styles),
+                                            &state.core,
+                                            &state.settings,
+                                            #[cfg(feature = "glass")]
+                                            &state.glass,
+                                            message.highlight,
+                                            search_result_color,
+                                        )
+                                    }
+                                };
+
+                                let chat_row_height = ui.add(&mut chat_row_widget).rect.height();
                                 if row_idx < self.cached_row_heights.len() {
                                     self.cached_row_heights[row_idx] = chat_row_height;
+                                }
+
+                                if chat_row_widget.is_user_menu_opened() {
+                                    user_context_menu_open = true;
                                 }
                             });
                         });
                     });
 
-                    self.user_context_menu_open = rows.iter().any(|row| row.is_user_menu_opened());
+                    self.user_context_menu_open = user_context_menu_open;
 
                     // Decide if a shadow should be drawn.
                     let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
