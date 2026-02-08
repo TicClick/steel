@@ -21,9 +21,10 @@ impl SettingsWindow {
                     .words
                     .join(HIGHLIGHTS_SEPARATOR);
             }
-            let hl = egui::TextEdit::multiline(&mut self.highlights_input).hint_text(
-                "words or phrases, separated by comma and space. example: one, 2 3 4, five",
-            );
+            let hl = egui::TextEdit::multiline(&mut self.highlights_input)
+                .hint_text(
+                    "words or phrases, separated by comma and space. example: one, 2 3 4, five",
+                ).desired_width(f32::INFINITY);
             if ui
                 .add(hl)
                 .on_hover_text_at_pointer(

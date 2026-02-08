@@ -145,14 +145,20 @@ impl SettingsWindow {
                 it sends a lot of useful details and context."
                 );
             });
+
+            let text_input_singleline_width = 200.;
+
             match state.settings.chat.backend {
                 ChatBackend::IRC => {
                     ui.vertical(|ui| {
                         let total_width = ui
                             .horizontal(|ui| {
                                 let mut sz = ui.label("username").rect.width();
-                                sz += ui
-                                    .text_edit_singleline(&mut state.settings.chat.irc.username)
+
+                                let username_edit = egui::TextEdit::singleline(&mut state.settings.chat.irc.username)
+                                    .desired_width(text_input_singleline_width);
+
+                                sz += ui.add(username_edit)
                                     .on_hover_text_at_pointer("replace spaces with underscores")
                                     .rect
                                     .width();
@@ -186,8 +192,9 @@ impl SettingsWindow {
 
                         ui.horizontal(|ui| {
                             ui.label("IRC server");
-                            let input =
-                                egui::TextEdit::singleline(&mut state.settings.chat.irc.server);
+                            let input = egui::TextEdit::singleline(&mut state.settings.chat.irc.server)
+                                    .desired_width(text_input_singleline_width);
+
                             ui.add(input).on_hover_text_at_pointer(
                                 "possible options: \n\
                                 - cho.ppy.sh\n\
@@ -233,21 +240,25 @@ impl SettingsWindow {
 
                         match state.settings.chat.api.oauth_mode {
                             OAuthMode::Default => {
-                                ui.horizontal(|ui| {
-                                    ui.label("jump server URL");
-                                    let input =
-                                        egui::TextEdit::singleline(&mut state.settings.chat.api.jump_server_url);
-                                    ui.add(input).on_hover_text_at_pointer(
-                                        "URL of the OAuth jump server that will redirect you to osu! for authentication"
-                                    );
-                                });
+                                ui.label("jump server URL:");
+                                let input =
+                                    egui::TextEdit::multiline(&mut state.settings.chat.api.jump_server_url)
+                                        .desired_rows(2)
+                                        .desired_width(f32::INFINITY);
+                                ui.add(input).on_hover_text_at_pointer(
+                                    "URL of the OAuth jump server that will redirect you to osu! for authentication"
+                                );
                             }
                             OAuthMode::SelfHosted => {
                                 let total_width = ui
                                     .horizontal(|ui| {
                                         let mut sz = ui.label("client ID").rect.width();
+
+                                        let client_id_edit = egui::TextEdit::singleline(&mut state.settings.chat.api.client_id)
+                                            .desired_width(text_input_singleline_width);
+
                                         sz += ui
-                                            .add(egui::TextEdit::singleline(&mut state.settings.chat.api.client_id))
+                                            .add(client_id_edit)
                                             .on_hover_text_at_pointer("osu! API application client ID")
                                             .rect
                                             .width();
@@ -279,14 +290,14 @@ impl SettingsWindow {
                                     }
                                 });
 
-                                ui.horizontal(|ui| {
-                                    ui.label("redirect URI");
-                                    let input =
-                                        egui::TextEdit::singleline(&mut state.settings.chat.api.redirect_uri);
-                                    ui.add(input).on_hover_text_at_pointer(
-                                        "OAuth redirect URI (must match application settings)"
-                                    );
-                                });
+                                ui.label("redirect URI:");
+                                let input =
+                                    egui::TextEdit::multiline(&mut state.settings.chat.api.redirect_uri)
+                                        .desired_rows(2)
+                                        .desired_width(f32::INFINITY);
+                                ui.add(input).on_hover_text_at_pointer(
+                                    "OAuth redirect URI (must match application settings)"
+                                );
                             }
                         }
 
@@ -301,14 +312,14 @@ impl SettingsWindow {
                             );
                         });
 
-                        ui.horizontal(|ui| {
-                            ui.label("WebSocket URI");
-                            let input =
-                                egui::TextEdit::singleline(&mut state.settings.chat.api.ws_base_uri);
-                            ui.add(input).on_hover_text_at_pointer(
-                                "WebSocket server address (default: wss://notify.ppy.sh)"
-                            );
-                        });
+                        ui.label("WebSocket URI:");
+                        let input =
+                            egui::TextEdit::multiline(&mut state.settings.chat.api.ws_base_uri)
+                                .desired_rows(2)
+                                .desired_width(f32::INFINITY);
+                        ui.add(input).on_hover_text_at_pointer(
+                            "WebSocket server address (default: wss://notify.ppy.sh)"
+                        );
                     });
                 }
             }

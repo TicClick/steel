@@ -24,10 +24,11 @@ impl SettingsWindow {
             )
             .on_hover_text_at_pointer(hint);
 
-            ui.label("update URL");
+            ui.label("update URL:");
             let url_response = ui.add(
                 egui::TextEdit::multiline(&mut state.settings.application.autoupdate.url)
-                    .hint_text("should point to release metadata"),
+                    .hint_text("should point to release metadata")
+                    .desired_width(f32::INFINITY),
             );
 
             // Apply URL changes automatically when the text field loses focus

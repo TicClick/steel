@@ -9,6 +9,7 @@ mod ui;
 use std::cmp;
 
 use eframe::egui;
+use eframe::egui::scroll_area::ScrollBarVisibility;
 
 use crate::core::settings;
 
@@ -67,21 +68,25 @@ impl SettingsWindow {
                     ui.selectable_value(&mut self.active_tab, Tab::Moderation, "moderation");
 
                     ui.selectable_value(&mut self.active_tab, Tab::Logging, "logging");
+                    ui.allocate_space(egui::vec2(0., 200.));
                 });
 
                 ui.separator();
 
-                match self.active_tab {
-                    Tab::Application => self.show_application_tab(ctx, ui, state),
-                    Tab::Chat => self.show_chat_tab(ctx, ui, state),
-                    Tab::Interface => self.show_ui_tab(ui, state),
-                    Tab::Notifications => self.show_notifications_tab(ui, state),
+                egui::ScrollArea::new([false, true])
+                    .scroll_bar_visibility(ScrollBarVisibility::AlwaysVisible)
+                    .max_width(500.)
+                    .show(ui, |ui| match self.active_tab {
+                        Tab::Application => self.show_application_tab(ctx, ui, state),
+                        Tab::Chat => self.show_chat_tab(ctx, ui, state),
+                        Tab::Interface => self.show_ui_tab(ui, state),
+                        Tab::Notifications => self.show_notifications_tab(ui, state),
 
-                    #[cfg(feature = "glass")]
-                    Tab::Moderation => state.glass.show_ui(ui, &state.settings.ui.theme),
+                        #[cfg(feature = "glass")]
+                        Tab::Moderation => state.glass.show_ui(ui, &state.settings.ui.theme),
 
-                    Tab::Logging => self.show_logging_tab(ui, state),
-                }
+                        Tab::Logging => self.show_logging_tab(ui, state),
+                    });
             });
 
             ui.add_space(10.);
