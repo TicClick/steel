@@ -15,4 +15,5 @@ clap = { version = "4.0", features = ["derive"] }
 
 [features]
 default = []
-glass = ["dep:glass"]
+glass = ["dep:glass", "steel/glass"]
+puffin = ["steel/puffin"]

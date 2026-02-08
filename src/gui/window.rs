@@ -1,4 +1,8 @@
 use eframe::egui::{self, Theme};
+#[cfg(feature = "puffin")]
+use puffin;
+#[cfg(feature = "puffin")]
+use puffin_egui;
 use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
@@ -151,6 +155,9 @@ impl ApplicationWindow {
         initial_settings: Settings,
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
+        #[cfg(feature = "puffin")]
+        puffin::set_scopes_on(true);
+
         set_startup_ui_settings(&cc.egui_ctx, &initial_settings);
 
         let mut window = Self {
@@ -397,6 +404,12 @@ const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_milli
 
 impl eframe::App for ApplicationWindow {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(feature = "puffin")]
+        {
+            puffin::profile_function!();
+            puffin::GlobalProfiler::lock().new_frame();
+        }
+
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
 
@@ -440,6 +453,9 @@ impl eframe::App for ApplicationWindow {
         self.chat_view_controller.show(ctx, &self.s);
 
         show_report_dialog(ctx, &mut self.s);
+
+        #[cfg(feature = "puffin")]
+        puffin_egui::profiler_window(ctx);
 
         self.refresh_window_geometry_settings(ctx);
     }
