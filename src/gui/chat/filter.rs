@@ -297,13 +297,23 @@ impl ChatFilter {
                         self.user_filter_input = self.user_filter_input.to_lowercase();
                     }
 
-                    let resp = ui
-                        .button("Find")
-                        .on_hover_text_at_pointer(SEARCH_BUTTON_HINT);
+                    ui.spacing_mut().item_spacing.x = 2.;
 
-                    if resp.clicked() {
-                        filter_action =
-                            self.handle_search_navigation(ctx.input(|i| i.modifiers.shift));
+                    let prev_result_button =
+                        ui.button("↑").on_hover_text_at_pointer(SEARCH_BUTTON_HINT);
+
+                    let next_result_button =
+                        ui.button("↓").on_hover_text_at_pointer(SEARCH_BUTTON_HINT);
+
+                    if ui.button("×").clicked() {
+                        self.should_show_filter = false;
+                        self.clear_search_cache();
+                    }
+
+                    if prev_result_button.clicked() || next_result_button.clicked() {
+                        let to_prev_result = (next_result_button.clicked() && is_shift_pressed)
+                            || prev_result_button.clicked();
+                        filter_action = self.handle_search_navigation(to_prev_result);
                     }
 
                     if !self.cached_search_results.is_empty() {
