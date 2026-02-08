@@ -2,6 +2,8 @@ use eframe::egui;
 use std::cell::Cell;
 
 use egui::{Color32, Widget};
+#[cfg(feature = "puffin")]
+use puffin;
 use steel_core::{
     chat::{Chat, ChatLike, Message, MessageType},
     ipc::client::CoreClient,
@@ -64,6 +66,7 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn message(
         chat: &'chat Chat,
         message: &'msg Message,
@@ -103,6 +106,9 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
 
 impl Widget for &mut ChatViewRow<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
+        #[cfg(feature = "puffin")]
+        puffin::profile_function!();
+
         match self {
             ChatViewRow::Filler {
                 view_width,

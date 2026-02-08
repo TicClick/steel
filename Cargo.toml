@@ -86,6 +86,9 @@ rodio = { workspace = true }
 png = { workspace = true }
 parking_lot = { workspace = true }
 
+puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true }
+puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true }
+
 winresource = { workspace = true }
 serde_json = { workspace = true }
 winit-test = { workspace = true }
@@ -99,3 +102,4 @@ base64 = "0.22"
 [features]
 default = []
 glass = ["dep:glass"]
+puffin = ["dep:puffin", "dep:puffin_egui"]

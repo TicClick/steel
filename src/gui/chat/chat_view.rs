@@ -3,6 +3,8 @@ use egui_extras::{Column, TableBuilder};
 use steel_core::chat::{Chat, ChatLike};
 use steel_core::settings::chat::ChatPosition;
 
+#[cfg(feature = "puffin")]
+use puffin;
 use steel_core::TextStyle;
 
 use crate::core::chat::MessageType;
@@ -20,9 +22,7 @@ const MAX_MESSAGE_LENGTH: usize = 450;
 enum RowMetadata {
     Filler,
     UnreadMarker,
-    Message {
-        message_idx: usize,
-    },
+    Message { message_idx: usize },
 }
 
 pub struct ChatView {
@@ -151,6 +151,9 @@ impl ChatView {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
+        #[cfg(feature = "puffin")]
+        puffin::profile_function!();
+
         let chat = match state.find_chat(&self.chat_name) {
             Some(chat) => chat,
             None => return,
@@ -182,7 +185,9 @@ impl ChatView {
         }
 
         let mut unread_marker_active = false;
-        for (idx, _message) in chat.messages.iter().enumerate() {
+        for idx in 0..chat.messages.len() {
+            #[cfg(feature = "puffin")]
+            puffin::profile_scope!("create_chat_row_metadata");
             if state.settings.chat.behaviour.track_unread_messages
                 && state.active_chat_tab_name == chat.normalized_name
                 && chat.prev_unread_pointer == idx
@@ -194,7 +199,8 @@ impl ChatView {
             row_metadata.push(RowMetadata::Message { message_idx: idx });
         }
 
-        self.cached_row_heights.resize(row_metadata.len(), chat_row_height);
+        self.cached_row_heights
+            .resize(row_metadata.len(), chat_row_height);
         let heights = self.cached_row_heights.clone();
 
         let command_helper_window_id = self.egui_id("command-helper");
@@ -272,10 +278,14 @@ impl ChatView {
                     let heights = heights.into_iter();
                     let mut user_context_menu_open = false;
                     let scroll_area_output = builder.body(|body| {
+                        #[cfg(feature = "puffin")]
+                        puffin::profile_scope!("render_table_body");
                         body.heterogeneous_rows(heights, |mut row| {
                             let row_idx = row.index();
 
                             row.col(|ui| {
+                                #[cfg(feature = "puffin")]
+                                puffin::profile_scope!("render_row");
                                 ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
 
                                 // Create ChatViewRow on-demand for visible rows only
@@ -312,7 +322,10 @@ impl ChatView {
                                             ) {
                                                 username_styles.push(st);
                                             }
-                                            if let Some(st) = state.glass.style_message(&chat.normalized_name, message) {
+                                            if let Some(st) = state
+                                                .glass
+                                                .style_message(&chat.normalized_name, message)
+                                            {
                                                 message_styles.push(st);
                                             }
                                         }
@@ -321,9 +334,10 @@ impl ChatView {
                                             message_styles.push(TextStyle::Italics);
                                         }
 
-                                        let search_result_color = self
-                                            .filter
-                                            .get_highlight_color(*message_idx, state.settings.ui.colours());
+                                        let search_result_color = self.filter.get_highlight_color(
+                                            *message_idx,
+                                            state.settings.ui.colours(),
+                                        );
 
                                         ChatViewRow::message(
                                             chat,
