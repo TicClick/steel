@@ -5,6 +5,8 @@ use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
 
 use crate::gui::state::UIState;
 
+const MENU_MIN_WIDTH: f32 = 150.0;
+
 #[derive(Default)]
 pub struct Menu {
     pub show_settings: bool,
@@ -98,6 +100,8 @@ impl Menu {
         state: &UIState,
     ) {
         ui.menu_button("application", |ui| {
+            ui.set_min_width(MENU_MIN_WIDTH);
+
             if ui.button("settings").clicked() {
                 self.show_settings = !self.show_settings;
                 ui.close();
@@ -124,6 +128,8 @@ impl Menu {
         response_widget_id: &mut Option<egui::Id>,
     ) {
         ui.menu_button("chat", |ui| {
+            ui.set_min_width(MENU_MIN_WIDTH);
+
             let (action, enabled) = match state.connection {
                 ConnectionStatus::Disconnected { .. } => ("connect".to_owned(), true),
                 ConnectionStatus::InProgress => ("connecting...".to_owned(), false),
@@ -164,6 +170,8 @@ impl Menu {
 
     fn show_help_menu(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, state: &mut UIState) {
         ui.menu_button("help", |ui| {
+            ui.set_min_width(MENU_MIN_WIDTH);
+
             let autoupdate_status = format!("automated updates: {}", match state.settings.application.autoupdate.enabled {
                 true => "enabled",
                 false => "disabled",
