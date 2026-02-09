@@ -195,7 +195,7 @@ impl UIState {
             self.core.update_window_title();
         }
 
-        let should_notify = message.highlight || normalized.is_person();
+        let should_notify = !is_system_message && (message.highlight || normalized.is_person());
         if should_notify {
             self.maybe_notify(ctx, &message, &normalized);
         }
