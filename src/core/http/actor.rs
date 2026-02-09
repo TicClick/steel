@@ -143,11 +143,15 @@ impl HTTPActor {
         )) {
             Ok(c) => c,
             Err(e) => {
-                Self::push_error_to_ui(
-                    &self.output,
-                    &format!("Failed to create client from stored token: {e}"),
-                    true,
-                );
+                log::warn!("Failed to restore token: {e}");
+                self.output
+                    .send(AppMessageIn::connection_changed(
+                        ConnectionStatus::Disconnected {
+                            by_user: false,
+                            auth_failed: true,
+                        },
+                    ))
+                    .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
                 return;
             }
         };
