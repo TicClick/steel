@@ -147,13 +147,26 @@ async fn try_connect_websocket(
     SteelApplicationError,
 > {
     let now = chrono::Utc::now().timestamp() as f64;
-    if now < jwt_claims.nbf {
-        let wait_duration = jwt_claims.nbf - now;
+
+    let time_since_issue = now - jwt_claims.iat;
+    let time_until_valid = jwt_claims.nbf - jwt_claims.iat;
+
+    if time_since_issue < 0.0 {
+        log::warn!(
+            "Clock skew detected: token appears to be issued {:.2}s in the future (local clock may be behind server time)",
+            -time_since_issue
+        );
+    }
+
+    if time_since_issue < time_until_valid {
+        let wait_duration = time_until_valid - time_since_issue;
         log::info!(
-            "Token not yet valid, waiting {:.2} seconds until nbf",
+            "Token not yet valid (issued {:.2}s ago, valid in {:.2}s), waiting {:.2}s",
+            time_since_issue,
+            time_until_valid - time_since_issue,
             wait_duration
         );
-        tokio::time::sleep(std::time::Duration::from_secs_f64(2.0 * wait_duration)).await;
+        tokio::time::sleep(std::time::Duration::from_secs_f64(wait_duration)).await;
     }
 
     let base_request = settings.ws_base_uri.clone().into_client_request().unwrap();
@@ -163,32 +176,35 @@ async fn try_connect_websocket(
 
     let ws_config = WebSocketConfig::default();
 
-    let token_fresh_until = jwt_claims.iat + 2.0;
-    let is_token_fresh = now < token_fresh_until;
-
+    const TOKEN_FRESH_DURATION: f64 = 2.0;
     const MAX_FRESH_TOKEN_RETRIES: u32 = 4;
     const RETRY_DELAY_MS: u64 = 150;
+
+    let is_token_fresh = time_since_issue < TOKEN_FRESH_DURATION;
 
     let num_attempts = if is_token_fresh {
         log::info!(
             "Token is fresh (issued {:.2}s ago), will retry on auth errors up to {} times",
-            now - jwt_claims.iat,
+            time_since_issue,
             MAX_FRESH_TOKEN_RETRIES
         );
         MAX_FRESH_TOKEN_RETRIES
     } else {
         log::info!(
             "Token is not fresh (issued {:.2}s ago), single connection attempt",
-            now - jwt_claims.iat
+            time_since_issue
         );
         1
     };
 
     for attempt in 1..=num_attempts {
-        let now_attempt = chrono::Utc::now().timestamp() as f64;
-        if is_token_fresh && now_attempt >= token_fresh_until {
-            log::warn!("Token is no longer fresh, stopping retries");
-            break;
+        if is_token_fresh {
+            let now_attempt = chrono::Utc::now().timestamp() as f64;
+            let time_since_issue_now = now_attempt - jwt_claims.iat;
+            if time_since_issue_now >= TOKEN_FRESH_DURATION {
+                log::warn!("Token is no longer fresh (issued {:.2}s ago), stopping retries", time_since_issue_now);
+                break;
+            }
         }
 
         let mut request = base_request.clone();
