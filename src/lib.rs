@@ -61,7 +61,7 @@ pub fn run_app(
 
     let native_options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default().with_icon(std::sync::Arc::new(
-            eframe::icon_data::from_png_bytes(&include_bytes!("../media/icons/taskbar.png")[..])
+            eframe::icon_data::from_png_bytes(&include_bytes!("../media/icons/logo.png")[..])
                 .unwrap(),
         )),
         ..Default::default()

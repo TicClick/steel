@@ -4,7 +4,7 @@ use crate::core::settings::{BuiltInSound, Sound};
 use crate::gui::state::UIState;
 
 fn icon_as_texture(ctx: &eframe::egui::Context) -> egui::TextureHandle {
-    match crate::gui::png_to_rgba(include_bytes!("../../media/icons/about.png")) {
+    match crate::gui::png_to_rgba(include_bytes!("../../media/icons/logo.png")) {
         Ok((data, (width, height))) => {
             let image =
                 egui::ColorImage::from_rgba_unmultiplied([width as usize, height as usize], &data);
