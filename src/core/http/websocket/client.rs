@@ -202,7 +202,10 @@ async fn try_connect_websocket(
             let now_attempt = chrono::Utc::now().timestamp() as f64;
             let time_since_issue_now = now_attempt - jwt_claims.iat;
             if time_since_issue_now >= TOKEN_FRESH_DURATION {
-                log::warn!("Token is no longer fresh (issued {:.2}s ago), stopping retries", time_since_issue_now);
+                log::warn!(
+                    "Token is no longer fresh (issued {:.2}s ago), stopping retries",
+                    time_since_issue_now
+                );
                 break;
             }
         }
