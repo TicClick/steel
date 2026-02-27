@@ -23,6 +23,12 @@ pub struct WindowGeometry {
     pub height: i32,
     #[serde(default)]
     pub maximized: bool,
+    #[serde(default)]
+    pub sidebar_width: Option<f32>,
+    #[serde(default)]
+    pub channels_panel_height: Option<f32>,
+    #[serde(default)]
+    pub private_chats_panel_height: Option<f32>,
 }
 
 impl Default for WindowGeometry {
@@ -33,6 +39,9 @@ impl Default for WindowGeometry {
             height: 600,
             width: 800,
             maximized: false,
+            sidebar_width: None,
+            channels_panel_height: None,
+            private_chats_panel_height: None,
         }
     }
 }

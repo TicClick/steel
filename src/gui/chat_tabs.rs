@@ -1,6 +1,7 @@
 use eframe::egui::{self, Frame, Id, Margin, Ui};
 use egui_dnd::DragDropItem;
 use steel_core::chat::TabState;
+use steel_core::settings::application::WindowGeometry;
 use steel_core::settings::{Colour, Settings};
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
@@ -48,30 +49,54 @@ impl ChatTabs {
     pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
         let frame_maker = || Frame::new().inner_margin(Margin::symmetric(2, 2));
 
-        egui::SidePanel::left("chats").show(ctx, |ui| {
-            egui::TopBottomPanel::top("public-channels-panel")
-                .resizable(true)
-                .show_separator_line(false)
-                .frame(frame_maker())
-                .show_inside(ui, |ui| {
-                    ui.heading("public channels");
-                    if state.is_connected() {
-                        self.show_new_chat_input(state, ui, ChatType::Channel);
-                    }
-                    self.show_chats(state, ui, ChatType::Channel);
-                });
+        let WindowGeometry {
+            sidebar_width,
+            channels_panel_height,
+            private_chats_panel_height,
+            ..
+        } = state.settings.application.window;
 
-            egui::TopBottomPanel::top("private-chats-panel")
+        let mut side_panel = egui::SidePanel::left("chats");
+        if let Some(w) = sidebar_width {
+            side_panel = side_panel.default_width(w);
+        }
+
+        let sidebar = side_panel.show(ctx, |ui| {
+            let mut ch_panel = egui::TopBottomPanel::top("public-channels-panel")
                 .resizable(true)
                 .show_separator_line(false)
-                .frame(frame_maker())
-                .show_inside(ui, |ui| {
-                    ui.heading("private messages");
-                    if state.is_connected() {
-                        self.show_new_chat_input(state, ui, ChatType::Person);
-                    }
-                    self.show_chats(state, ui, ChatType::Person);
-                });
+                .frame(frame_maker());
+            if let Some(h) = channels_panel_height {
+                ch_panel = ch_panel.default_height(h);
+            }
+
+            let ch_response = ch_panel.show_inside(ui, |ui| {
+                ui.heading("public channels");
+                if state.is_connected() {
+                    self.show_new_chat_input(state, ui, ChatType::Channel);
+                }
+                self.show_chats(state, ui, ChatType::Channel);
+            });
+            state.settings.application.window.channels_panel_height =
+                Some(ch_response.response.rect.height());
+
+            let mut pm_panel = egui::TopBottomPanel::top("private-chats-panel")
+                .resizable(true)
+                .show_separator_line(false)
+                .frame(frame_maker());
+            if let Some(h) = private_chats_panel_height {
+                pm_panel = pm_panel.default_height(h);
+            }
+
+            let pm_response = pm_panel.show_inside(ui, |ui| {
+                ui.heading("private messages");
+                if state.is_connected() {
+                    self.show_new_chat_input(state, ui, ChatType::Person);
+                }
+                self.show_chats(state, ui, ChatType::Person);
+            });
+            state.settings.application.window.private_chats_panel_height =
+                Some(pm_response.response.rect.height());
 
             egui::TopBottomPanel::top("system-chats-panel")
                 .resizable(false)
@@ -82,6 +107,8 @@ impl ChatTabs {
                     self.show_chats(state, ui, ChatType::System);
                 });
         });
+
+        state.settings.application.window.sidebar_width = Some(sidebar.response.rect.width());
     }
 }
 
