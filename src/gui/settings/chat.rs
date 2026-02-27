@@ -13,6 +13,69 @@ pub struct AutojoinSection {
     autojoin_user_input: String,
 }
 
+#[derive(Default)]
+pub struct IgnoredUsersSection {
+    input: String,
+}
+
+impl IgnoredUsersSection {
+    pub fn show(&mut self, settings: &mut Settings, ui: &mut eframe::egui::Ui) {
+        ui.vertical(|ui| {
+            ui.heading("ignored users")
+                .on_hover_text_at_pointer("messages from these users will be silently dropped");
+
+            let validation_result = crate::gui::validate_username(&self.input);
+            ui.horizontal(|ui| {
+                let add_item = ui.button("+").on_hover_text_at_pointer("<Enter> = add");
+                let response =
+                    ui.add(egui::TextEdit::singleline(&mut self.input).hint_text("username"));
+
+                let add_item = !self.input.is_empty()
+                    && (add_item.clicked()
+                        || (response.lost_focus()
+                            && ui.input(|i| i.key_pressed(egui::Key::Enter))));
+
+                if add_item && validation_result.is_ok() {
+                    let username = self.input.to_lowercase();
+                    if !settings.chat.ignored_users.contains(&username) {
+                        settings.chat.ignored_users.push(username);
+                    }
+                    self.input.clear();
+                    response.request_focus();
+                }
+            });
+            if let Err(reason) = validation_result {
+                crate::gui::chat_validation_error(ui, reason);
+            }
+
+            let mut to_remove = BTreeSet::new();
+            let layout = egui::Layout::left_to_right(egui::Align::Max).with_main_wrap(true);
+            ui.with_layout(layout, |ui| {
+                ui.spacing_mut().item_spacing.x /= 2.;
+                for name in settings.chat.ignored_users.iter() {
+                    let item_button = ui
+                        .button(name)
+                        .on_hover_text_at_pointer("middle click = remove");
+                    let mut remove_item = item_button.middle_clicked();
+                    item_button.context_menu(|ui| {
+                        if ui.button("Remove").clicked() {
+                            remove_item = true;
+                            ui.close();
+                        }
+                    });
+                    if remove_item {
+                        to_remove.insert(name.to_owned());
+                    }
+                }
+                settings
+                    .chat
+                    .ignored_users
+                    .retain(|s| !to_remove.contains(s));
+            });
+        });
+    }
+}
+
 impl AutojoinSection {
     fn display_editable_container(
         settings: &mut Settings,
@@ -397,6 +460,10 @@ impl SettingsWindow {
             });
 
             self.autojoin.show(&mut state.settings, ui);
+
+            ui.separator();
+
+            self.ignored_users.show(&mut state.settings, ui);
         });
     }
 }

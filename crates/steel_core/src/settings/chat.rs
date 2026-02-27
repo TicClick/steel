@@ -47,6 +47,9 @@ pub struct Chat {
 
     #[serde(default)]
     pub behaviour: ChatBehaviour,
+
+    #[serde(default)]
+    pub ignored_users: Vec<String>,
 }
 
 impl Default for Chat {
@@ -60,6 +63,8 @@ impl Default for Chat {
             api: HTTPChatSettings::default(),
 
             behaviour: ChatBehaviour::default(),
+
+            ignored_users: Vec::default(),
         }
     }
 }
