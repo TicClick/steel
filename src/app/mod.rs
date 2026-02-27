@@ -161,6 +161,26 @@ impl Application {
                     chat_name,
                 });
             }
+            UICommand::UserIgnored(username) => {
+                if !self.state.settings.chat.ignored_users.contains(&username) {
+                    self.state.settings.chat.ignored_users.push(username);
+                    if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
+                        self.ui_push_backend_error(Box::new(e), false);
+                    }
+                    self.ui_handle_settings_requested();
+                }
+            }
+            UICommand::UserUnignored(username) => {
+                self.state
+                    .settings
+                    .chat
+                    .ignored_users
+                    .retain(|u| u != &username);
+                if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
+                    self.ui_push_backend_error(Box::new(e), false);
+                }
+                self.ui_handle_settings_requested();
+            }
             UICommand::ShowError { error, is_fatal } => {
                 self.ui_push_backend_error(error, is_fatal);
             }
@@ -508,6 +528,16 @@ impl Application {
     }
 
     pub fn handle_chat_message(&mut self, target: &str, message: Message) {
+        if self
+            .state
+            .settings
+            .chat
+            .ignored_users
+            .contains(&message.username_lowercase)
+        {
+            return;
+        }
+
         if !self.state.chats.contains(&target.to_lowercase()) {
             self.save_chat(target);
             self.ui_add_chat(target, false);

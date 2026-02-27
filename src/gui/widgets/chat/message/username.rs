@@ -4,9 +4,9 @@ use steel_core::{chat::Message, ipc::client::CoreClient, settings::Settings, Tex
 use crate::gui::{
     context_menu::{
         chat_user::{
-            menu_item_copy_message, menu_item_copy_username, menu_item_open_chat,
-            menu_item_open_chat_user_profile, menu_item_report_to_moderators,
-            menu_item_translate_message,
+            menu_item_copy_message, menu_item_copy_username, menu_item_ignore_user,
+            menu_item_open_chat, menu_item_open_chat_user_profile, menu_item_report_to_moderators,
+            menu_item_translate_message, menu_item_unignore_user,
         },
         shared::menu_item_open_chat_log,
     },
@@ -78,6 +78,17 @@ impl<'msg, 'app> Username<'msg, 'app> {
             self.chat_name,
             self.message,
         );
+
+        let is_ignored = self
+            .settings
+            .chat
+            .ignored_users
+            .contains(&self.message.username_lowercase);
+        if is_ignored {
+            menu_item_unignore_user(ui, self.core_client, true, &self.message.username);
+        } else {
+            menu_item_ignore_user(ui, self.core_client, true, &self.message.username);
+        }
 
         ui.separator();
 

@@ -5,6 +5,12 @@ use steel_core::{
     settings::{ChatBackend, Settings},
 };
 
+const ICON_IGNORE_USER: &str = "🚫 Ignore user";
+const IGNORE_USER: &str = "Ignore user";
+
+const ICON_UNIGNORE_USER: &str = "✅ Unignore user";
+const UNIGNORE_USER: &str = "Unignore user";
+
 const ICON_OPEN_CHAT: &str = "💬 Open chat";
 const OPEN_CHAT: &str = "Open chat";
 
@@ -89,6 +95,40 @@ pub fn menu_item_copy_username(ui: &mut egui::Ui, show_icon: bool, message: &Mes
 
     if ui.button(text).clicked() {
         ui.ctx().copy_text(message.username.clone());
+        ui.close();
+    }
+}
+
+pub fn menu_item_ignore_user(
+    ui: &mut egui::Ui,
+    core_client: &CoreClient,
+    show_icon: bool,
+    username: &str,
+) {
+    let text = match show_icon {
+        true => ICON_IGNORE_USER,
+        false => IGNORE_USER,
+    };
+
+    if ui.button(text).clicked() {
+        core_client.user_ignored(username);
+        ui.close();
+    }
+}
+
+pub fn menu_item_unignore_user(
+    ui: &mut egui::Ui,
+    core_client: &CoreClient,
+    show_icon: bool,
+    username: &str,
+) {
+    let text = match show_icon {
+        true => ICON_UNIGNORE_USER,
+        false => UNIGNORE_USER,
+    };
+
+    if ui.button(text).clicked() {
+        core_client.user_unignored(username);
         ui.close();
     }
 }

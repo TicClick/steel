@@ -195,6 +195,18 @@ impl CoreClient {
             chat_name: chat_name.to_owned(),
         }));
     }
+
+    pub fn user_ignored(&self, username: &str) {
+        self.send_or_log(AppMessageIn::UI(UICommand::UserIgnored(
+            username.to_lowercase(),
+        )));
+    }
+
+    pub fn user_unignored(&self, username: &str) {
+        self.send_or_log(AppMessageIn::UI(UICommand::UserUnignored(
+            username.to_lowercase(),
+        )));
+    }
 }
 
 pub use crate::ipc::server::{ChatEvent, HTTPEvent, SystemEvent};

@@ -31,6 +31,7 @@ pub enum Tab {
 pub struct SettingsWindow {
     active_tab: Tab,
     autojoin: chat::AutojoinSection,
+    ignored_users: chat::IgnoredUsersSection,
     username_input: String,
     username_colour_input: settings::Colour,
     visible_password: bool,

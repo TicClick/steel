@@ -12,7 +12,9 @@ use super::context_menu::chat::{
     menu_item_add_to_favourites, menu_item_clear_chat_tab, menu_item_close_chat,
     menu_item_remove_from_favourites,
 };
-use super::context_menu::chat_user::menu_item_open_chat_user_profile;
+use super::context_menu::chat_user::{
+    menu_item_ignore_user, menu_item_open_chat_user_profile, menu_item_unignore_user,
+};
 use super::context_menu::shared::menu_item_open_chat_log;
 
 const MIN_CHAT_TABS_SCROLLVIEW_HEIGHT: f32 = 180.;
@@ -136,6 +138,17 @@ fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str
 
     if !normalized_chat_name.is_channel() {
         menu_item_open_chat_user_profile(ui, false, normalized_chat_name);
+
+        let is_ignored = state
+            .settings
+            .chat
+            .ignored_users
+            .contains(&normalized_chat_name.to_owned());
+        if is_ignored {
+            menu_item_unignore_user(ui, &state.core, false, normalized_chat_name);
+        } else {
+            menu_item_ignore_user(ui, &state.core, false, normalized_chat_name);
+        }
     }
     menu_item_open_chat_log(ui, &state.core, false, normalized_chat_name);
 
