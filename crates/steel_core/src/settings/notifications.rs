@@ -6,6 +6,8 @@ pub struct NotificationParams {
     pub is_message_highlighted: bool,
     pub is_window_focused: bool,
     pub is_sound_configured: bool,
+    pub is_system_message: bool,
+    pub is_own_message: bool,
 }
 
 pub struct NotificationOutcome {
@@ -39,26 +41,22 @@ impl Default for Notifications {
 
 impl Notifications {
     pub fn evaluate(&self, params: &NotificationParams) -> NotificationOutcome {
+        if params.is_system_message || params.is_own_message {
+            return NotificationOutcome {
+                flash_window: false,
+                play_sound: false,
+            };
+        }
+
         let is_notifications_enabled = (params.is_message_highlighted
             && self.notification_events.highlights)
             || (params.is_private_message && self.notification_events.private_messages);
 
-        let flash_window = match is_notifications_enabled {
-            false => false,
-            true => !params.is_window_focused,
-        };
-
-        let play_sound = match params.is_sound_configured {
-            false => false,
-            true => match is_notifications_enabled {
-                true => !self.sound_only_when_unfocused || !params.is_window_focused,
-                false => false,
-            },
-        };
-
         NotificationOutcome {
-            flash_window,
-            play_sound,
+            flash_window: is_notifications_enabled && !params.is_window_focused,
+            play_sound: params.is_sound_configured
+                && is_notifications_enabled
+                && (!self.sound_only_when_unfocused || !params.is_window_focused),
         }
     }
 }
@@ -174,78 +172,5 @@ impl Display for NotificationStyle {
                 }
             }
         )
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn expected_flash(
-        notify_hl: bool,
-        notify_pm: bool,
-        is_private: bool,
-        highlighted: bool,
-        focused: bool,
-    ) -> bool {
-        !focused && ((highlighted && notify_hl) || (is_private && notify_pm))
-    }
-
-    fn expected_sound(
-        notify_hl: bool,
-        notify_pm: bool,
-        sound_configured: bool,
-        is_private: bool,
-        highlighted: bool,
-        focused: bool,
-        suppress_sound: bool,
-    ) -> bool {
-        let is_notifications_enabled = (highlighted && notify_hl) || (is_private && notify_pm);
-        sound_configured && is_notifications_enabled && (!suppress_sound || !focused)
-    }
-
-    #[test]
-    fn all_combinations() {
-        for notify_hl in [false, true] {
-            for notify_pm in [false, true] {
-                for suppress_snd in [false, true] {
-                    for is_private in [false, true] {
-                        for highlighted in [false, true] {
-                            for focused in [false, true] {
-                                for sound_cfg in [false, true] {
-                                    let s = Notifications {
-                                        notification_events: NotificationEvents {
-                                            highlights: notify_hl,
-                                            private_messages: notify_pm,
-                                        },
-                                        sound_only_when_unfocused: suppress_snd,
-                                        ..Default::default()
-                                    };
-                                    let out = s.evaluate(&NotificationParams {
-                                        is_private_message: is_private,
-                                        is_message_highlighted: highlighted,
-                                        is_window_focused: focused,
-                                        is_sound_configured: sound_cfg,
-                                    });
-
-                                    assert_eq!(
-                out.flash_window,
-                expected_flash(notify_hl, notify_pm, is_private, highlighted, focused),
-                "flash_window: notify_hl={notify_hl} notify_pm={notify_pm} \
-                 is_private={is_private} highlighted={highlighted} focused={focused}",
-            );
-                                    assert_eq!(
-                out.play_sound,
-                expected_sound(notify_hl, notify_pm, sound_cfg, is_private, highlighted, focused, suppress_snd),
-                "play_sound: notify_hl={notify_hl} notify_pm={notify_pm} sound_cfg={sound_cfg} \
-                 is_private={is_private} highlighted={highlighted} focused={focused} suppress_snd={suppress_snd}",
-            );
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -196,10 +196,7 @@ impl UIState {
             self.core.update_window_title();
         }
 
-        let should_notify = !is_system_message && (message.is_highlight || normalized.is_person());
-        if should_notify {
-            self.maybe_notify(ctx, &message, &normalized);
-        }
+        self.maybe_notify(ctx, &message, &normalized);
 
         if message.is_highlight {
             message.set_original_chat(target);
@@ -216,11 +213,20 @@ impl UIState {
         normalized_chat_name: &str,
     ) {
         let is_window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let is_system_message = message.r#type == MessageType::System;
+        let is_own_message = message.username_lowercase
+            == self
+                .own_username
+                .as_ref()
+                .unwrap_or(&self.settings.chat.irc.username)
+                .to_lowercase();
         let outcome = self.settings.notifications.evaluate(&NotificationParams {
             is_private_message: normalized_chat_name.is_person(),
             is_message_highlighted: message.is_highlight,
             is_window_focused,
             is_sound_configured: self.settings.notifications.highlights.sound.is_some(),
+            is_system_message,
+            is_own_message,
         });
 
         if outcome.flash_window {
