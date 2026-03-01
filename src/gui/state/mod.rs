@@ -196,12 +196,12 @@ impl UIState {
             self.core.update_window_title();
         }
 
-        let should_notify = !is_system_message && (message.highlight || normalized.is_person());
+        let should_notify = !is_system_message && (message.is_highlight || normalized.is_person());
         if should_notify {
             self.maybe_notify(ctx, &message, &normalized);
         }
 
-        if message.highlight {
+        if message.is_highlight {
             message.set_original_chat(target);
             if let Some(highlights) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
                 highlights.push(message, false);
@@ -215,12 +215,12 @@ impl UIState {
         message: &Message,
         normalized_chat_name: &str,
     ) {
-        let window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let is_window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
         let outcome = self.settings.notifications.evaluate(&NotificationParams {
             is_private_message: normalized_chat_name.is_person(),
-            message_highlighted: message.highlight,
-            window_focused,
-            sound_configured: self.settings.notifications.highlights.sound.is_some(),
+            is_message_highlighted: message.is_highlight,
+            is_window_focused,
+            is_sound_configured: self.settings.notifications.highlights.sound.is_some(),
         });
 
         if outcome.flash_window {

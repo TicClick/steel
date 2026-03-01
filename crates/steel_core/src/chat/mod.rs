@@ -35,7 +35,7 @@ pub struct Message {
     // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
     pub id: Option<usize>,
-    pub highlight: bool,
+    pub is_highlight: bool,
 
     pub original_chat: Option<String>,
 }
@@ -89,7 +89,7 @@ impl Message {
 
             chunks: None,
             id: None,
-            highlight: false,
+            is_highlight: false,
 
             original_chat: None,
         };
@@ -142,7 +142,7 @@ impl Message {
                         &keyword_lowercase,
                         keyword_start_pos + starting_pos,
                     ) {
-                        self.highlight = true;
+                        self.is_highlight = true;
                         break 'iterate_over_keywords;
                     } else {
                         starting_pos += keyword_start_pos + 1;
@@ -224,7 +224,7 @@ impl Chat {
 
     pub fn push(&mut self, msg: Message, is_chat_active: bool) {
         let idx = self.messages.len();
-        let is_highlight = msg.highlight;
+        let is_highlight = msg.is_highlight;
         let is_system_message = msg.r#type == MessageType::System;
 
         self.messages.push(msg);
@@ -418,7 +418,7 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(message.highlight, "{message_text:?} did not match {keywords:?}");
+            assert!(message.is_highlight, "{message_text:?} did not match {keywords:?}");
         }
     }
 
@@ -441,7 +441,7 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(!message.highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
+            assert!(!message.is_highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
         }
     }
 
@@ -451,7 +451,7 @@ mod tests {
 
     fn highlighted_msg() -> Message {
         let mut m = Message::new_text("user", "hello");
-        m.highlight = true;
+        m.is_highlight = true;
         m
     }
 
