@@ -354,7 +354,7 @@ mod tests {
             text_lowercase: s.to_lowercase(),
             chunks: None,
             id: None,
-            highlight: false,
+            is_highlight: false,
             original_chat: None,
         };
         m.parse_for_links();

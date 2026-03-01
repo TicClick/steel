@@ -35,7 +35,7 @@ pub struct Message {
     // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
     pub id: Option<usize>,
-    pub highlight: bool,
+    pub is_highlight: bool,
 
     pub original_chat: Option<String>,
 }
@@ -89,7 +89,7 @@ impl Message {
 
             chunks: None,
             id: None,
-            highlight: false,
+            is_highlight: false,
 
             original_chat: None,
         };
@@ -142,7 +142,7 @@ impl Message {
                         &keyword_lowercase,
                         keyword_start_pos + starting_pos,
                     ) {
-                        self.highlight = true;
+                        self.is_highlight = true;
                         break 'iterate_over_keywords;
                     } else {
                         starting_pos += keyword_start_pos + 1;
@@ -224,7 +224,7 @@ impl Chat {
 
     pub fn push(&mut self, msg: Message, is_chat_active: bool) {
         let idx = self.messages.len();
-        let is_highlight = msg.highlight;
+        let is_highlight = msg.is_highlight;
         let is_system_message = msg.r#type == MessageType::System;
 
         self.messages.push(msg);
@@ -418,7 +418,7 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(message.highlight, "{message_text:?} did not match {keywords:?}");
+            assert!(message.is_highlight, "{message_text:?} did not match {keywords:?}");
         }
     }
 
@@ -441,7 +441,64 @@ mod tests {
         ] {
             let mut message = Message::new_text("Someone", message_text);
             message.detect_highlights(&hls(&keywords), active_username);
-            assert!(!message.highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
+            assert!(!message.is_highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
         }
+    }
+
+    fn plain_msg() -> Message {
+        Message::new_text("user", "hello")
+    }
+
+    fn highlighted_msg() -> Message {
+        let mut m = Message::new_text("user", "hello");
+        m.is_highlight = true;
+        m
+    }
+
+    #[test]
+    fn tab_state_read_when_chat_is_active() {
+        let mut chat = Chat::new("#channel");
+        chat.push(plain_msg(), true);
+        assert!(matches!(chat.tab_state(), TabState::Read));
+    }
+
+    #[test]
+    fn tab_state_unread_channel_no_highlight_inactive() {
+        let mut chat = Chat::new("#channel");
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Unread));
+    }
+
+    #[test]
+    fn tab_state_highlight_channel_highlighted_inactive() {
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Highlight));
+    }
+
+    #[test]
+    fn tab_state_highlight_private_any_message_inactive() {
+        // Private chats (Person type) always show Highlight when unread.
+        let mut chat = Chat::new("nick");
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Highlight));
+    }
+
+    #[test]
+    fn tab_state_read_after_mark_as_read() {
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        chat.mark_as_read();
+        assert!(matches!(chat.tab_state(), TabState::Read));
+    }
+
+    #[test]
+    fn tab_state_unread_after_highlight_read_then_plain_msg() {
+        // Highlighted message was read, then a new plain message arrives -> Unread (not Highlight).
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        chat.mark_as_read();
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Unread));
     }
 }

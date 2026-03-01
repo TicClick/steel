@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+use steel_core::settings::NotificationParams;
 
 use eframe::egui;
 use tokio::sync::mpsc::UnboundedSender;
@@ -195,12 +196,9 @@ impl UIState {
             self.core.update_window_title();
         }
 
-        let should_notify = !is_system_message && (message.highlight || normalized.is_person());
-        if should_notify {
-            self.maybe_notify(ctx, &message, &normalized);
-        }
+        self.maybe_notify(ctx, &message, &normalized);
 
-        if message.highlight {
+        if message.is_highlight {
             message.set_original_chat(target);
             if let Some(highlights) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
                 highlights.push(message, false);
@@ -214,51 +212,47 @@ impl UIState {
         message: &Message,
         normalized_chat_name: &str,
     ) {
-        let window_unfocused = !ctx.input(|i| i.viewport().focused.unwrap_or(false));
-        let should_notify = {
-            let should_flash_for_highlight =
-                self.settings.notifications.notification_events.highlights;
-            let should_flash_for_private_message = normalized_chat_name.is_person()
-                && self
-                    .settings
-                    .notifications
-                    .notification_events
-                    .private_messages;
+        let is_window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let is_system_message = message.r#type == MessageType::System;
+        let is_own_message = message.username_lowercase
+            == self
+                .own_username
+                .as_ref()
+                .unwrap_or(&self.settings.chat.irc.username)
+                .to_lowercase();
+        let outcome = self.settings.notifications.evaluate(&NotificationParams {
+            is_private_message: normalized_chat_name.is_person(),
+            is_message_highlighted: message.is_highlight,
+            is_window_focused,
+            is_sound_configured: self.settings.notifications.highlights.sound.is_some(),
+            is_system_message,
+            is_own_message,
+        });
 
-            should_flash_for_highlight || should_flash_for_private_message
-        };
-
-        if should_notify {
-            if window_unfocused {
-                if cfg!(target_os = "linux") {
+        if outcome.flash_window {
+            if cfg!(target_os = "linux") {
+                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                    eframe::egui::UserAttentionType::Informational,
+                ));
+            } else {
+                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                    eframe::egui::UserAttentionType::Critical,
+                ));
+                if matches!(
+                    self.settings.notifications.notification_style,
+                    steel_core::settings::NotificationStyle::Moderate
+                ) {
                     ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                         eframe::egui::UserAttentionType::Informational,
                     ));
-                } else {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                        eframe::egui::UserAttentionType::Critical,
-                    ));
-                    if matches!(
-                        self.settings.notifications.notification_style,
-                        steel_core::settings::NotificationStyle::Moderate
-                    ) {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Informational,
-                        ));
-                    };
-                    self.notification_start_time = Some(std::time::Instant::now());
                 }
+                self.notification_start_time = Some(std::time::Instant::now());
             }
+        }
 
+        if outcome.play_sound {
             if let Some(sound) = &self.settings.notifications.highlights.sound {
-                let should_play_sound = match self.settings.notifications.sound_only_when_unfocused
-                {
-                    true => window_unfocused && message.highlight,
-                    false => message.highlight,
-                };
-                if should_play_sound {
-                    self.sound_player.play(sound);
-                }
+                self.sound_player.play(sound);
             }
         }
     }

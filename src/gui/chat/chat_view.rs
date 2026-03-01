@@ -348,7 +348,7 @@ impl ChatView {
                                             &state.settings,
                                             #[cfg(feature = "glass")]
                                             &state.glass,
-                                            message.highlight,
+                                            message.is_highlight,
                                             search_result_color,
                                         )
                                     }

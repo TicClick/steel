@@ -1,6 +1,20 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
+pub struct NotificationParams {
+    pub is_private_message: bool,
+    pub is_message_highlighted: bool,
+    pub is_window_focused: bool,
+    pub is_sound_configured: bool,
+    pub is_system_message: bool,
+    pub is_own_message: bool,
+}
+
+pub struct NotificationOutcome {
+    pub flash_window: bool,
+    pub play_sound: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Notifications {
@@ -21,6 +35,28 @@ impl Default for Notifications {
             enable_notification_timeout: false,
             notification_timeout_seconds: 10,
             notification_style: NotificationStyle::default(),
+        }
+    }
+}
+
+impl Notifications {
+    pub fn evaluate(&self, params: &NotificationParams) -> NotificationOutcome {
+        if params.is_system_message || params.is_own_message {
+            return NotificationOutcome {
+                flash_window: false,
+                play_sound: false,
+            };
+        }
+
+        let is_notifications_enabled = (params.is_message_highlighted
+            && self.notification_events.highlights)
+            || (params.is_private_message && self.notification_events.private_messages);
+
+        NotificationOutcome {
+            flash_window: is_notifications_enabled && !params.is_window_focused,
+            play_sound: params.is_sound_configured
+                && is_notifications_enabled
+                && (!self.sound_only_when_unfocused || !params.is_window_focused),
         }
     }
 }
