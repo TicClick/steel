@@ -146,7 +146,7 @@ impl CoreClient {
     }
 
     pub fn open_chat_log(&self, target: &str) {
-        self.send_or_log(AppMessageIn::UI(UICommand::FilesystemPathRequested(
+        self.send_or_log(AppMessageIn::UI(UICommand::ChatLogRequested(
             target.to_owned(),
         )));
     }
