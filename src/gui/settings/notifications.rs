@@ -39,32 +39,67 @@ impl SettingsWindow {
         state: &mut UIState,
     ) {
         ui.vertical(|ui| {
-            ui.heading("highlights");
-            ui.label("keywords");
-            if self.highlights_input.is_empty() {
-                self.highlights_input = state
-                    .settings
-                    .notifications
-                    .highlights
-                    .words
-                    .join(HIGHLIGHTS_SEPARATOR);
-            }
-            let hl = egui::TextEdit::multiline(&mut self.highlights_input)
-                .hint_text(
-                    "words or phrases, separated by comma and space. example: one, 2 3 4, five",
-                ).desired_width(f32::INFINITY);
-            if ui
-                .add(hl)
-                .on_hover_text_at_pointer(
-                    "list of words or phrases which will trigger notifications:\n\
-                - must be separated by comma and space (example: one, 2 3 4, five)\n\
-                - exact case does not matter\n\
-                - full match required (\"ha\" will not highlight a message with \"haha\")",
-                )
-                .changed()
-            {
-                state.update_highlights(&self.highlights_input);
-            }
+            ui.heading("general");
+
+            ui.label("notify on");
+            ui.indent("notify-checkboxes", |ui| {
+                ui.checkbox(&mut state.settings.notifications.notification_events.highlights, "highlights");
+                ui.checkbox(&mut state.settings.notifications.notification_events.private_messages, "private messages");
+            });
+
+
+            ui.heading("visuals");
+
+            ui.horizontal(|ui| {
+                ui.label("notification style");
+                egui::ComboBox::from_id_salt("notification_style")
+                    .selected_text(self.notifications_style.to_string())
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut self.notifications_style,
+                            NotificationStyle::Moderate,
+                            NotificationStyle::Moderate.to_string(),
+                        );
+
+                        if cfg!(not(target_os = "linux")) {
+                            ui.selectable_value(
+                                &mut self.notifications_style,
+                                NotificationStyle::Intensive,
+                                NotificationStyle::Intensive.to_string(),
+                            );
+                        }
+                    });
+
+                if self.notifications_style != state.settings.notifications.notification_style {
+                    state.settings.notifications.notification_style = self.notifications_style.clone();
+                }
+            });
+
+            let is_timeout_enabled = matches!(self.notifications_style, NotificationStyle::Intensive) && cfg!(not(target_os = "linux"));
+            ui.add_enabled_ui(is_timeout_enabled, |ui| {
+                ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
+
+                ui.add_enabled_ui(state.settings.notifications.enable_notification_timeout, |ui| {
+                    ui.indent("notification-timeout-slider", |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("timeout duration");
+                            let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
+                            let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
+                            if ui.add(slider).changed() {
+                                state.settings.notifications.notification_timeout_seconds = timeout as u32;
+                            }
+                        });
+                    });
+                });
+            })
+                .response
+                .on_disabled_hover_text(
+                    if cfg!(target_os = "linux") {
+                        "this setting is unavailable on Linux"
+                    } else {
+                        "this setting is inapplicable for selected notifcation style"
+                    }
+                );
 
             ui.heading("sound");
 
@@ -198,64 +233,33 @@ impl SettingsWindow {
             ui.add_enabled(sound_chosen, checkbox_sound_when_unfocused)
                 .on_hover_text_at_pointer("when enabled, notification sounds will only play when the application is not in focus");
 
-            ui.heading("visuals");
 
-            ui.horizontal(|ui| {
-                ui.label("notification style");
-                egui::ComboBox::from_id_salt("notification_style")
-                    .selected_text(self.notifications_style.to_string())
-                    .show_ui(ui, |ui| {
-                        ui.selectable_value(
-                            &mut self.notifications_style,
-                            NotificationStyle::Moderate,
-                            NotificationStyle::Moderate.to_string(),
-                        );
-
-                        if cfg!(not(target_os = "linux")) {
-                            ui.selectable_value(
-                                &mut self.notifications_style,
-                                NotificationStyle::Intensive,
-                                NotificationStyle::Intensive.to_string(),
-                            );
-                        }
-                    });
-
-                if self.notifications_style != state.settings.notifications.notification_style {
-                    state.settings.notifications.notification_style = self.notifications_style.clone();
-                }
-            });
-
-            ui.label("notify on");
-            ui.indent("notify-checkboxes", |ui| {
-                ui.checkbox(&mut state.settings.notifications.notification_events.highlights, "highlights");
-                ui.checkbox(&mut state.settings.notifications.notification_events.private_messages, "private messages");
-            });
-
-            let is_timeout_enabled = matches!(self.notifications_style, NotificationStyle::Intensive) && cfg!(not(target_os = "linux"));
-            ui.add_enabled_ui(is_timeout_enabled, |ui| {
-                ui.checkbox(&mut state.settings.notifications.enable_notification_timeout, "stop notification after timeout");
-
-                ui.add_enabled_ui(state.settings.notifications.enable_notification_timeout, |ui| {
-                    ui.indent("notification-timeout-slider", |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label("timeout duration");
-                            let mut timeout = state.settings.notifications.notification_timeout_seconds as f32;
-                            let slider = egui::Slider::new(&mut timeout, 1.0..=60.0).suffix(" seconds").integer();
-                            if ui.add(slider).changed() {
-                                state.settings.notifications.notification_timeout_seconds = timeout as u32;
-                            }
-                        });
-                    });
-                });
-            })
-                .response
-                .on_disabled_hover_text(
-                    if cfg!(target_os = "linux") {
-                        "this setting is unavailable on Linux"
-                    } else {
-                        "this setting is inapplicable for selected notifcation style"
-                    }
-                );
+            ui.heading("highlights");
+            ui.label("keywords");
+            if self.highlights_input.is_empty() {
+                self.highlights_input = state
+                    .settings
+                    .notifications
+                    .highlights
+                    .words
+                    .join(HIGHLIGHTS_SEPARATOR);
+            }
+            let hl = egui::TextEdit::multiline(&mut self.highlights_input)
+                .hint_text(
+                    "words or phrases, separated by comma and space. example: one, 2 3 4, five",
+                ).desired_width(f32::INFINITY);
+            if ui
+                .add(hl)
+                .on_hover_text_at_pointer(
+                    "list of words or phrases which will trigger notifications:\n\
+                - must be separated by comma and space (example: one, 2 3 4, five)\n\
+                - exact case does not matter\n\
+                - full match required (\"ha\" will not highlight a message with \"haha\")",
+                )
+                .changed()
+            {
+                state.update_highlights(&self.highlights_input);
+            }
         });
     }
 }
