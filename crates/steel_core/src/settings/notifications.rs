@@ -65,6 +65,7 @@ impl Display for BuiltInSound {
 #[serde(rename_all = "lowercase")]
 pub enum Sound {
     BuiltIn(BuiltInSound),
+    Custom(std::path::PathBuf),
 }
 
 impl Display for Sound {
@@ -74,6 +75,11 @@ impl Display for Sound {
             "{}",
             match self {
                 Self::BuiltIn(s) => format!("built-in ({s})"),
+                Self::Custom(path) => path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("(unknown file)")
+                    .to_string(),
             }
         )
     }

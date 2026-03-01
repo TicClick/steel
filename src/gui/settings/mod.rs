@@ -39,6 +39,9 @@ pub struct SettingsWindow {
     highlights_input: String,
     notifications_builtin_sound: settings::BuiltInSound,
     notifications_style: settings::NotificationStyle,
+    notifications_custom_sound_path: Option<std::path::PathBuf>,
+    notifications_custom_sound_dialog:
+        Option<std::sync::mpsc::Receiver<Option<std::path::PathBuf>>>,
     text_row_height: Option<f32>,
 }
 
@@ -48,10 +51,14 @@ impl SettingsWindow {
     }
 
     pub fn show(&mut self, ctx: &eframe::egui::Context, state: &mut UIState, is_open: &mut bool) {
-        if let Some(settings::Sound::BuiltIn(sound)) =
-            &state.settings.notifications.highlights.sound
-        {
-            self.notifications_builtin_sound = sound.clone();
+        match &state.settings.notifications.highlights.sound {
+            Some(settings::Sound::BuiltIn(sound)) => {
+                self.notifications_builtin_sound = sound.clone();
+            }
+            Some(settings::Sound::Custom(path)) => {
+                self.notifications_custom_sound_path = Some(path.clone());
+            }
+            None => {}
         }
 
         self.notifications_style = state.settings.notifications.notification_style.clone();

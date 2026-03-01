@@ -83,6 +83,7 @@ zip = { workspace = true }
 md5 = { workspace = true }
 
 rodio = { workspace = true }
+rfd = "0.15"
 png = { workspace = true }
 parking_lot = { workspace = true }
 

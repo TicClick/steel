@@ -59,21 +59,28 @@ impl SoundPlayer {
 
     pub fn play(&mut self, sound: &Sound) {
         if let Some(sh) = &self.stream_handle {
-            let sample = match sound {
-                Sound::BuiltIn(builtin) => match builtin {
-                    BuiltInSound::Bell => BELL,
-                    BuiltInSound::DoubleBell => DOUBLE_BELL,
-                    BuiltInSound::PartyHorn => PARTY_HORN,
-                    BuiltInSound::Ping => PING,
-                    BuiltInSound::Tick => TICK,
-                    BuiltInSound::TwoTone => TWO_TONE,
-                },
-            };
-            match sh.play_once(std::io::Cursor::new(sample)) {
-                Ok(sink) => self.sink = Some(sink),
-                Err(e) => {
-                    log::error!("failed to play {sound:?}: {e:?}");
+            match sound {
+                Sound::BuiltIn(builtin) => {
+                    let sample = match builtin {
+                        BuiltInSound::Bell => BELL,
+                        BuiltInSound::DoubleBell => DOUBLE_BELL,
+                        BuiltInSound::PartyHorn => PARTY_HORN,
+                        BuiltInSound::Ping => PING,
+                        BuiltInSound::Tick => TICK,
+                        BuiltInSound::TwoTone => TWO_TONE,
+                    };
+                    match sh.play_once(std::io::Cursor::new(sample)) {
+                        Ok(sink) => self.sink = Some(sink),
+                        Err(e) => log::error!("failed to play {sound:?}: {e:?}"),
+                    }
                 }
+                Sound::Custom(path) => match std::fs::File::open(path) {
+                    Ok(file) => match sh.play_once(std::io::BufReader::new(file)) {
+                        Ok(sink) => self.sink = Some(sink),
+                        Err(e) => log::error!("failed to play custom sound {path:?}: {e:?}"),
+                    },
+                    Err(e) => log::error!("failed to open custom sound file {path:?}: {e:?}"),
+                },
             }
         }
     }
