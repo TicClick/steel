@@ -17,7 +17,8 @@ pub use colour::Colour;
 pub use errors::SettingsError;
 pub use logging::{AppLoggingConfig, LoggingConfig};
 pub use notifications::{
-    BuiltInSound, Highlights, NotificationEvents, NotificationStyle, Notifications, Sound,
+    BuiltInSound, Highlights, NotificationEvents, NotificationOutcome, NotificationParams,
+    NotificationStyle, Notifications, Sound,
 };
 pub use ui::{ChatColours, ThemeMode, UI};
 

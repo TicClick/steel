@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
 use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+use steel_core::settings::NotificationParams;
 
 use eframe::egui;
 use tokio::sync::mpsc::UnboundedSender;
@@ -214,51 +215,38 @@ impl UIState {
         message: &Message,
         normalized_chat_name: &str,
     ) {
-        let window_unfocused = !ctx.input(|i| i.viewport().focused.unwrap_or(false));
-        let should_notify = {
-            let should_flash_for_highlight =
-                self.settings.notifications.notification_events.highlights;
-            let should_flash_for_private_message = normalized_chat_name.is_person()
-                && self
-                    .settings
-                    .notifications
-                    .notification_events
-                    .private_messages;
+        let window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let outcome = self.settings.notifications.evaluate(&NotificationParams {
+            is_private_message: normalized_chat_name.is_person(),
+            message_highlighted: message.highlight,
+            window_focused,
+            sound_configured: self.settings.notifications.highlights.sound.is_some(),
+        });
 
-            should_flash_for_highlight || should_flash_for_private_message
-        };
-
-        if should_notify {
-            if window_unfocused {
-                if cfg!(target_os = "linux") {
+        if outcome.flash_window {
+            if cfg!(target_os = "linux") {
+                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                    eframe::egui::UserAttentionType::Informational,
+                ));
+            } else {
+                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                    eframe::egui::UserAttentionType::Critical,
+                ));
+                if matches!(
+                    self.settings.notifications.notification_style,
+                    steel_core::settings::NotificationStyle::Moderate
+                ) {
                     ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                         eframe::egui::UserAttentionType::Informational,
                     ));
-                } else {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                        eframe::egui::UserAttentionType::Critical,
-                    ));
-                    if matches!(
-                        self.settings.notifications.notification_style,
-                        steel_core::settings::NotificationStyle::Moderate
-                    ) {
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Informational,
-                        ));
-                    };
-                    self.notification_start_time = Some(std::time::Instant::now());
                 }
+                self.notification_start_time = Some(std::time::Instant::now());
             }
+        }
 
+        if outcome.play_sound {
             if let Some(sound) = &self.settings.notifications.highlights.sound {
-                let should_play_sound = match self.settings.notifications.sound_only_when_unfocused
-                {
-                    true => window_unfocused && message.highlight,
-                    false => message.highlight,
-                };
-                if should_play_sound {
-                    self.sound_player.play(sound);
-                }
+                self.sound_player.play(sound);
             }
         }
     }

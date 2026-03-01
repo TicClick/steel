@@ -1,6 +1,18 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
+pub struct NotificationParams {
+    pub is_private_message: bool,
+    pub message_highlighted: bool,
+    pub window_focused: bool,
+    pub sound_configured: bool,
+}
+
+pub struct NotificationOutcome {
+    pub flash_window: bool,
+    pub play_sound: bool,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Notifications {
@@ -21,6 +33,25 @@ impl Default for Notifications {
             enable_notification_timeout: false,
             notification_timeout_seconds: 10,
             notification_style: NotificationStyle::default(),
+        }
+    }
+}
+
+impl Notifications {
+    pub fn evaluate(&self, params: &NotificationParams) -> NotificationOutcome {
+        let window_unfocused = !params.window_focused;
+
+        let flash_window = window_unfocused
+            && ((params.message_highlighted && self.notification_events.highlights)
+                || (params.is_private_message && self.notification_events.private_messages));
+
+        let play_sound = params.sound_configured
+            && params.message_highlighted
+            && (!self.sound_only_when_unfocused || window_unfocused);
+
+        NotificationOutcome {
+            flash_window,
+            play_sound,
         }
     }
 }
@@ -136,5 +167,74 @@ impl Display for NotificationStyle {
                 }
             }
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn expected_flash(
+        notify_hl: bool,
+        notify_pm: bool,
+        is_private: bool,
+        highlighted: bool,
+        focused: bool,
+    ) -> bool {
+        !focused && ((highlighted && notify_hl) || (is_private && notify_pm))
+    }
+
+    fn expected_sound(
+        sound_configured: bool,
+        highlighted: bool,
+        focused: bool,
+        suppress_sound: bool,
+    ) -> bool {
+        sound_configured && highlighted && (!suppress_sound || !focused)
+    }
+
+    #[test]
+    fn all_combinations() {
+        for notify_hl in [false, true] {
+            for notify_pm in [false, true] {
+                for suppress_snd in [false, true] {
+                    for is_private in [false, true] {
+                        for highlighted in [false, true] {
+                            for focused in [false, true] {
+                                for sound_cfg in [false, true] {
+                                    let s = Notifications {
+                                        notification_events: NotificationEvents {
+                                            highlights: notify_hl,
+                                            private_messages: notify_pm,
+                                        },
+                                        sound_only_when_unfocused: suppress_snd,
+                                        ..Default::default()
+                                    };
+                                    let out = s.evaluate(&NotificationParams {
+                                        is_private_message: is_private,
+                                        message_highlighted: highlighted,
+                                        window_focused: focused,
+                                        sound_configured: sound_cfg,
+                                    });
+
+                                    assert_eq!(
+                out.flash_window,
+                expected_flash(notify_hl, notify_pm, is_private, highlighted, focused),
+                "flash_window: notify_hl={notify_hl} notify_pm={notify_pm} \
+                 is_private={is_private} highlighted={highlighted} focused={focused}",
+            );
+                                    assert_eq!(
+                out.play_sound,
+                expected_sound(sound_cfg, highlighted, focused, suppress_snd),
+                "play_sound: sound_cfg={sound_cfg} highlighted={highlighted} \
+                 focused={focused} suppress_snd={suppress_snd}",
+            );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

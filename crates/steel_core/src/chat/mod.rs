@@ -444,4 +444,61 @@ mod tests {
             assert!(!message.highlight, "{message_text:?} matched {keywords:?} (it shouldn't have)");
         }
     }
+
+    fn plain_msg() -> Message {
+        Message::new_text("user", "hello")
+    }
+
+    fn highlighted_msg() -> Message {
+        let mut m = Message::new_text("user", "hello");
+        m.highlight = true;
+        m
+    }
+
+    #[test]
+    fn tab_state_read_when_chat_is_active() {
+        let mut chat = Chat::new("#channel");
+        chat.push(plain_msg(), true);
+        assert!(matches!(chat.tab_state(), TabState::Read));
+    }
+
+    #[test]
+    fn tab_state_unread_channel_no_highlight_inactive() {
+        let mut chat = Chat::new("#channel");
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Unread));
+    }
+
+    #[test]
+    fn tab_state_highlight_channel_highlighted_inactive() {
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Highlight));
+    }
+
+    #[test]
+    fn tab_state_highlight_private_any_message_inactive() {
+        // Private chats (Person type) always show Highlight when unread.
+        let mut chat = Chat::new("nick");
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Highlight));
+    }
+
+    #[test]
+    fn tab_state_read_after_mark_as_read() {
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        chat.mark_as_read();
+        assert!(matches!(chat.tab_state(), TabState::Read));
+    }
+
+    #[test]
+    fn tab_state_unread_after_highlight_read_then_plain_msg() {
+        // Highlighted message was read, then a new plain message arrives -> Unread (not Highlight).
+        let mut chat = Chat::new("#channel");
+        chat.push(highlighted_msg(), false);
+        chat.mark_as_read();
+        chat.push(plain_msg(), false);
+        assert!(matches!(chat.tab_state(), TabState::Unread));
+    }
 }
