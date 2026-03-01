@@ -415,6 +415,8 @@ impl eframe::App for ApplicationWindow {
 
         // Check if flash timeout has elapsed
         self.s.check_flash_timeout(ctx);
+        // Reset attention flag on focus gain so next notification fires correctly
+        self.s.reset_attention_on_focus(ctx);
 
         self.error_popup.show(ctx);
 

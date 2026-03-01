@@ -42,6 +42,7 @@ pub struct UIState {
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
+    was_focused: bool,
 
     pub report_dialog: Option<ReportDialogState>,
 
@@ -77,6 +78,7 @@ impl UIState {
                 irc_settings.ping_timeout,
             ),
             notification_start_time: None,
+            was_focused: false,
 
             report_dialog: None,
 
@@ -306,6 +308,20 @@ impl UIState {
     #[cfg(feature = "glass")]
     pub fn update_glass_settings(&mut self, settings: glass::config::GlassSettings) {
         self.glass.set_settings(settings);
+    }
+
+    // On X11, WM_HINTS.urgent only triggers a visual effect on false→true transition.
+    // Some WMs don't auto-clear it on focus. On Wayland, winit's attention_requested
+    // AtomicBool resets via compositor callback, but until it does, new requests are
+    // dropped. Explicitly resetting on focus gain ensures the next notification works.
+    pub fn reset_attention_on_focus(&mut self, ctx: &egui::Context) {
+        let is_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        if is_focused && !self.was_focused {
+            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                eframe::egui::UserAttentionType::Reset,
+            ));
+        }
+        self.was_focused = is_focused;
     }
 
     pub fn check_flash_timeout(&mut self, ctx: &eframe::egui::Context) {
