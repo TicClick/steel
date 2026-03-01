@@ -5,7 +5,27 @@ use super::SettingsWindow;
 use crate::core::logging::format_message_for_logging;
 use crate::gui::state::UIState;
 
+fn path_for_storage(picked: std::path::PathBuf) -> String {
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            if let Ok(relative) = picked.strip_prefix(exe_dir) {
+                return relative.to_string_lossy().into_owned();
+            }
+        }
+    }
+    picked.to_string_lossy().into_owned()
+}
+
 impl SettingsWindow {
+    fn open_chat_log_dir_dialog(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.chat_log_dir_dialog = Some(rx);
+        std::thread::spawn(move || {
+            let picked = rfd::FileDialog::new().pick_folder();
+            let _ = tx.send(picked);
+        });
+    }
+
     pub(super) fn show_logging_tab(&mut self, ui: &mut eframe::egui::Ui, state: &mut UIState) {
         ui.vertical(|ui| {
             ui.heading("application logging");
@@ -43,24 +63,47 @@ impl SettingsWindow {
             ui.heading("logs directory");
 
             ui.label("location (will be created)");
+
+            // Poll for result from a pending folder picker dialog
+            if let Some(rx) = &self.chat_log_dir_dialog {
+                if let Ok(picked) = rx.try_recv() {
+                    if let Some(path) = picked {
+                        state.settings.logging.chat.directory = path_for_storage(path);
+                    }
+                    self.chat_log_dir_dialog = None;
+                }
+            }
+
             let logs_location =
-                egui::TextEdit::multiline(&mut state.settings.logging.chat.directory)
+                egui::TextEdit::singleline(&mut state.settings.logging.chat.directory)
                     .desired_width(f32::INFINITY);
             ui.add(logs_location)
-                .on_hover_text_at_pointer("both relative and absolute paths are supported");
+                .on_hover_text_at_pointer("both relative and absolute paths are supported; paths inside the application directory are stored as relative");
 
-            if ui
-                .button("open")
-                .on_hover_text_at_pointer(
-                    "open the directory. if it doesn't exist yet, nothing will happen",
-                )
-                .clicked()
-                && std::path::Path::new(&state.settings.logging.chat.directory).exists()
-            {
-                state
-                    .core
-                    .open_fs_path(&state.settings.logging.chat.directory);
-            }
+            ui.horizontal(|ui| {
+                if ui
+                    .add_enabled(
+                        self.chat_log_dir_dialog.is_none(),
+                        egui::Button::new("browse..."),
+                    )
+                    .clicked()
+                {
+                    self.open_chat_log_dir_dialog();
+                }
+
+                if ui
+                    .button("open")
+                    .on_hover_text_at_pointer(
+                        "open the directory. if it doesn't exist yet, nothing will happen",
+                    )
+                    .clicked()
+                    && std::path::Path::new(&state.settings.logging.chat.directory).exists()
+                {
+                    state
+                        .core
+                        .open_fs_path(&state.settings.logging.chat.directory);
+                }
+            });
 
             ui.heading("formats");
 

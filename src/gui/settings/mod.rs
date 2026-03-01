@@ -42,6 +42,7 @@ pub struct SettingsWindow {
     notifications_custom_sound_path: Option<std::path::PathBuf>,
     notifications_custom_sound_dialog:
         Option<std::sync::mpsc::Receiver<Option<std::path::PathBuf>>>,
+    chat_log_dir_dialog: Option<std::sync::mpsc::Receiver<Option<std::path::PathBuf>>>,
     text_row_height: Option<f32>,
 }
 
