@@ -42,6 +42,7 @@ pub struct UIState {
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
+    #[cfg(target_os = "linux")]
     was_focused: bool,
 
     pub report_dialog: Option<ReportDialogState>,
@@ -78,6 +79,7 @@ impl UIState {
                 irc_settings.ping_timeout,
             ),
             notification_start_time: None,
+            #[cfg(target_os = "linux")]
             was_focused: false,
 
             report_dialog: None,
@@ -314,6 +316,7 @@ impl UIState {
     // Some WMs don't auto-clear it on focus. On Wayland, winit's attention_requested
     // AtomicBool resets via compositor callback, but until it does, new requests are
     // dropped. Explicitly resetting on focus gain ensures the next notification works.
+    #[cfg(target_os = "linux")]
     pub fn reset_attention_on_focus(&mut self, ctx: &egui::Context) {
         let is_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
         if is_focused && !self.was_focused {
