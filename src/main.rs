@@ -15,7 +15,13 @@ fn main() {
     setup_logging();
 
     let (ui_queue_in, ui_queue_out) = unbounded_channel();
-    let app_thread = run_app(ui_queue_in, ui_queue_out, original_exe_path);
+    let app_thread = run_app(
+        ui_queue_in,
+        ui_queue_out,
+        original_exe_path,
+        #[cfg(feature = "puffin")]
+        None,
+    );
 
     app_thread.join().unwrap();
 }

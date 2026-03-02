@@ -3,6 +3,8 @@ use eframe::egui::{Color32, RichText, Ui};
 use steel_core::TextStyle;
 
 pub mod about;
+#[cfg(feature = "puffin")]
+pub mod auto_profiler;
 pub mod chat;
 pub mod chat_tabs;
 pub mod command;

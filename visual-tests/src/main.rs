@@ -103,6 +103,14 @@ struct Args {
     /// Enable continuous message sending
     #[arg(long)]
     go: bool,
+
+    /// Automatically exit after this many seconds and save the puffin profile (requires --features puffin)
+    #[arg(long)]
+    bench_duration: Option<u64>,
+
+    /// Output path for the puffin profile file (used with --bench-duration)
+    #[arg(long, default_value = "profile.puffin")]
+    output: String,
 }
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -185,6 +193,25 @@ pub fn main() {
         });
     }
 
-    let app_thread = run_app(ui_queue_in, ui_queue_out, std::env::current_exe().ok());
+    if let Some(duration_secs) = args.bench_duration {
+        let mq = ui_queue_in.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(duration_secs));
+            let _ = mq.send(UIMessageIn::Shutdown);
+        });
+    }
+
+    #[cfg(feature = "puffin")]
+    let profile_output = args
+        .bench_duration
+        .map(|_| std::path::PathBuf::from(&args.output));
+
+    let app_thread = run_app(
+        ui_queue_in,
+        ui_queue_out,
+        std::env::current_exe().ok(),
+        #[cfg(feature = "puffin")]
+        profile_output,
+    );
     app_thread.join().unwrap();
 }
