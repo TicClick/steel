@@ -432,6 +432,8 @@ impl eframe::App for ApplicationWindow {
         // Reset attention flag on focus gain so next notification fires correctly
         #[cfg(target_os = "linux")]
         self.s.reset_attention_on_focus(ctx);
+        #[cfg(target_os = "macos")]
+        self.s.clear_badge_on_focus(ctx);
 
         self.error_popup.show(ctx);
 

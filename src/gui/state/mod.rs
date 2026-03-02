@@ -14,6 +14,22 @@ use crate::gui::HIGHLIGHTS_TAB_NAME;
 use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
+#[cfg(target_os = "macos")]
+fn set_dock_badge(visible: bool) {
+    use objc2_app_kit::NSApplication;
+    use objc2_foundation::NSString;
+    unsafe {
+        let label = if visible {
+            Some(NSString::from_str("●"))
+        } else {
+            None
+        };
+        NSApplication::sharedApplication(objc2::MainThreadMarker::new_unchecked())
+            .dockTile()
+            .setBadgeLabel(label.as_deref());
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ReportDialogState {
     pub username: String,
@@ -42,7 +58,7 @@ pub struct UIState {
 
     pub connection_indicator: ConnectionIndicator,
     notification_start_time: Option<std::time::Instant>,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     was_focused: bool,
 
     pub report_dialog: Option<ReportDialogState>,
@@ -79,7 +95,7 @@ impl UIState {
                 irc_settings.ping_timeout,
             ),
             notification_start_time: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             was_focused: false,
 
             report_dialog: None,
@@ -251,6 +267,8 @@ impl UIState {
                     ));
                 }
                 self.notification_start_time = Some(std::time::Instant::now());
+                #[cfg(target_os = "macos")]
+                set_dock_badge(true);
             }
         }
 
@@ -323,6 +341,15 @@ impl UIState {
             ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
                 eframe::egui::UserAttentionType::Reset,
             ));
+        }
+        self.was_focused = is_focused;
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn clear_badge_on_focus(&mut self, ctx: &egui::Context) {
+        let is_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        if is_focused && !self.was_focused {
+            set_dock_badge(false);
         }
         self.was_focused = is_focused;
     }
