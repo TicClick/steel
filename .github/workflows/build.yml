@@ -6,34 +6,10 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        # Note to myself: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#example-adding-configurations
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-15-intel  # x86_64
-            target: x86_64-apple-darwin
-          - os: macos-15  # aarch64 (ARM)
-            target: aarch64-apple-darwin
-          - os: windows-latest
-            target: i686-pc-windows-msvc
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.os }}
-    name: Build (${{ matrix.target }})
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup
-        with:
-          target: ${{ matrix.target }}
-          os: ${{ matrix.os }}
-      - run: cargo build --release --target ${{ matrix.target }}
-
   test:
     strategy:
       matrix:
+        # Note to myself: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#example-adding-configurations
         include:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
@@ -53,7 +29,7 @@ jobs:
         with:
           target: ${{ matrix.target }}
           os: ${{ matrix.os }}
-      - run: cargo test --target ${{ matrix.target }}
+      - run: cargo test --all --target ${{ matrix.target }}
 
   test-glass:
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
@@ -80,4 +56,4 @@ jobs:
           os: ${{ matrix.os }}
           glass: real
           gh-token: ${{ secrets.GH_TOKEN }}
-      - run: cargo test --features glass --target ${{ matrix.target }}
+      - run: cargo test --all --features glass --target ${{ matrix.target }}
