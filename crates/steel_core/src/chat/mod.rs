@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
+use crate::string_utils::UsernameString;
+
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
 
@@ -84,7 +86,7 @@ impl Message {
             r#type,
             username: username.to_string(),
             text: text.to_string(),
-            username_lowercase: username.to_lowercase(),
+            username_lowercase: username.normalize(),
             text_lowercase: text.to_lowercase(),
 
             chunks: None,
@@ -125,7 +127,10 @@ impl Message {
         let mut kw: HashSet<String> = HashSet::new();
         let keywords = if let Some(u) = username {
             kw = keywords.clone();
+
             kw.insert(u.to_lowercase());
+            kw.insert(u.normalize());
+
             &kw
         } else {
             keywords
@@ -212,7 +217,7 @@ impl Chat {
                 Some(trimmed) => trimmed.to_owned(),
                 None => name.to_owned(),
             },
-            normalized_name: name.to_lowercase(),
+            normalized_name: name.normalize(),
             messages: Box::new(Vec::new()),
             state: ChatState::Left,
             category: name.chat_type(),

@@ -1,5 +1,5 @@
 use eframe::egui;
-use steel_core::chat::ChatLike;
+use steel_core::{chat::ChatLike, string_utils::UsernameString};
 
 use crate::gui::state::UIState;
 
@@ -48,7 +48,7 @@ pub fn show_report_dialog(ctx: &egui::Context, ui_state: &mut UIState) {
                                 dialog.chat_name.chat_type(),
                                 &format!(
                                     "!report {} {}",
-                                    dialog.username.to_lowercase().replace(" ", "_"),
+                                    dialog.username.normalize(),
                                     dialog.reason
                                 ),
                             );

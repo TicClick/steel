@@ -1,7 +1,7 @@
 use eframe::egui::{self, Widget};
 use steel_core::{
     chat::ConnectionStatus,
-    settings::{chat::ChatPosition, ChatBackend},
+    settings::{ChatBackend, chat::ChatPosition}, string_utils::UsernameString,
 };
 
 use std::{collections::HashMap, time::Instant};
@@ -121,7 +121,7 @@ impl ChatViewController {
     }
 
     pub fn remove(&mut self, name: &str) {
-        self.views.remove(&name.to_lowercase());
+        self.views.remove(&name.normalize());
     }
 }
 

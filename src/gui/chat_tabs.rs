@@ -3,6 +3,7 @@ use egui_dnd::DragDropItem;
 use steel_core::chat::TabState;
 use steel_core::settings::application::WindowGeometry;
 use steel_core::settings::{Colour, Settings};
+use steel_core::string_utils::UsernameString;
 
 use crate::core::chat::{ChatLike, ChatState, ChatType};
 
@@ -221,7 +222,7 @@ impl ChatTabs {
 
     fn show_chats(&mut self, state: &mut UIState, ui: &mut Ui, mode: ChatType) {
         let channel = state.core.clone();
-        let active_chat_name = state.active_chat_tab_name.to_lowercase();
+        let active_chat_name = state.active_chat_tab_name.normalize();
 
         // Use `relevant_chats` for reordering, and then shift all chats based on the shift within `relevant_chats`.
         let relevant_chats = state
