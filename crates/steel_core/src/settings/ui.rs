@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::settings::colour::Colour;
+use crate::string_utils::UsernameKey;
 
 #[derive(Clone, Debug, Serialize, Deserialize, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -27,7 +28,7 @@ pub struct ChatColours {
     #[serde(default = "default_search_result_other_dark")]
     pub search_result_other: Colour,
     #[serde(skip)]
-    pub mod_users: BTreeSet<String>,
+    pub mod_users: BTreeSet<UsernameKey>,
     pub custom_users: BTreeMap<String, Colour>,
 }
 
@@ -77,10 +78,10 @@ impl ChatColours {
         }
     }
 
-    pub fn username_colour(&self, username: &str) -> &Colour {
-        match self.custom_users.get(username) {
+    pub fn username_colour(&self, key: &UsernameKey) -> &Colour {
+        match self.custom_users.get(key.as_str()) {
             Some(colour) => colour,
-            None => match self.mod_users.contains(username) {
+            None => match self.mod_users.contains(key) {
                 true => &self.moderators,
                 false => &self.default_users,
             },

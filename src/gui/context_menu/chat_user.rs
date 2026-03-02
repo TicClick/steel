@@ -94,7 +94,7 @@ pub fn menu_item_copy_username(ui: &mut egui::Ui, show_icon: bool, message: &Mes
     };
 
     if ui.button(text).clicked() {
-        ui.ctx().copy_text(message.username.clone());
+        ui.ctx().copy_text(message.username_display.clone());
         ui.close();
     }
 }
@@ -153,7 +153,7 @@ pub fn menu_item_report_to_moderators(
         .on_disabled_hover_text("This feature is not supported by the osu! API yet")
         .clicked()
     {
-        core_client.report_dialog_requested(&message.username, chat_name);
+        core_client.report_dialog_requested(&message.username_display, chat_name);
         ui.close();
     }
 }

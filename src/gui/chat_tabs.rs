@@ -232,7 +232,7 @@ impl ChatTabs {
             .filter(|ch| ch.1.category == mode)
             .map(|(i, chat)| ChatTabData {
                 original_index: i,
-                normalized_name: chat.normalized_name.clone(),
+                normalized_name: chat.chat_key.as_str().to_owned(),
                 name: chat.name.clone(),
                 chat_state: chat.state.clone(),
                 tab_state: chat.tab_state(),

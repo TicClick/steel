@@ -1,7 +1,7 @@
 use eframe::egui;
-use steel_core::string_utils::UsernameString;
 use std::collections::BTreeSet;
 use steel_core::settings::chat::{ChatPosition, OAuthMode};
+use steel_core::string_utils::UsernameString;
 
 use super::SettingsWindow;
 use crate::gui::state::UIState;

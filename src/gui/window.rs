@@ -5,7 +5,7 @@ use puffin;
 use puffin_egui;
 use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
-use steel_core::string_utils::UsernameString;
+use steel_core::string_utils::{UsernameKey, UsernameString};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
@@ -316,15 +316,24 @@ impl ApplicationWindow {
                 self.s.push_chat_message(&target, message.clone(), ctx);
 
                 #[cfg(feature = "glass")]
-                match message.username == self.s.settings.chat.irc.username {
-                    false => self
+                {
+                    let own_username = self
                         .s
-                        .glass
-                        .handle_incoming_message(&self.s.core, &target, &message),
-                    true => self
-                        .s
-                        .glass
-                        .handle_outgoing_message(&self.s.core, &target, &message),
+                        .own_username
+                        .as_deref()
+                        .unwrap_or(&self.s.settings.chat.irc.username);
+                    match message.username.is_same_username(own_username) {
+                        false => {
+                            self.s
+                                .glass
+                                .handle_incoming_message(&self.s.core, &target, &message)
+                        }
+                        true => {
+                            self.s
+                                .glass
+                                .handle_outgoing_message(&self.s.core, &target, &message)
+                        }
+                    }
                 }
 
                 ctx.request_repaint();
@@ -351,7 +360,7 @@ impl ApplicationWindow {
                     &mut self.s.settings.ui.dark_colours.mod_users,
                     &mut self.s.settings.ui.light_colours.mod_users,
                 ] {
-                    mods.insert(name.normalize());
+                    mods.insert(UsernameKey::new(&name));
                 }
             }
 

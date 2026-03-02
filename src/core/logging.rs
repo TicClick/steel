@@ -223,7 +223,7 @@ pub fn format_message_for_logging(
 
 fn resolve_placeholder(placeholder: &str, message: &Message, date_format: &str) -> String {
     match placeholder {
-        "username" => message.username.clone(),
+        "username" => message.username_display.clone(),
         "text" => message.text.clone(),
         "date" => {
             let mut buf = String::new();

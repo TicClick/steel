@@ -145,7 +145,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 has_highlight,
                 search_result_color,
             } => {
-                let resp = match chat.normalized_name.as_str() {
+                let resp = match chat.chat_key.as_str() {
                     SERVER_TAB_NAME => {
                         let styles = vec![TextStyle::Monospace];
                         ui.horizontal(|ui| {
@@ -171,7 +171,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
 
                                 ui.add(TimestampLabel::new(&message.time, None));
 
-                                if chat.normalized_name.as_str() == HIGHLIGHTS_TAB_NAME {
+                                if chat.chat_key.as_str() == HIGHLIGHTS_TAB_NAME {
                                     insert_original_chat_reference(ui, core, message);
                                 }
 

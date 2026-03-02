@@ -1,7 +1,8 @@
 use eframe::egui::{self, Widget};
 use steel_core::{
     chat::ConnectionStatus,
-    settings::{ChatBackend, chat::ChatPosition}, string_utils::UsernameString,
+    settings::{chat::ChatPosition, ChatBackend},
+    string_utils::UsernameString,
 };
 
 use std::{collections::HashMap, time::Instant};
