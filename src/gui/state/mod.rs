@@ -14,21 +14,8 @@ use crate::gui::HIGHLIGHTS_TAB_NAME;
 use super::HIGHLIGHTS_SEPARATOR;
 use crate::gui::widgets::connection_indicator::ConnectionIndicator;
 
-#[cfg(target_os = "macos")]
-fn set_dock_badge(visible: bool) {
-    use objc2_app_kit::NSApplication;
-    use objc2_foundation::NSString;
-    unsafe {
-        let label = if visible {
-            Some(NSString::from_str("●"))
-        } else {
-            None
-        };
-        NSApplication::sharedApplication(objc2::MainThreadMarker::new_unchecked())
-            .dockTile()
-            .setBadgeLabel(label.as_deref());
-    }
-}
+mod window_attention;
+use window_attention::WindowAttention;
 
 #[derive(Debug, Clone)]
 pub struct ReportDialogState {
@@ -57,9 +44,7 @@ pub struct UIState {
     pub highlights: HashSet<String>,
 
     pub connection_indicator: ConnectionIndicator,
-    notification_start_time: Option<std::time::Instant>,
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    was_focused: bool,
+    pub window_attention: WindowAttention,
 
     pub report_dialog: Option<ReportDialogState>,
 
@@ -94,9 +79,7 @@ impl UIState {
                 irc_settings.server,
                 irc_settings.ping_timeout,
             ),
-            notification_start_time: None,
-            #[cfg(any(target_os = "linux", target_os = "macos"))]
-            was_focused: false,
+            window_attention: WindowAttention::default(),
 
             report_dialog: None,
 
@@ -250,26 +233,8 @@ impl UIState {
         });
 
         if outcome.flash_window {
-            if cfg!(target_os = "linux") {
-                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                    eframe::egui::UserAttentionType::Informational,
-                ));
-            } else {
-                ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                    eframe::egui::UserAttentionType::Critical,
-                ));
-                if matches!(
-                    self.settings.notifications.notification_style,
-                    steel_core::settings::NotificationStyle::Moderate
-                ) {
-                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                        eframe::egui::UserAttentionType::Informational,
-                    ));
-                }
-                self.notification_start_time = Some(std::time::Instant::now());
-                #[cfg(target_os = "macos")]
-                set_dock_badge(true);
-            }
+            self.window_attention
+                .request(ctx, self.settings.notifications.notification_style.clone());
         }
 
         if outcome.play_sound {
@@ -330,60 +295,9 @@ impl UIState {
         self.glass.set_settings(settings);
     }
 
-    // On X11, WM_HINTS.urgent only triggers a visual effect on false→true transition.
-    // Some WMs don't auto-clear it on focus. On Wayland, winit's attention_requested
-    // AtomicBool resets via compositor callback, but until it does, new requests are
-    // dropped. Explicitly resetting on focus gain ensures the next notification works.
-    #[cfg(target_os = "linux")]
-    pub fn reset_attention_on_focus(&mut self, ctx: &egui::Context) {
-        let is_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
-        if is_focused && !self.was_focused {
-            ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                eframe::egui::UserAttentionType::Reset,
-            ));
-        }
-        self.was_focused = is_focused;
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn clear_badge_on_focus(&mut self, ctx: &egui::Context) {
-        let is_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
-        if is_focused && !self.was_focused {
-            set_dock_badge(false);
-        }
-        self.was_focused = is_focused;
-    }
-
-    pub fn check_flash_timeout(&mut self, ctx: &eframe::egui::Context) {
-        if self.settings.notifications.enable_notification_timeout
-            && matches!(
-                self.settings.notifications.notification_style,
-                steel_core::settings::NotificationStyle::Intensive
-            )
-        {
-            if let Some(start_time) = self.notification_start_time {
-                let elapsed = start_time.elapsed().as_secs();
-                if elapsed >= self.settings.notifications.notification_timeout_seconds as u64 {
-                    #[cfg(target_os = "windows")]
-                    {
-                        // Stop the attention request by sending Informational (less intrusive on Windows).
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Informational,
-                        ));
-                    }
-                    #[cfg(target_os = "macos")]
-                    {
-                        // Stop bouncing in the dock.
-                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                            eframe::egui::UserAttentionType::Reset,
-                        ));
-                    }
-                    #[cfg(target_os = "linux")]
-                    {}
-
-                    self.notification_start_time = None;
-                }
-            }
-        }
+    pub fn update_window_attention(&mut self, ctx: &egui::Context) {
+        self.window_attention
+            .check_timeout(ctx, &self.settings.notifications);
+        self.window_attention.on_focus_changed(ctx);
     }
 }
