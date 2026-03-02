@@ -111,7 +111,6 @@ impl WindowAttention {
                     if let Some(token) = self.attention_token.take() {
                         cancel_dock_attention(token);
                     }
-                    set_dock_badge(false);
                 }
 
                 #[cfg(target_os = "linux")]
