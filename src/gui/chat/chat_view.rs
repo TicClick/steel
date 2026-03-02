@@ -37,14 +37,20 @@ fn row_metadata_for_index(
     let content_idx = row_idx - add_filler_space as usize;
     if unread_marker_active {
         if content_idx < prev_unread_pointer {
-            RowMetadata::Message { message_idx: content_idx }
+            RowMetadata::Message {
+                message_idx: content_idx,
+            }
         } else if content_idx == prev_unread_pointer {
             RowMetadata::UnreadMarker
         } else {
-            RowMetadata::Message { message_idx: content_idx - 1 }
+            RowMetadata::Message {
+                message_idx: content_idx - 1,
+            }
         }
     } else {
-        RowMetadata::Message { message_idx: content_idx }
+        RowMetadata::Message {
+            message_idx: content_idx,
+        }
     }
 }
 
@@ -205,9 +211,8 @@ impl ChatView {
             && state.active_chat_tab_name == chat.normalized_name
             && chat.prev_unread_pointer < chat.messages.len();
 
-        let row_count = add_filler_space as usize
-            + chat.messages.len()
-            + unread_marker_active as usize;
+        let row_count =
+            add_filler_space as usize + chat.messages.len() + unread_marker_active as usize;
 
         self.cached_row_heights.resize(row_count, chat_row_height);
         let heights = self.cached_row_heights.clone();

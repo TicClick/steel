@@ -427,11 +427,7 @@ impl eframe::App for ApplicationWindow {
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
 
-        // Check if flash timeout has elapsed
-        self.s.check_flash_timeout(ctx);
-        // Reset attention flag on focus gain so next notification fires correctly
-        #[cfg(target_os = "linux")]
-        self.s.reset_attention_on_focus(ctx);
+        self.s.update_window_attention(ctx);
 
         self.error_popup.show(ctx);
 
