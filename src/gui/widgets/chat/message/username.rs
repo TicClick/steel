@@ -1,5 +1,5 @@
 use eframe::egui::{self, Color32, Widget};
-use steel_core::{chat::Message, ipc::client::CoreClient, settings::Settings, TextStyle};
+use steel_core::{TextStyle, chat::Message, ipc::client::CoreClient, settings::Settings, string_utils::UsernameString};
 
 use crate::gui::{
     context_menu::{
@@ -25,7 +25,7 @@ pub fn choose_colour(
         false => settings
             .ui
             .colours()
-            .username_colour(&username.to_lowercase()),
+            .username_colour(&username.normalize()),
     };
     colour.clone().into()
 }

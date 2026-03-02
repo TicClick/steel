@@ -5,6 +5,7 @@ use puffin;
 use puffin_egui;
 use steel_core::chat::Message;
 use steel_core::ipc::client::CoreClient;
+use steel_core::string_utils::UsernameString;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
@@ -350,7 +351,7 @@ impl ApplicationWindow {
                     &mut self.s.settings.ui.dark_colours.mod_users,
                     &mut self.s.settings.ui.light_colours.mod_users,
                 ] {
-                    mods.insert(name.to_lowercase().replace(' ', "_"));
+                    mods.insert(name.normalize());
                 }
             }
 

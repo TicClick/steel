@@ -5,6 +5,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
+use crate::string_utils::UsernameString;
+
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
 
@@ -84,7 +86,7 @@ impl Message {
             r#type,
             username: username.to_string(),
             text: text.to_string(),
-            username_lowercase: username.to_lowercase(),
+            username_lowercase: username.normalize(),
             text_lowercase: text.to_lowercase(),
 
             chunks: None,

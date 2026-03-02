@@ -1,6 +1,7 @@
 use eframe::egui;
 use steel_core::chat::{Chat, MessageType};
 use steel_core::settings::ui::ChatColours;
+use steel_core::string_utils::UsernameString;
 
 use crate::gui::state::UIState;
 
@@ -105,7 +106,7 @@ impl ChatFilter {
                 let username_matches = self.user_filter_input.is_empty()
                     || message
                         .username
-                        .to_lowercase()
+                        .normalize()
                         .contains(&self.user_filter_input);
                 let message_matches = self.message_filter_input.is_empty()
                     || message
@@ -294,7 +295,7 @@ impl ChatFilter {
                     self.handle_text_field_enter(ui, &resp, &mut filter_action, is_shift_pressed);
 
                     if resp.changed() {
-                        self.user_filter_input = self.user_filter_input.to_lowercase();
+                        self.user_filter_input = self.user_filter_input.normalize();
                     }
 
                     ui.spacing_mut().item_spacing.x = 2.;

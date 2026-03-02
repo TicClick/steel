@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use steel_core::settings::ThemeMode;
+use steel_core::{settings::ThemeMode, string_utils::UsernameString};
 
 use super::SettingsWindow;
 use crate::gui::state::UIState;
@@ -137,7 +137,7 @@ impl SettingsWindow {
 
                 if add_user && validation_result.is_ok() {
                     state.settings.ui.colours_mut().custom_users.insert(
-                        self.username_input.to_lowercase().replace(' ', "_"),
+                        self.username_input.normalize(),
                         self.username_colour_input.clone(),
                     );
                     self.username_input.clear();
