@@ -529,6 +529,20 @@ async fn handle_text_message<S>(
                     Ok(chat_update) => {
                         for user in chat_update.users.iter() {
                             client.insert_user(user);
+
+                            let is_privileged = matches!(
+                                user.default_group.as_str(),
+                                "gmt" | "nat" | "dev"
+                            );
+
+                            if is_privileged {
+                                tx.send(AppMessageIn::moderator_added(
+                                    user.username.clone().into_string(),
+                                ))
+                                .unwrap_or_else(|e| {
+                                    log::error!("Failed to send moderator: {e}")
+                                });
+                            }
                         }
 
                         for message in chat_update.messages {
