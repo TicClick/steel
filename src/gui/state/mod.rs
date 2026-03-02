@@ -337,10 +337,23 @@ impl UIState {
             if let Some(start_time) = self.notification_start_time {
                 let elapsed = start_time.elapsed().as_secs();
                 if elapsed >= self.settings.notifications.notification_timeout_seconds as u64 {
-                    // Stop the attention request by sending Informational (less intrusive)
-                    ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
-                        eframe::egui::UserAttentionType::Informational,
-                    ));
+                    #[cfg(target_os = "windows")]
+                    {
+                        // Stop the attention request by sending Informational (less intrusive on Windows).
+                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                            eframe::egui::UserAttentionType::Informational,
+                        ));
+                    }
+                    #[cfg(target_os = "macos")]
+                    {
+                        // Stop bouncing in the dock.
+                        ctx.send_viewport_cmd(egui::ViewportCommand::RequestUserAttention(
+                            eframe::egui::UserAttentionType::Reset,
+                        ));
+                    }
+                    #[cfg(target_os = "linux")]
+                    {}
+
                     self.notification_start_time = None;
                 }
             }
