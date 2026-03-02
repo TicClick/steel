@@ -6,7 +6,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build_and_test:
+  test:
     strategy:
       matrix:
         # Note to myself: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#example-adding-configurations
@@ -22,22 +22,38 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
-
-    name: Build and test
+    name: Test (${{ matrix.target }})
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup
         with:
-          targets: ${{ matrix.target }}
+          target: ${{ matrix.target }}
+          os: ${{ matrix.os }}
+      - run: cargo test --all --target ${{ matrix.target }}
 
-      - name: Install Ubuntu dependencies
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
-
-      - name: Add fake empty dependency
-        shell: bash
-        run: crates/fake-glass.sh
-
-      - run: cargo build --release --target ${{ matrix.target }}
-      - run: cargo test --target ${{ matrix.target }}
+  test-glass:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+          - os: macos-15-intel  # x86_64
+            target: x86_64-apple-darwin
+          - os: macos-15  # aarch64 (ARM)
+            target: aarch64-apple-darwin
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.os }}
+    name: Test with glass (${{ matrix.target }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          target: ${{ matrix.target }}
+          os: ${{ matrix.os }}
+          glass: real
+          gh-token: ${{ secrets.GH_TOKEN }}
+      - run: cargo test --all --features glass --target ${{ matrix.target }}

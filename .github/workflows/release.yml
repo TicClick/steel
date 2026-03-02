@@ -32,23 +32,14 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    needs: create-release
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Ubuntu dependencies
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
-
-      - name: Add fake empty dependency
-        shell: bash
-        run: crates/fake-glass.sh
-
-      - name: Build and upload
-        uses: taiki-e/upload-rust-binary-action@v1.18.0
+          target: ${{ matrix.target }}
+          os: ${{ matrix.os }}
+      - uses: taiki-e/upload-rust-binary-action@v1.18.0
         with:
           bin: steel
           token: ${{ secrets.GH_TOKEN }}
@@ -69,28 +60,15 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
+    needs: create-release
     steps:
       - uses: actions/checkout@v4
-
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/setup
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install Ubuntu dependencies
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
-
-      - name: Clone glass dependency
-        uses: actions/checkout@v4
-        with:
-          repository: TicClick/glass
-          path: crates/glass
-          token: ${{ secrets.GH_TOKEN }}
-
-      - name: Patch private dependencies' URLs
-        shell: bash
-        run: |
-          git config --global url."https://${{ secrets.GH_TOKEN }}@github.com".insteadOf ssh://git@github.com
+          target: ${{ matrix.target }}
+          os: ${{ matrix.os }}
+          glass: real
+          gh-token: ${{ secrets.GH_TOKEN }}
 
       - name: Build (private)
         uses: taiki-e/upload-rust-binary-action@v1.18.0
@@ -99,9 +77,6 @@ jobs:
           bin: steel
           features: glass
           target: ${{ matrix.target }}
-        env:
-          # https://doc.rust-lang.org/cargo/reference/config.html#netgit-fetch-with-cli -- `git clone` uses private access token
-          CARGO_NET_GIT_FETCH_WITH_CLI: true
 
       - name: Upload (private)
         shell: bash
