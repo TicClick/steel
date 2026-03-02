@@ -87,7 +87,7 @@ rfd = "0.15"
 png = { workspace = true }
 parking_lot = { workspace = true }
 
-puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true }
+puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"] }
 puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true }
 
 winresource = { workspace = true }

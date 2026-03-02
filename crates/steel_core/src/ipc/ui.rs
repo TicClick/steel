@@ -52,4 +52,6 @@ pub enum UIMessageIn {
     },
 
     OwnUsernameChanged(String),
+
+    Shutdown,
 }

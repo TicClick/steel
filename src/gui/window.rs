@@ -145,6 +145,11 @@ pub struct ApplicationWindow {
     s: UIState,
 
     error_popup: gui::widgets::error_popup::ErrorPopup,
+
+    #[cfg(feature = "puffin")]
+    auto_profiler: gui::auto_profiler::AutoProfiler,
+    #[cfg(feature = "puffin")]
+    profile_output: Option<std::path::PathBuf>,
 }
 
 impl ApplicationWindow {
@@ -154,6 +159,7 @@ impl ApplicationWindow {
         app_queue_handle: UnboundedSender<AppMessageIn>,
         initial_settings: Settings,
         original_exe_path: Option<std::path::PathBuf>,
+        #[cfg(feature = "puffin")] profile_output: Option<std::path::PathBuf>,
     ) -> Self {
         #[cfg(feature = "puffin")]
         puffin::set_scopes_on(true);
@@ -175,6 +181,10 @@ impl ApplicationWindow {
                 original_exe_path,
             ),
             error_popup: ErrorPopup::new(CoreClient::new(app_queue_handle)),
+            #[cfg(feature = "puffin")]
+            auto_profiler: gui::auto_profiler::AutoProfiler::new(),
+            #[cfg(feature = "puffin")]
+            profile_output,
         };
 
         window.add_chat_to_controller(SERVER_TAB_NAME, false);
@@ -396,6 +406,10 @@ impl ApplicationWindow {
             UIMessageIn::OwnUsernameChanged(username) => {
                 self.s.own_username = Some(username);
             }
+
+            UIMessageIn::Shutdown => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
         }
     }
 }
@@ -461,6 +475,11 @@ impl eframe::App for ApplicationWindow {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        #[cfg(feature = "puffin")]
+        if let Some(ref path) = self.profile_output {
+            self.auto_profiler.save(path);
+        }
+
         self.s.core.exit_requested(Some(&self.s.settings), 0);
     }
 }

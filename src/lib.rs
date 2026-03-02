@@ -41,6 +41,7 @@ pub fn run_app(
     ui_queue_in: UnboundedSender<UIMessageIn>,
     ui_queue_out: UnboundedReceiver<UIMessageIn>,
     original_exe_path: Option<std::path::PathBuf>,
+    #[cfg(feature = "puffin")] profile_output: Option<std::path::PathBuf>,
 ) -> std::thread::JoinHandle<()> {
     let mut app = app::Application::new(ui_queue_in);
     let settings = match app.initialize() {
@@ -76,6 +77,8 @@ pub fn run_app(
                 app_queue,
                 settings,
                 original_exe_path,
+                #[cfg(feature = "puffin")]
+                profile_output,
             )))
         }),
     )

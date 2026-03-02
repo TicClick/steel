@@ -25,6 +25,29 @@ enum RowMetadata {
     Message { message_idx: usize },
 }
 
+fn row_metadata_for_index(
+    row_idx: usize,
+    add_filler_space: bool,
+    unread_marker_active: bool,
+    prev_unread_pointer: usize,
+) -> RowMetadata {
+    if add_filler_space && row_idx == 0 {
+        return RowMetadata::Filler;
+    }
+    let content_idx = row_idx - add_filler_space as usize;
+    if unread_marker_active {
+        if content_idx < prev_unread_pointer {
+            RowMetadata::Message { message_idx: content_idx }
+        } else if content_idx == prev_unread_pointer {
+            RowMetadata::UnreadMarker
+        } else {
+            RowMetadata::Message { message_idx: content_idx - 1 }
+        }
+    } else {
+        RowMetadata::Message { message_idx: content_idx }
+    }
+}
+
 pub struct ChatView {
     chat_name: String,
     chat_input: String,
@@ -178,29 +201,15 @@ impl ChatView {
                 (2 * CENTRAL_PANEL_INNER_MARGIN_Y).into(),
             );
 
-        let mut row_metadata: Vec<RowMetadata> = Vec::new();
+        let unread_marker_active = state.settings.chat.behaviour.track_unread_messages
+            && state.active_chat_tab_name == chat.normalized_name
+            && chat.prev_unread_pointer < chat.messages.len();
 
-        if add_filler_space {
-            row_metadata.push(RowMetadata::Filler);
-        }
+        let row_count = add_filler_space as usize
+            + chat.messages.len()
+            + unread_marker_active as usize;
 
-        let mut unread_marker_active = false;
-        for idx in 0..chat.messages.len() {
-            #[cfg(feature = "puffin")]
-            puffin::profile_scope!("create_chat_row_metadata");
-            if state.settings.chat.behaviour.track_unread_messages
-                && state.active_chat_tab_name == chat.normalized_name
-                && chat.prev_unread_pointer == idx
-            {
-                row_metadata.push(RowMetadata::UnreadMarker);
-                unread_marker_active = true;
-            }
-
-            row_metadata.push(RowMetadata::Message { message_idx: idx });
-        }
-
-        self.cached_row_heights
-            .resize(row_metadata.len(), chat_row_height);
+        self.cached_row_heights.resize(row_count, chat_row_height);
         let heights = self.cached_row_heights.clone();
 
         let command_helper_window_id = self.egui_id("command-helper");
@@ -289,7 +298,12 @@ impl ChatView {
                                 ui.set_max_width(chat_view_size.x); // Re-trigger text wrapping on window size change.
 
                                 // Create ChatViewRow on-demand for visible rows only
-                                let mut chat_row_widget = match &row_metadata[row_idx] {
+                                let mut chat_row_widget = match row_metadata_for_index(
+                                    row_idx,
+                                    add_filler_space,
+                                    unread_marker_active,
+                                    chat.prev_unread_pointer,
+                                ) {
                                     RowMetadata::Filler => ChatViewRow::filler(
                                         chat,
                                         chat_view_size.x,
@@ -301,7 +315,7 @@ impl ChatView {
                                         state.settings.ui.colours().highlight.clone().into(),
                                     ),
                                     RowMetadata::Message { message_idx } => {
-                                        let message = &chat.messages[*message_idx];
+                                        let message = &chat.messages[message_idx];
 
                                         let mut username_styles: Vec<TextStyle> = Vec::new();
                                         let mut message_styles = Vec::new();
@@ -335,7 +349,7 @@ impl ChatView {
                                         }
 
                                         let search_result_color = self.filter.get_highlight_color(
-                                            *message_idx,
+                                            message_idx,
                                             state.settings.ui.colours(),
                                         );
 
