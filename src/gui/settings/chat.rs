@@ -1,4 +1,5 @@
 use eframe::egui;
+use steel_core::string_utils::UsernameString;
 use std::collections::BTreeSet;
 use steel_core::settings::chat::{ChatPosition, OAuthMode};
 
@@ -36,7 +37,7 @@ impl IgnoredUsersSection {
                             && ui.input(|i| i.key_pressed(egui::Key::Enter))));
 
                 if add_item && validation_result.is_ok() {
-                    let username = self.input.to_lowercase();
+                    let username = self.input.normalize();
                     if !settings.chat.ignored_users.contains(&username) {
                         settings.chat.ignored_users.push(username);
                     }

@@ -6,6 +6,7 @@ use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
 use steel_core::settings::NotificationParams;
 
 use eframe::egui;
+use steel_core::string_utils::UsernameString;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::core::settings::Settings;
@@ -156,14 +157,13 @@ impl UIState {
     }
 
     pub fn set_chat_state(&mut self, target: &str, state: ChatState) {
-        let normalized = target.to_lowercase();
-        if let Some(ch) = self.find_chat_mut(&normalized) {
+        if let Some(ch) = self.find_chat_mut(&target.normalize()) {
             ch.set_state(state)
         }
     }
 
     pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
-        let normalized = target.to_lowercase();
+        let normalized = target.normalize();
         let is_tab_active = self.is_active_tab(&normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
 
@@ -222,7 +222,7 @@ impl UIState {
                 .own_username
                 .as_ref()
                 .unwrap_or(&self.settings.chat.irc.username)
-                .to_lowercase();
+                .normalize();
         let outcome = self.settings.notifications.evaluate(&NotificationParams {
             is_private_message: normalized_chat_name.is_person(),
             is_message_highlighted: message.is_highlight,
@@ -250,7 +250,7 @@ impl UIState {
     }
 
     pub fn remove_chat(&mut self, target: String) {
-        let normalized = target.to_lowercase();
+        let normalized = target.normalize();
         let is_active_chat = self.is_active_tab(&normalized);
 
         if let Some(pos) = self.name_to_chat(&normalized) {
@@ -277,7 +277,7 @@ impl UIState {
     }
 
     pub fn has_chat(&self, target: &str) -> bool {
-        self.find_chat(&target.to_lowercase()).is_some()
+        self.find_chat(&target.normalize()).is_some()
     }
 
     pub fn find_chat(&self, target: &str) -> Option<&Chat> {

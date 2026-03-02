@@ -6,6 +6,7 @@ use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::{Loadable, Settings, SETTINGS_FILE_NAME};
+use steel_core::string_utils::UsernameString;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -469,7 +470,7 @@ impl Application {
                     .chat
                     .autojoin
                     .iter()
-                    .filter(|ch| !self.state.chats.contains(&ch.to_lowercase()));
+                    .filter(|ch| !self.state.chats.contains(&ch.normalize()));
                 for (idx, chat) in wanted_chats
                     .cloned()
                     .collect::<Vec<String>>()
@@ -538,7 +539,7 @@ impl Application {
             return;
         }
 
-        if !self.state.chats.contains(&target.to_lowercase()) {
+        if !self.state.chats.contains(&target.normalize()) {
             self.save_chat(target);
             self.ui_add_chat(target, false);
         }
@@ -554,7 +555,7 @@ impl Application {
     }
 
     fn ui_handle_chat_opened(&mut self, target: &str, chat_type: ChatType) {
-        let chat_already_exists = self.state.chats.contains(&target.to_lowercase());
+        let chat_already_exists = self.state.chats.contains(&target.normalize());
 
         if !chat_already_exists {
             self.save_chat(target);
@@ -578,8 +579,7 @@ impl Application {
     }
 
     fn save_chat(&mut self, target: &str) {
-        let normalized = target.to_lowercase();
-        self.state.chats.insert(normalized);
+        self.state.chats.insert(target.normalize());
     }
 
     fn ui_add_chat(&self, target: &str, switch: bool) {
@@ -678,7 +678,7 @@ impl Application {
     }
 
     pub fn ui_handle_close_chat(&mut self, name: &str, chat_type: ChatType) {
-        let normalized = name.to_lowercase();
+        let normalized = name.normalize();
         self.state.chats.remove(&normalized);
 
         match chat_type {
@@ -694,8 +694,7 @@ impl Application {
     }
 
     pub fn ui_handle_clear_chat(&mut self, name: &str, _chat_type: ChatType) {
-        let normalized = name.to_lowercase();
-        self.ui_send_or_log(UIMessageIn::ChatCleared(normalized));
+        self.ui_send_or_log(UIMessageIn::ChatCleared(name.normalize()));
     }
 
     pub fn send_text_message(&mut self, target: &str, chat_type: ChatType, text: &str) {

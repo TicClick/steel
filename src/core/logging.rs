@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use steel_core::chat::{Message, MessageType};
 use steel_core::settings::logging::{ChatLoggingConfig, ChatLoggingFormats};
+use steel_core::string_utils::UsernameString;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::actor::ActorHandle;
@@ -180,7 +181,7 @@ impl ChatLoggerBackend {
 
 pub fn chat_log_path(logs_directory: &Path, chat_name: &str) -> PathBuf {
     logs_directory
-        .join(chat_name.to_lowercase())
+        .join(chat_name.normalize())
         .with_extension("log")
 }
 

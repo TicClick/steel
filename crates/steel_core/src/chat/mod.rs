@@ -127,7 +127,10 @@ impl Message {
         let mut kw: HashSet<String> = HashSet::new();
         let keywords = if let Some(u) = username {
             kw = keywords.clone();
+
             kw.insert(u.to_lowercase());
+            kw.insert(u.normalize());
+
             &kw
         } else {
             keywords
@@ -214,7 +217,7 @@ impl Chat {
                 Some(trimmed) => trimmed.to_owned(),
                 None => name.to_owned(),
             },
-            normalized_name: name.to_lowercase(),
+            normalized_name: name.normalize(),
             messages: Box::new(Vec::new()),
             state: ChatState::Left,
             category: name.chat_type(),

@@ -196,7 +196,7 @@ impl ApplicationWindow {
 
     fn add_chat_to_controller(&mut self, target: &str, switch: bool) {
         if let Some(_chat) = self.s.add_new_chat(target.to_owned(), switch) {
-            self.chat_view_controller.add(target.to_lowercase());
+            self.chat_view_controller.add(target.normalize());
         }
     }
 
