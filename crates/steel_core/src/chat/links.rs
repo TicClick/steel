@@ -349,7 +349,7 @@ mod tests {
             time: chrono::Local::now(),
             r#type: MessageType::Text,
             username: "abc".into(),
-            username_lowercase: "abc".into(),
+            username_display: "abc".to_owned(),
             text: s.into(),
             text_lowercase: s.to_lowercase(),
             chunks: None,

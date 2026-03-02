@@ -6,7 +6,7 @@ use date_announcer::DateAnnouncer;
 use steel_core::ipc::updater::UpdateState;
 use steel_core::settings::application::AutoUpdate;
 use steel_core::settings::{Loadable, Settings, SETTINGS_FILE_NAME};
-use steel_core::string_utils::UsernameString;
+use steel_core::string_utils::{ChatKey, UsernameString};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
@@ -35,7 +35,7 @@ pub mod date_announcer;
 #[derive(Clone, Default)]
 pub struct ApplicationState {
     pub settings: settings::Settings,
-    pub chats: BTreeSet<String>,
+    pub chats: BTreeSet<ChatKey>,
     pub connection: ConnectionStatus,
     pub own_username: Option<String>,
 }
@@ -163,8 +163,9 @@ impl Application {
                 });
             }
             UICommand::UserIgnored(username) => {
-                if !self.state.settings.chat.ignored_users.contains(&username) {
-                    self.state.settings.chat.ignored_users.push(username);
+                let normalized = username.normalize();
+                if !self.state.settings.chat.ignored_users.contains(&normalized) {
+                    self.state.settings.chat.ignored_users.push(normalized);
                     if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
                         self.ui_push_backend_error(Box::new(e), false);
                     }
@@ -172,11 +173,12 @@ impl Application {
                 }
             }
             UICommand::UserUnignored(username) => {
+                let normalized = username.normalize();
                 self.state
                     .settings
                     .chat
                     .ignored_users
-                    .retain(|u| u != &username);
+                    .retain(|u| u != &normalized);
                 if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
                     self.ui_push_backend_error(Box::new(e), false);
                 }
@@ -246,7 +248,7 @@ impl Application {
         match evt {
             SystemEvent::DateChanged(_date, message) => {
                 for chat in self.state.chats.clone() {
-                    self.send_system_message(&chat, &message);
+                    self.send_system_message(chat.as_str(), &message);
                 }
             }
         }
@@ -461,7 +463,7 @@ impl Application {
         match status {
             ConnectionStatus::Connected => {
                 for chat in self.state.chats.clone() {
-                    self.rejoin_chat(&chat);
+                    self.rejoin_chat(chat.as_str());
                 }
 
                 let wanted_chats = self
@@ -470,7 +472,7 @@ impl Application {
                     .chat
                     .autojoin
                     .iter()
-                    .filter(|ch| !self.state.chats.contains(&ch.normalize()));
+                    .filter(|ch| !self.state.chats.contains(ch.normalize().as_str()));
                 for (idx, chat) in wanted_chats
                     .cloned()
                     .collect::<Vec<String>>()
@@ -488,8 +490,8 @@ impl Application {
                 by_user,
                 auth_failed,
             } => {
-                for chat in self.state.chats.iter().cloned().collect::<Vec<String>>() {
-                    self.change_chat_state(&chat, ChatState::Disconnected);
+                for chat in self.state.chats.iter().cloned().collect::<Vec<ChatKey>>() {
+                    self.change_chat_state(chat.as_str(), ChatState::Disconnected);
                 }
                 if self.state.settings.chat.reconnect && !(by_user || auth_failed) {
                     self.queue_reconnect();
@@ -534,12 +536,13 @@ impl Application {
             .settings
             .chat
             .ignored_users
-            .contains(&message.username_lowercase)
+            .iter()
+            .any(|u| u == message.username.as_str())
         {
             return;
         }
 
-        if !self.state.chats.contains(&target.normalize()) {
+        if !self.state.chats.contains(target.normalize().as_str()) {
             self.save_chat(target);
             self.ui_add_chat(target, false);
         }
@@ -555,7 +558,7 @@ impl Application {
     }
 
     fn ui_handle_chat_opened(&mut self, target: &str, chat_type: ChatType) {
-        let chat_already_exists = self.state.chats.contains(&target.normalize());
+        let chat_already_exists = self.state.chats.contains(target.normalize().as_str());
 
         if !chat_already_exists {
             self.save_chat(target);
@@ -579,7 +582,7 @@ impl Application {
     }
 
     fn save_chat(&mut self, target: &str) {
-        self.state.chats.insert(target.normalize());
+        self.state.chats.insert(ChatKey::new(target));
     }
 
     fn ui_add_chat(&self, target: &str, switch: bool) {
@@ -679,7 +682,7 @@ impl Application {
 
     pub fn ui_handle_close_chat(&mut self, name: &str, chat_type: ChatType) {
         let normalized = name.normalize();
-        self.state.chats.remove(&normalized);
+        self.state.chats.remove(normalized.as_str());
 
         match chat_type {
             ChatType::Channel => self.leave_channel(name),

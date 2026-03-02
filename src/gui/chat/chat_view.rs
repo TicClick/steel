@@ -208,7 +208,7 @@ impl ChatView {
             );
 
         let unread_marker_active = state.settings.chat.behaviour.track_unread_messages
-            && state.active_chat_tab_name == chat.normalized_name
+            && state.active_chat_tab_name == chat.chat_key.as_str()
             && chat.prev_unread_pointer < chat.messages.len();
 
         let row_count =
@@ -335,7 +335,7 @@ impl ChatView {
                                         #[cfg(feature = "glass")]
                                         {
                                             if let Some(st) = state.glass.style_username(
-                                                &chat.normalized_name,
+                                                &chat.chat_key.as_str(),
                                                 message,
                                                 &state.settings.ui.theme,
                                             ) {
@@ -343,7 +343,7 @@ impl ChatView {
                                             }
                                             if let Some(st) = state
                                                 .glass
-                                                .style_message(&chat.normalized_name, message)
+                                                .style_message(&chat.chat_key.as_str(), message)
                                             {
                                                 message_styles.push(st);
                                             }

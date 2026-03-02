@@ -80,8 +80,8 @@ impl Command for Me {
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, args: Vec<String>) {
         core_client.chat_action_sent(
-            &chat.normalized_name,
-            chat.normalized_name.chat_type(),
+            chat.chat_key.as_str(),
+            chat.chat_key.as_str().chat_type(),
             args.join(" ").as_str(),
         );
     }
@@ -175,7 +175,7 @@ impl Command for CloseChat {
         egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
-        core_client.chat_tab_closed(&chat.normalized_name, chat.normalized_name.chat_type());
+        core_client.chat_tab_closed(chat.chat_key.as_str(), chat.chat_key.as_str().chat_type());
     }
 }
 
@@ -202,7 +202,7 @@ impl Command for ClearChat {
         egui::RichText::new(self.preferred_alias())
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
-        core_client.chat_tab_cleared(&chat.normalized_name, chat.normalized_name.chat_type());
+        core_client.chat_tab_cleared(chat.chat_key.as_str(), chat.chat_key.as_str().chat_type());
     }
 }
 
@@ -257,8 +257,8 @@ impl Command for Shrug {
     }
     fn action(&self, chat: &Chat, core_client: &CoreClient, _args: Vec<String>) {
         core_client.chat_message_sent(
-            &chat.normalized_name,
-            chat.normalized_name.chat_type(),
+            chat.chat_key.as_str(),
+            chat.chat_key.as_str().chat_type(),
             "¯\\_(ツ)_/¯",
         );
     }

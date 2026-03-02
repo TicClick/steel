@@ -1,5 +1,11 @@
 use eframe::egui::{self, Color32, Widget};
-use steel_core::{TextStyle, chat::Message, ipc::client::CoreClient, settings::Settings, string_utils::UsernameString};
+use steel_core::{
+    chat::Message,
+    ipc::client::CoreClient,
+    settings::Settings,
+    string_utils::{UsernameKey, UsernameString},
+    TextStyle,
+};
 
 use crate::gui::{
     context_menu::{
@@ -15,17 +21,16 @@ use crate::gui::{
 };
 
 pub fn choose_colour(
-    username: &str,
+    key: &UsernameKey,
     own_username: &Option<String>,
     settings: &Settings,
 ) -> Color32 {
-    let is_own_message = own_username.as_ref().is_some_and(|u| u == username);
+    let is_own_message = own_username
+        .as_ref()
+        .is_some_and(|u| u.as_username_key() == *key);
     let colour = match is_own_message {
         true => &settings.ui.colours().own,
-        false => settings
-            .ui
-            .colours()
-            .username_colour(&username.normalize()),
+        false => settings.ui.colours().username_colour(key),
     };
     colour.clone().into()
 }
@@ -66,10 +71,10 @@ impl<'msg, 'app> Username<'msg, 'app> {
     }
 
     fn show_context_menu(&self, ui: &mut egui::Ui) {
-        menu_item_open_chat(ui, self.core_client, true, &self.message.username);
-        menu_item_open_chat_user_profile(ui, true, &self.message.username);
+        menu_item_open_chat(ui, self.core_client, true, &self.message.username_display);
+        menu_item_open_chat_user_profile(ui, true, &self.message.username_display);
         menu_item_translate_message(ui, true, &self.message.text);
-        menu_item_open_chat_log(ui, self.core_client, true, &self.message.username);
+        menu_item_open_chat_log(ui, self.core_client, true, &self.message.username_display);
         menu_item_report_to_moderators(
             ui,
             self.core_client,
@@ -83,11 +88,12 @@ impl<'msg, 'app> Username<'msg, 'app> {
             .settings
             .chat
             .ignored_users
-            .contains(&self.message.username_lowercase);
+            .iter()
+            .any(|u| u == self.message.username.as_str());
         if is_ignored {
-            menu_item_unignore_user(ui, self.core_client, true, &self.message.username);
+            menu_item_unignore_user(ui, self.core_client, true, self.message.username.as_str());
         } else {
-            menu_item_ignore_user(ui, self.core_client, true, &self.message.username);
+            menu_item_ignore_user(ui, self.core_client, true, self.message.username.as_str());
         }
 
         ui.separator();
@@ -108,8 +114,9 @@ impl<'msg, 'app> Username<'msg, 'app> {
 
 impl Widget for Username<'_, '_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let username_text = egui::RichText::new(&self.message.username).with_styles(self.styles);
-        let invisible_text = format!(" <{}>", self.message.username);
+        let username_text =
+            egui::RichText::new(&self.message.username_display).with_styles(self.styles);
+        let invisible_text = format!(" <{}>", self.message.username_display);
 
         #[allow(unused_mut)] // glass
         let mut resp = ui.add(SelectableButton::new(username_text, invisible_text));
@@ -120,7 +127,8 @@ impl Widget for Username<'_, '_> {
         }
 
         if resp.clicked() {
-            self.core_client.insert_user_mention(&self.message.username);
+            self.core_client
+                .insert_user_mention(&self.message.username_display);
         }
 
         resp.context_menu(|ui| self.show_context_menu(ui));

@@ -98,7 +98,7 @@ impl UIState {
 
     pub fn name_to_chat(&self, name: &str) -> Option<usize> {
         for (idx, chat) in self.chats.iter().enumerate() {
-            if chat.normalized_name == name {
+            if chat.chat_key.as_str() == name {
                 return Some(idx);
             }
         }
@@ -142,7 +142,7 @@ impl UIState {
         self.chats.push(Chat::new(&name));
         if let Some(chat) = self.chats.last() {
             if switch_to_chat {
-                self.active_chat_tab_name = chat.normalized_name.clone();
+                self.active_chat_tab_name = chat.chat_key.as_str().to_owned();
             }
         }
         self.chats.last()
@@ -217,12 +217,11 @@ impl UIState {
     ) {
         let is_window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
         let is_system_message = message.r#type == MessageType::System;
-        let is_own_message = message.username_lowercase
-            == self
-                .own_username
+        let is_own_message = message.username.is_same_username(
+            self.own_username
                 .as_ref()
-                .unwrap_or(&self.settings.chat.irc.username)
-                .normalize();
+                .unwrap_or(&self.settings.chat.irc.username),
+        );
         let outcome = self.settings.notifications.evaluate(&NotificationParams {
             is_private_message: normalized_chat_name.is_person(),
             is_message_highlighted: message.is_highlight,
@@ -264,7 +263,7 @@ impl UIState {
 
     pub fn switch_to_first_chat(&mut self) {
         if let Some(first_chat) = self.chats.first() {
-            self.active_chat_tab_name = first_chat.normalized_name.clone();
+            self.active_chat_tab_name = first_chat.chat_key.as_str().to_owned();
         } else {
             self.active_chat_tab_name.clear();
         }
@@ -281,13 +280,13 @@ impl UIState {
     }
 
     pub fn find_chat(&self, target: &str) -> Option<&Chat> {
-        self.chats.iter().find(|ch| ch.normalized_name == target)
+        self.chats.iter().find(|ch| ch.chat_key.as_str() == target)
     }
 
     pub fn find_chat_mut(&mut self, target: &str) -> Option<&mut Chat> {
         self.chats
             .iter_mut()
-            .find(|ch| ch.normalized_name == target)
+            .find(|ch| ch.chat_key.as_str() == target)
     }
 
     #[cfg(feature = "glass")]

@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::hash::Hash;
 
-use crate::string_utils::UsernameString;
+use crate::string_utils::{ChatKey, UsernameKey, UsernameString};
 
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
@@ -27,11 +27,11 @@ pub struct User {
 pub struct Message {
     pub time: chrono::DateTime<chrono::Local>,
     pub r#type: MessageType,
-    pub username: String,
+    pub username: UsernameKey,
+    pub username_display: String,
     pub text: String,
 
-    // Cached lowercase versions for performance
-    pub username_lowercase: String,
+    // Cached lowercase version for performance
     pub text_lowercase: String,
 
     // Chat-oriented metadata, which is only used by UI.
@@ -67,10 +67,10 @@ impl fmt::Display for Message {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.time.format(DATETIME_FORMAT_WITH_TZ)).and_then(|_| match self.r#type {
             MessageType::Text => {
-                write!(f, " <{}> {}", self.username, self.text)
+                write!(f, " <{}> {}", self.username_display, self.text)
             }
             MessageType::Action => {
-                write!(f, " * {} {}", self.username, self.text)
+                write!(f, " * {} {}", self.username_display, self.text)
             }
             MessageType::System => {
                 write!(f, " {}", self.text)
@@ -84,9 +84,9 @@ impl Message {
         let mut msg = Self {
             time: chrono::Local::now(),
             r#type,
-            username: username.to_string(),
+            username: username.as_username_key(),
+            username_display: username.to_owned(),
             text: text.to_string(),
-            username_lowercase: username.normalize(),
             text_lowercase: text.to_lowercase(),
 
             chunks: None,
@@ -200,7 +200,7 @@ pub enum TabState {
 #[derive(Clone, Debug, Hash)]
 pub struct Chat {
     pub name: String,
-    pub normalized_name: String,
+    pub chat_key: ChatKey,
     pub messages: Box<Vec<Message>>,
     pub state: ChatState,
     pub category: ChatType,
@@ -217,7 +217,7 @@ impl Chat {
                 Some(trimmed) => trimmed.to_owned(),
                 None => name.to_owned(),
             },
-            normalized_name: name.normalize(),
+            chat_key: ChatKey::new(name),
             messages: Box::new(Vec::new()),
             state: ChatState::Left,
             category: name.chat_type(),

@@ -104,10 +104,7 @@ impl ChatFilter {
                 }
 
                 let username_matches = self.user_filter_input.is_empty()
-                    || message
-                        .username
-                        .normalize()
-                        .contains(&self.user_filter_input);
+                    || message.username.as_str().contains(&*self.user_filter_input);
                 let message_matches = self.message_filter_input.is_empty()
                     || message
                         .text
@@ -249,14 +246,14 @@ impl ChatFilter {
 
         let mut filter_action: Option<FilterAction> = None;
 
-        let username_input_id = format!("username-filter-input-{}", chat.normalized_name);
-        let message_input_id = format!("message-filter-input-{}", chat.normalized_name);
+        let username_input_id = format!("username-filter-input-{}", chat.chat_key.as_str());
+        let message_input_id = format!("message-filter-input-{}", chat.chat_key.as_str());
 
         if activated_now {
             ctx.memory_mut(|mem| mem.request_focus(username_input_id.clone().into()));
         }
 
-        egui::TopBottomPanel::top(format!("filter-panel-{}", chat.normalized_name))
+        egui::TopBottomPanel::top(format!("filter-panel-{}", chat.chat_key.as_str()))
             .frame(
                 egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
                     left: 8,
