@@ -104,6 +104,7 @@ pub fn menu_item_ignore_user(
     core_client: &CoreClient,
     show_icon: bool,
     username: &str,
+    chat_name: &str,
 ) {
     let text = match show_icon {
         true => ICON_IGNORE_USER,
@@ -111,7 +112,7 @@ pub fn menu_item_ignore_user(
     };
 
     if ui.button(text).clicked() {
-        core_client.user_ignored(username);
+        core_client.user_ignored(username, chat_name);
         ui.close();
     }
 }
@@ -121,6 +122,7 @@ pub fn menu_item_unignore_user(
     core_client: &CoreClient,
     show_icon: bool,
     username: &str,
+    chat_name: &str,
 ) {
     let text = match show_icon {
         true => ICON_UNIGNORE_USER,
@@ -128,7 +130,7 @@ pub fn menu_item_unignore_user(
     };
 
     if ui.button(text).clicked() {
-        core_client.user_unignored(username);
+        core_client.user_unignored(username, chat_name);
         ui.close();
     }
 }

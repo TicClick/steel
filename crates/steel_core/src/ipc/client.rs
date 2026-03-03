@@ -196,16 +196,18 @@ impl CoreClient {
         }));
     }
 
-    pub fn user_ignored(&self, username: &str) {
-        self.send_or_log(AppMessageIn::UI(UICommand::UserIgnored(
-            username.to_owned(),
-        )));
+    pub fn user_ignored(&self, username: &str, chat_name: &str) {
+        self.send_or_log(AppMessageIn::UI(UICommand::UserIgnored {
+            username: username.to_owned(),
+            chat_name: chat_name.to_owned(),
+        }));
     }
 
-    pub fn user_unignored(&self, username: &str) {
-        self.send_or_log(AppMessageIn::UI(UICommand::UserUnignored(
-            username.to_owned(),
-        )));
+    pub fn user_unignored(&self, username: &str, chat_name: &str) {
+        self.send_or_log(AppMessageIn::UI(UICommand::UserUnignored {
+            username: username.to_owned(),
+            chat_name: chat_name.to_owned(),
+        }));
     }
 }
 

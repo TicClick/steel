@@ -41,8 +41,14 @@ pub enum UICommand {
         username: String,
         chat_name: String,
     },
-    UserIgnored(String),
-    UserUnignored(String),
+    UserIgnored {
+        username: String,
+        chat_name: String,
+    },
+    UserUnignored {
+        username: String,
+        chat_name: String,
+    },
     ShowError {
         error: Box<dyn Error + Sync + Send>,
         is_fatal: bool,
