@@ -24,7 +24,8 @@ use crate::core::updater::Updater;
 use crate::core::{settings, updater};
 use steel_core::ipc::{
     server::{
-        AppMessageIn, ChatEvent, HTTPEvent, OAuthTokens, SystemEvent, UICommand, UpdateEvent,
+        AppMessageIn, ChatEvent, HTTPEvent, OAuthTokens, SettingsPatch, SystemEvent, UICommand,
+        UpdateEvent,
     },
     ui::UIMessageIn,
 };
@@ -168,11 +169,17 @@ impl Application {
             } => {
                 let normalized = username.normalize();
                 if !self.state.settings.chat.ignored_users.contains(&normalized) {
-                    self.state.settings.chat.ignored_users.push(normalized);
+                    self.state
+                        .settings
+                        .chat
+                        .ignored_users
+                        .push(normalized.clone());
                     if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
                         self.ui_push_backend_error(Box::new(e), false);
                     }
-                    self.ui_handle_settings_requested();
+                    self.ui_send_or_log(UIMessageIn::SettingsPatched(SettingsPatch::UserIgnored(
+                        normalized,
+                    )));
                 }
                 self.send_system_message(
                     &chat_name,
@@ -192,12 +199,15 @@ impl Application {
                 if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
                     self.ui_push_backend_error(Box::new(e), false);
                 }
-                self.ui_handle_settings_requested();
+                self.ui_send_or_log(UIMessageIn::SettingsPatched(SettingsPatch::UserUnignored(
+                    normalized,
+                )));
                 self.send_system_message(
                     &chat_name,
                     &format!("{username} will no longer be ignored"),
                 );
             }
+            UICommand::SettingsPatched(patch) => self.apply_settings_patch(patch),
             UICommand::ShowError { error, is_fatal } => {
                 self.ui_push_backend_error(error, is_fatal);
             }
@@ -453,6 +463,24 @@ impl Application {
         if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
             self.ui_push_backend_error(Box::new(e), false);
         }
+    }
+
+    pub fn apply_settings_patch(&mut self, patch: SettingsPatch) {
+        match &patch {
+            SettingsPatch::AutojoinAdded(channel) => {
+                self.state.settings.chat.autojoin.push(channel.clone());
+            }
+            SettingsPatch::AutojoinRemoved(channel) => {
+                self.state.settings.chat.autojoin.retain(|s| s != channel);
+            }
+            SettingsPatch::UserIgnored(_) | SettingsPatch::UserUnignored(_) => {
+                // handled directly in UICommand::UserIgnored/UserUnignored
+            }
+        }
+        if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {
+            self.ui_push_backend_error(Box::new(e), false);
+        }
+        self.ui_send_or_log(UIMessageIn::SettingsPatched(patch));
     }
 
     pub fn ui_request_usage_window(&mut self) {

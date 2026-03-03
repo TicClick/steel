@@ -1,5 +1,6 @@
 use eframe::egui;
 use steel_core::chat::{ChatLike, ChatType};
+use steel_core::ipc::server::SettingsPatch;
 
 use crate::gui::state::UIState;
 
@@ -30,9 +31,9 @@ pub fn menu_item_add_to_favourites(
     };
 
     if ui.button(text).clicked() {
-        state.settings.chat.autojoin.push(target.to_owned());
-        // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
-        state.core.settings_updated(&state.settings);
+        state
+            .core
+            .settings_patched(SettingsPatch::AutojoinAdded(target.to_owned()));
         ui.close();
     }
 }
@@ -49,9 +50,9 @@ pub fn menu_item_remove_from_favourites(
     };
 
     if ui.button(text).clicked() {
-        state.settings.chat.autojoin.retain(|s| s != target);
-        // TODO: this should be done elsewhere, in a centralized manner, I'm just being lazy right now
-        state.core.settings_updated(&state.settings);
+        state
+            .core
+            .settings_patched(SettingsPatch::AutojoinRemoved(target.to_owned()));
         ui.close();
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use steel_core::chat::{Chat, ChatLike, ChatState, ConnectionStatus, Message, MessageType};
 use steel_core::ipc::updater::UpdateState;
-use steel_core::ipc::{client::CoreClient, server::AppMessageIn};
+use steel_core::ipc::{client::CoreClient, server::AppMessageIn, server::SettingsPatch};
 use steel_core::settings::NotificationParams;
 
 use eframe::egui;
@@ -115,6 +115,25 @@ impl UIState {
                 .words
                 .join(HIGHLIGHTS_SEPARATOR),
         );
+    }
+
+    pub fn apply_settings_patch(&mut self, patch: SettingsPatch) {
+        match patch {
+            SettingsPatch::UserIgnored(username) => {
+                if !self.settings.chat.ignored_users.contains(&username) {
+                    self.settings.chat.ignored_users.push(username);
+                }
+            }
+            SettingsPatch::UserUnignored(username) => {
+                self.settings.chat.ignored_users.retain(|u| u != &username);
+            }
+            SettingsPatch::AutojoinAdded(channel) => {
+                self.settings.chat.autojoin.push(channel);
+            }
+            SettingsPatch::AutojoinRemoved(channel) => {
+                self.settings.chat.autojoin.retain(|s| s != &channel);
+            }
+        }
     }
 
     pub fn update_highlights(&mut self, words: &str) {
