@@ -162,7 +162,10 @@ impl Application {
                     chat_name,
                 });
             }
-            UICommand::UserIgnored(username) => {
+            UICommand::UserIgnored {
+                username,
+                chat_name,
+            } => {
                 let normalized = username.normalize();
                 if !self.state.settings.chat.ignored_users.contains(&normalized) {
                     self.state.settings.chat.ignored_users.push(normalized);
@@ -171,8 +174,15 @@ impl Application {
                     }
                     self.ui_handle_settings_requested();
                 }
+                self.send_system_message(
+                    &chat_name,
+                    &format!("{username} will be ignored from now on"),
+                );
             }
-            UICommand::UserUnignored(username) => {
+            UICommand::UserUnignored {
+                username,
+                chat_name,
+            } => {
                 let normalized = username.normalize();
                 self.state
                     .settings
@@ -183,6 +193,10 @@ impl Application {
                     self.ui_push_backend_error(Box::new(e), false);
                 }
                 self.ui_handle_settings_requested();
+                self.send_system_message(
+                    &chat_name,
+                    &format!("{username} will no longer be ignored"),
+                );
             }
             UICommand::ShowError { error, is_fatal } => {
                 self.ui_push_backend_error(error, is_fatal);

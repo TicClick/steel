@@ -124,7 +124,13 @@ fn pick_tab_colour(settings: &Settings, tab_state: &TabState) -> Colour {
     colour.clone()
 }
 
-fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str, mode: &ChatType) {
+fn tab_context_menu(
+    ui: &mut Ui,
+    state: &mut UIState,
+    normalized_chat_name: &str,
+    display_name: &str,
+    mode: &ChatType,
+) {
     let is_favourite_chat = state
         .settings
         .chat
@@ -146,9 +152,9 @@ fn tab_context_menu(ui: &mut Ui, state: &mut UIState, normalized_chat_name: &str
             .ignored_users
             .contains(&normalized_chat_name.to_owned());
         if is_ignored {
-            menu_item_unignore_user(ui, &state.core, false, normalized_chat_name);
+            menu_item_unignore_user(ui, &state.core, false, display_name, normalized_chat_name);
         } else {
-            menu_item_ignore_user(ui, &state.core, false, normalized_chat_name);
+            menu_item_ignore_user(ui, &state.core, false, display_name, normalized_chat_name);
         }
     }
     menu_item_open_chat_log(ui, &state.core, false, normalized_chat_name);
@@ -294,7 +300,13 @@ impl ChatTabs {
                                     );
                                 }
                                 chat_tab.context_menu(|ui| {
-                                    tab_context_menu(ui, state, normalized_chat_name, &mode)
+                                    tab_context_menu(
+                                        ui,
+                                        state,
+                                        normalized_chat_name,
+                                        &item.item.name,
+                                        &mode,
+                                    )
                                 });
                             }
                         });

@@ -91,9 +91,21 @@ impl<'msg, 'app> Username<'msg, 'app> {
             .iter()
             .any(|u| u == self.message.username.as_str());
         if is_ignored {
-            menu_item_unignore_user(ui, self.core_client, true, self.message.username.as_str());
+            menu_item_unignore_user(
+                ui,
+                self.core_client,
+                true,
+                &self.message.username_display,
+                self.chat_name,
+            );
         } else {
-            menu_item_ignore_user(ui, self.core_client, true, self.message.username.as_str());
+            menu_item_ignore_user(
+                ui,
+                self.core_client,
+                true,
+                &self.message.username_display,
+                self.chat_name,
+            );
         }
 
         ui.separator();
