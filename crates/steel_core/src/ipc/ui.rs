@@ -2,12 +2,14 @@ use std::error::Error;
 
 use crate::chat::ConnectionStatus;
 use crate::chat::{ChatState, Message};
+use crate::ipc::server::SettingsPatch;
 use crate::ipc::updater::UpdateState;
 use crate::settings::Settings;
 
 #[derive(Debug)]
 pub enum UIMessageIn {
     SettingsChanged(Box<Settings>),
+    SettingsPatched(SettingsPatch),
     ConnectionStatusChanged(ConnectionStatus),
     ConnectionActivity,
     NewSystemMessage {

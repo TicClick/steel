@@ -6,6 +6,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::chat::ChatType;
 use crate::ipc::error::{IpcError, IpcResult};
 use crate::ipc::server::AppMessageIn;
+use crate::ipc::server::SettingsPatch;
 use crate::ipc::server::UICommand;
 use crate::ipc::server::UpdateEvent;
 use crate::settings::application::AutoUpdate;
@@ -208,6 +209,10 @@ impl CoreClient {
             username: username.to_owned(),
             chat_name: chat_name.to_owned(),
         }));
+    }
+
+    pub fn settings_patched(&self, patch: SettingsPatch) {
+        self.send_or_log(AppMessageIn::UI(UICommand::SettingsPatched(patch)));
     }
 }
 

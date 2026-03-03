@@ -256,6 +256,10 @@ impl ApplicationWindow {
                 self.s.update_settings(&settings);
             }
 
+            UIMessageIn::SettingsPatched(patch) => {
+                self.s.apply_settings_patch(patch);
+            }
+
             UIMessageIn::ConnectionStatusChanged(conn) => {
                 self.s.connection = conn;
                 match conn {

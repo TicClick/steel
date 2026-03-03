@@ -7,6 +7,14 @@ use crate::ipc::updater::UpdateState;
 use crate::settings::application::AutoUpdate;
 use crate::settings::Settings;
 
+#[derive(Debug, Clone)]
+pub enum SettingsPatch {
+    UserIgnored(String),
+    UserUnignored(String),
+    AutojoinAdded(String),
+    AutojoinRemoved(String),
+}
+
 #[derive(Debug)]
 pub enum UICommand {
     ConnectRequested,
@@ -49,6 +57,7 @@ pub enum UICommand {
         username: String,
         chat_name: String,
     },
+    SettingsPatched(SettingsPatch),
     ShowError {
         error: Box<dyn Error + Sync + Send>,
         is_fatal: bool,
