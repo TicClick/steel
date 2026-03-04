@@ -7,7 +7,7 @@ use rosu_v2::{
 use std::sync::Arc;
 use steel_core::{
     chat::{ChatType, ConnectionStatus, MessageType},
-    ipc::server::AppMessageIn,
+    ipc::server::{AppMessageIn, ConnectionDetails},
 };
 use tokio::sync::mpsc::UnboundedSender;
 use tokio_tungstenite::{
@@ -345,6 +345,8 @@ async fn websocket_thread_main_impl(
         }
     };
 
+    let token_expires_at = token_state.access_expires_at;
+
     if let Some(new_access_token) = api.token().access() {
         if token_state.access_token != new_access_token {
             log::info!("Access token has changed (refreshed), saving new state");
@@ -453,6 +455,14 @@ async fn websocket_thread_main_impl(
                                         ConnectionStatus::Connected,
                                     ))
                                         .unwrap_or_else(|e| log::error!("Failed to send connection status: {e}"));
+
+                                    tx.send(AppMessageIn::connection_details_changed(
+                                        ConnectionDetails::API {
+                                            server: settings.ws_base_uri.clone(),
+                                            token_expires_at,
+                                        },
+                                    ))
+                                        .unwrap_or_else(|e| log::error!("Failed to send connection details: {e}"));
 
                                     if let Err(e) = api.chat_keepalive().await {
                                         log::error!("Failed to send initial keepalive: {e}")

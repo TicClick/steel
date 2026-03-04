@@ -64,9 +64,22 @@ pub enum UICommand {
     },
 }
 
+#[derive(Debug, Clone)]
+pub enum ConnectionDetails {
+    IRC {
+        server: String,
+        ping_timeout: u32,
+    },
+    API {
+        server: String,
+        token_expires_at: chrono::DateTime<chrono::Utc>,
+    },
+}
+
 #[derive(Debug)]
 pub enum ChatEvent {
     ConnectionChanged(ConnectionStatus),
+    ConnectionDetailsChanged(ConnectionDetails),
     ConnectionActivity,
     Error(IRCError),
     MessageReceived { target: String, message: Message },
@@ -145,6 +158,10 @@ impl AppMessageIn {
 
     pub fn own_username_detected(username: String) -> Self {
         Self::Chat(ChatEvent::OwnUsernameDetected(username))
+    }
+
+    pub fn connection_details_changed(details: ConnectionDetails) -> Self {
+        Self::Chat(ChatEvent::ConnectionDetailsChanged(details))
     }
 
     // UI commands

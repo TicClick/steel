@@ -264,16 +264,17 @@ impl ApplicationWindow {
                 self.s.connection = conn;
                 match conn {
                     steel_core::chat::ConnectionStatus::Connected => {
-                        self.s.connection_indicator.connect(
-                            self.s.settings.chat.irc.server.clone(),
-                            self.s.settings.chat.irc.ping_timeout,
-                        );
+                        self.s.connection_indicator.connect();
                     }
                     steel_core::chat::ConnectionStatus::Disconnected { .. } => {
                         self.s.connection_indicator.disconnect();
                     }
                     _ => {}
                 }
+            }
+
+            UIMessageIn::ConnectionDetailsChanged(details) => {
+                self.s.connection_indicator.update_details(details);
             }
 
             UIMessageIn::ConnectionActivity => {

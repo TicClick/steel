@@ -58,8 +58,6 @@ impl UIState {
         settings: Settings,
         original_exe_path: Option<std::path::PathBuf>,
     ) -> Self {
-        let irc_settings = settings.chat.irc.clone();
-
         Self {
             connection: ConnectionStatus::default(),
             settings,
@@ -75,11 +73,7 @@ impl UIState {
 
             highlights: HashSet::new(),
 
-            connection_indicator: ConnectionIndicator::new(
-                false,
-                irc_settings.server,
-                irc_settings.ping_timeout,
-            ),
+            connection_indicator: ConnectionIndicator::default(),
             window_attention: WindowAttention::default(),
 
             report_dialog: None,
