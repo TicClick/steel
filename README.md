@@ -1,5 +1,7 @@
 # steel
 
+![the main window of steel](./media/github-assets/main-window.png)
+
 ## what?
 
 `steel` is a text chat client tailored to osu!, which provides the following features below the bare minimum ("send and receive messages"):
@@ -36,13 +38,9 @@ libc.so.6 # v2.39+
 
 ## FAQ
 
-### so uhh what does it look like?
-
-[see for yourself](media/github-assets/main-window.png).
-
 ### is it cross-platform?
 
-yes, with Windows/Linux/MacOS support. only Windows is thoroughly tested, so watch out!
+yes, with Windows/Linux/MacOS support.
 
 ### is it malware? my antivirus says so
 
@@ -54,11 +52,16 @@ https://github.com/TicClick/steel/issues is the place.
 
 ### what's the chat transport?
 
-right now, it's the [IRC](https://osu.ppy.sh/wiki/IRC) gateway, but hopefully the app can be migrated to the websocket API once https://github.com/ppy/osu-web/issues/10118 is resolved.
+you have two options:
+
+- [IRC](https://osu.ppy.sh/wiki/IRC)
+- [Websocket API](https://docs.ppy.sh)
 
 ### will you know my password?
 
-no: it's stored locally, and only sent to the chat server -- see the source code, or listen to the app's network activity. one to make a note of, though:
-
-- since the IRC server doesn't support SSL, the password is sent in CLEAR TEXT -- if someone is spying on the network, they will be able to eavesdrop and take it.
-  - on the other hand, if someone is spying on you, an exposed osu! **chat** password is one of the least concerns..
+- **IRC**: no. it's stored locally and only sent to the chat server -- see the source code.
+  - however, since the IRC server doesn't support SSL, the password is sent in CLEAR TEXT -- if someone is spying on the network, they will be able to eavesdrop and take it.
+    - on the other hand, if someone is spying on you, an exposed osu! **chat** password is one of the least concerns..
+- **Websocket API**: no. instead of passwords, the osu! API accepts temporary tokens with capabilities such as "send messages as user X", provided the user X authorized the app to do so
+  - there is a grey area, because by default I proxy the tokens through my server to get them to you for convenience (since I don't want you to know the analog of my app's "password"), but again, these are temporary and can be revoked.
+    - if you are extra paranoid, you can [register your own API app](https://osu.ppy.sh/home/account/edit#oauth) and use its ID in my client -- that is well supported.
