@@ -78,14 +78,23 @@ jobs:
           features: glass
           target: ${{ matrix.target }}
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
       - name: Upload (private)
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
         run: |
-          python3 ./.github/push-private-asset.py \
-            --uploads ${{ secrets.UPLOADS_METADATA_GIST }} \
-            --releases ${{ secrets.RELEASES_METADATA_GIST }} \
-            --tag ${{ github.ref_name }} \
-            --filename $( ls steel-* ) \
-            --catbox-hash ${{ secrets.CATBOX_HASH }}
+          cd .github/asset-pusher
+          uv run asset-pusher sftp \
+              --host ${{ secrets.SFTP_HOST }} \
+              --port ${{ secrets.SFTP_PORT }} \
+              --user ${{ secrets.SFTP_USER }} \
+              --password ${{ secrets.SFTP_PASSWORD }} \
+              --remote-dir ${{ secrets.SFTP_REMOTE_DIR }} \
+              --filename $( ls steel-* ) \
+              --tag ${{ github.ref_name }} \
+              --releases ${{ secrets.RELEASES_METADATA_GIST }} \
+              --uploads ${{ secrets.UPLOADS_METADATA_GIST }} \
+              --http-base-url ${{ secrets.SFTP_HTTP_BASE_URL }}
