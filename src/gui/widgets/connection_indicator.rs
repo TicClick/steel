@@ -1,6 +1,7 @@
 use std::time::Instant;
 
 use eframe::egui;
+use steel_core::ipc::server::ConnectionDetails;
 
 #[derive(Debug)]
 pub struct ConnectionIndicator {
@@ -9,20 +10,18 @@ pub struct ConnectionIndicator {
     _cached_delta_ms: i64,
 
     connected: bool,
-    server: String,
-    ping_timeout: u32,
+    details: Option<ConnectionDetails>,
 }
 
 impl ConnectionIndicator {
-    pub fn new(connected: bool, server: String, ping_timeout: u32) -> Self {
+    pub fn new(connected: bool, details: Option<ConnectionDetails>) -> Self {
         let now = Instant::now();
         Self {
             last_activity: now,
             _last_delta_update: now,
             _cached_delta_ms: 0,
             connected,
-            server,
-            ping_timeout,
+            details,
         }
     }
 
@@ -42,13 +41,16 @@ impl ConnectionIndicator {
 
     pub fn disconnect(&mut self) {
         self.connected = false;
+        self.details = None;
     }
 
-    pub fn connect(&mut self, server: String, ping_timeout: u32) {
+    pub fn connect(&mut self) {
         self.refresh();
         self.connected = true;
-        self.server = server;
-        self.ping_timeout = ping_timeout;
+    }
+
+    pub fn update_details(&mut self, details: ConnectionDetails) {
+        self.details = Some(details);
     }
 
     pub fn signal_strength(&self, delta_ms: i64) -> i32 {
@@ -66,7 +68,7 @@ impl ConnectionIndicator {
 
 impl Default for ConnectionIndicator {
     fn default() -> Self {
-        Self::new(false, String::new(), 40)
+        Self::new(false, None)
     }
 }
 
@@ -130,12 +132,36 @@ impl ConnectionIndicator {
 
         let delta_s = (delta_ms as f32) / 1000.0;
         let on_hover_text = match self.connected {
-            true => format!(
-                "network activity: {delta_s:.1} s ago\n\
-                server: {}\n\
-                ping timeout: {} s",
-                self.server, self.ping_timeout
-            ),
+            true => match &self.details {
+                Some(ConnectionDetails::IRC {
+                    server,
+                    ping_timeout,
+                }) => {
+                    format!(
+                        "connection: IRC\n\
+                        server: {server}\n\
+                        network activity: {delta_s:.1} s ago\n\
+                        ping timeout: {ping_timeout} s"
+                    )
+                }
+                Some(ConnectionDetails::API {
+                    server,
+                    token_expires_at,
+                }) => {
+                    let now = chrono::Utc::now();
+                    let remaining = *token_expires_at - now;
+                    let hours = remaining.num_hours();
+                    let minutes = remaining.num_minutes() % 60;
+
+                    format!(
+                        "connection: HTTP API\n\
+                        server: {server}\n\
+                        network activity: {delta_s:.1} s ago\n\
+                        token valid for: {hours}h {minutes}m"
+                    )
+                }
+                None => String::new(),
+            },
             false => "offline".into(),
         };
         response.on_hover_text_at_pointer(on_hover_text)

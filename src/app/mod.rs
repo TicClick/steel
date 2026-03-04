@@ -233,6 +233,9 @@ impl Application {
                 self.state.own_username = Some(username.clone());
                 self.ui_send_or_log(UIMessageIn::OwnUsernameChanged(username));
             }
+            ChatEvent::ConnectionDetailsChanged(details) => {
+                self.ui_send_or_log(UIMessageIn::ConnectionDetailsChanged(details));
+            }
         }
     }
 

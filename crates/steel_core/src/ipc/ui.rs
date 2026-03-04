@@ -2,7 +2,7 @@ use std::error::Error;
 
 use crate::chat::ConnectionStatus;
 use crate::chat::{ChatState, Message};
-use crate::ipc::server::SettingsPatch;
+use crate::ipc::server::{ConnectionDetails, SettingsPatch};
 use crate::ipc::updater::UpdateState;
 use crate::settings::Settings;
 
@@ -54,6 +54,7 @@ pub enum UIMessageIn {
     },
 
     OwnUsernameChanged(String),
+    ConnectionDetailsChanged(ConnectionDetails),
 
     Shutdown,
 }

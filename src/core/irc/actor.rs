@@ -12,7 +12,7 @@ use crate::core::chat;
 use crate::core::irc::event_handler;
 
 use steel_core::chat::{irc::IRCError, ConnectionStatus};
-use steel_core::ipc::server::AppMessageIn;
+use steel_core::ipc::server::{AppMessageIn, ConnectionDetails};
 
 use super::IRCMessageIn;
 
@@ -153,6 +153,8 @@ fn irc_thread_main(
     config: irc::client::data::Config,
 ) {
     let own_username = config.username.clone().unwrap();
+    let irc_server = config.server.clone().unwrap_or_default();
+    let irc_ping_timeout = config.ping_timeout.unwrap_or(40);
     let rt = runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -177,6 +179,14 @@ fn irc_thread_main(
                 ConnectionStatus::Connected,
             ))
             .unwrap_or_else(|e| log::error!("Failed to send connected: {e}"));
+
+            tx.send(AppMessageIn::connection_details_changed(
+                ConnectionDetails::IRC {
+                    server: irc_server,
+                    ping_timeout: irc_ping_timeout,
+                },
+            ))
+            .unwrap_or_else(|e| log::error!("Failed to send connection details: {e}"));
 
             tx.send(AppMessageIn::own_username_detected(own_username.clone()))
                 .unwrap_or_else(|e| log::error!("Failed to send own username: {e}"));
