@@ -1,5 +1,7 @@
 # steel
 
+![the main window of steel](./media/github-assets/main-window.png)
+
 ## what?
 
 `steel` is a text chat client tailored to osu!, which provides the following features below the bare minimum ("send and receive messages"):
@@ -35,10 +37,6 @@ libc.so.6 # v2.39+
 ```
 
 ## FAQ
-
-### so uhh what does it look like?
-
-[see for yourself](media/github-assets/main-window.png).
 
 ### is it cross-platform?
 
