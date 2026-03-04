@@ -190,203 +190,34 @@ impl SettingsWindow {
         ui.vertical(|ui| {
             ui.heading("connection");
 
-            ui.horizontal(|ui| {
-                ui.label("chat transport");
-                ui.radio_value(&mut state.settings.chat.backend, ChatBackend::IRC, "IRC")
-                    .on_hover_text_at_pointer(
-                        "legacy chat with a separate password.\n\
-                scheduled for deprecation, lacks features.\n\
-                lightweight and battle-tested.",
-                    );
+            ui.add_enabled_ui(state.is_disconnected(), |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("chat transport");
+                    ui.radio_value(&mut state.settings.chat.backend, ChatBackend::IRC, "IRC")
+                        .on_hover_text_at_pointer(
+                            "legacy chat with a separate password.\n\
+                    scheduled for deprecation, lacks features.\n\
+                    lightweight and battle-tested.",
+                        );
 
-                ui.radio_value(
-                    &mut state.settings.chat.backend,
-                    ChatBackend::API,
-                    "osu!api",
-                )
-                .on_hover_text_at_pointer(
-                    "the system behind the modern web chat.\n\
-                it sends a lot of useful details and context."
-                );
-            });
+                    ui.radio_value(
+                        &mut state.settings.chat.backend,
+                        ChatBackend::API,
+                        "osu!api",
+                    )
+                    .on_hover_text_at_pointer(
+                        "the system behind the modern web chat.\n\
+                    it sends a lot of useful details and context."
+                    );
+                });
+
 
             let text_input_singleline_width = 200.;
-
-            match state.settings.chat.backend {
-                ChatBackend::IRC => {
-                    ui.vertical(|ui| {
-                        let total_width = ui
-                            .horizontal(|ui| {
-                                let mut sz = ui.label("username").rect.width();
-
-                                let username_edit = egui::TextEdit::singleline(&mut state.settings.chat.irc.username)
-                                    .desired_width(text_input_singleline_width);
-
-                                sz += ui.add(username_edit)
-                                    .on_hover_text_at_pointer("replace spaces with underscores")
-                                    .rect
-                                    .width();
-                                sz
-                            })
-                            .inner;
-
-                        ui.horizontal(|ui| {
-                            let label_width = ui
-                                .hyperlink_to(
-                                    "IRC password",
-                                    "https://osu.ppy.sh/home/account/edit#legacy-api",
-                                )
-                                .rect
-                                .width();
-                            let input =
-                                egui::TextEdit::singleline(&mut state.settings.chat.irc.password)
-                                    .password(!self.visible_password)
-                                    .desired_width(total_width - label_width - 26.);
-                            ui.add(input).on_hover_text_at_pointer(
-                                "if you don't have an IRC password, click the link on the left",
-                            );
-                            if ui
-                                .button("👁")
-                                .on_hover_text_at_pointer("show/hide password")
-                                .clicked()
-                            {
-                                self.visible_password = !self.visible_password;
-                            }
-                        });
-
-                        ui.horizontal(|ui| {
-                            ui.label("IRC server");
-                            let input = egui::TextEdit::singleline(&mut state.settings.chat.irc.server)
-                                    .desired_width(text_input_singleline_width);
-
-                            ui.add(input).on_hover_text_at_pointer(
-                                "possible options: \n\
-                                - cho.ppy.sh\n\
-                                - irc.ppy.sh"
-                            );
-                        });
-
-                        ui.horizontal(|ui: &mut egui::Ui| {
-                            ui.label("ping timeout");
-                            let input = egui::Slider::new(&mut state.settings.chat.irc.ping_timeout, 15..=120).integer();
-                            ui.add(input).on_hover_text_at_pointer(
-                                "if the server doesn't respond to IRC PING (regular status checks) for this amount of time, reconnect.\n\
-                                large values help when on slow/unstable network, but may keep you hanging."
-                            );
-                        });
-                    });
+                match state.settings.chat.backend {
+                    ChatBackend::IRC => self.show_irc_settings(ui, state, text_input_singleline_width),
+                    ChatBackend::API => self.show_api_settings(ui, state, text_input_singleline_width),
                 }
-                ChatBackend::API => {
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label("authentication mode");
-                            egui::ComboBox::from_id_salt("oauth-mode")
-                                .selected_text(state.settings.chat.api.oauth_mode.to_string())
-                                .show_ui(ui, |ui| {
-                                    ui.selectable_value(
-                                        &mut state.settings.chat.api.oauth_mode,
-                                        OAuthMode::Default,
-                                        OAuthMode::Default.to_string(),
-                                    ).on_hover_text_at_pointer(
-                                        "Use the default jump server to authenticate.\n\
-                                        Simpler setup, no need to create your own OAuth application."
-                                    );
-                                    ui.selectable_value(
-                                        &mut state.settings.chat.api.oauth_mode,
-                                        OAuthMode::SelfHosted,
-                                        OAuthMode::SelfHosted.to_string(),
-                                    ).on_hover_text_at_pointer(
-                                        "Use your own OAuth application.\n\
-                                        Requires creating an app at osu.ppy.sh."
-                                    );
-                                });
-                        });
-
-                        match state.settings.chat.api.oauth_mode {
-                            OAuthMode::Default => {
-                                ui.label("jump server URL:");
-                                let input =
-                                    egui::TextEdit::multiline(&mut state.settings.chat.api.jump_server_url)
-                                        .desired_rows(2)
-                                        .desired_width(f32::INFINITY);
-                                ui.add(input).on_hover_text_at_pointer(
-                                    "URL of the OAuth jump server that will redirect you to osu! for authentication"
-                                );
-                            }
-                            OAuthMode::SelfHosted => {
-                                let total_width = ui
-                                    .horizontal(|ui| {
-                                        let mut sz = ui.label("client ID").rect.width();
-
-                                        let client_id_edit = egui::TextEdit::singleline(&mut state.settings.chat.api.client_id)
-                                            .desired_width(text_input_singleline_width);
-
-                                        sz += ui
-                                            .add(client_id_edit)
-                                            .on_hover_text_at_pointer("osu! API application client ID")
-                                            .rect
-                                            .width();
-                                        sz
-                                    })
-                                    .inner;
-
-                                ui.horizontal(|ui| {
-                                    let label_width = ui
-                                        .hyperlink_to(
-                                            "client secret",
-                                            "https://osu.ppy.sh/home/account/edit#new-oauth-application",
-                                        )
-                                        .rect
-                                        .width();
-                                    let input =
-                                        egui::TextEdit::singleline(&mut state.settings.chat.api.client_secret)
-                                            .password(!self.visible_password)
-                                            .desired_width(total_width - label_width - 26.);
-                                    ui.add(input).on_hover_text_at_pointer(
-                                        "if you don't have an OAuth application, click the link on the left",
-                                    );
-                                    if ui
-                                        .button("👁")
-                                        .on_hover_text_at_pointer("show/hide secret")
-                                        .clicked()
-                                    {
-                                        self.visible_password = !self.visible_password;
-                                    }
-                                });
-
-                                ui.label("redirect URI:");
-                                let input =
-                                    egui::TextEdit::multiline(&mut state.settings.chat.api.redirect_uri)
-                                        .desired_rows(2)
-                                        .desired_width(f32::INFINITY);
-                                ui.add(input).on_hover_text_at_pointer(
-                                    "OAuth redirect URI (must match application settings)"
-                                );
-                            }
-                        }
-
-                        ui.horizontal(|ui| {
-                            ui.label("local port");
-                            ui.add(
-                                egui::DragValue::new(&mut state.settings.chat.api.local_port)
-                                    .range(1024..=65535)
-                            ).on_hover_text_at_pointer(
-                                "Local port to listen for OAuth callback.\n\
-                                The OAuth server will redirect back to this port."
-                            );
-                        });
-
-                        ui.label("WebSocket URI:");
-                        let input =
-                            egui::TextEdit::multiline(&mut state.settings.chat.api.ws_base_uri)
-                                .desired_rows(2)
-                                .desired_width(f32::INFINITY);
-                        ui.add(input).on_hover_text_at_pointer(
-                            "WebSocket server address (default: wss://notify.ppy.sh)"
-                        );
-                    });
-                }
-            }
+            }).response.on_disabled_hover_text("these settings can only be changed when offline");
 
             ui.separator();
 
@@ -465,6 +296,191 @@ impl SettingsWindow {
             ui.separator();
 
             self.ignored_users.show(&mut state.settings, ui);
+        });
+    }
+
+    fn show_irc_settings(
+        &mut self,
+        ui: &mut eframe::egui::Ui,
+        state: &mut UIState,
+        text_input_singleline_width: f32,
+    ) {
+        ui.vertical(|ui| {
+            let total_width = ui
+                .horizontal(|ui| {
+                    let mut sz = ui.label("username").rect.width();
+
+                    let username_edit = egui::TextEdit::singleline(&mut state.settings.chat.irc.username)
+                        .desired_width(text_input_singleline_width);
+
+                    sz += ui.add(username_edit)
+                        .on_hover_text_at_pointer("replace spaces with underscores")
+                        .rect
+                        .width();
+                    sz
+                })
+                .inner;
+
+            ui.horizontal(|ui| {
+                let label_width = ui
+                    .hyperlink_to(
+                        "IRC password",
+                        "https://osu.ppy.sh/home/account/edit#legacy-api",
+                    )
+                    .rect
+                    .width();
+                let input =
+                    egui::TextEdit::singleline(&mut state.settings.chat.irc.password)
+                        .password(!self.visible_password)
+                        .desired_width(total_width - label_width - 26.);
+                ui.add(input).on_hover_text_at_pointer(
+                    "if you don't have an IRC password, click the link on the left",
+                );
+                if ui
+                    .button("👁")
+                    .on_hover_text_at_pointer("show/hide password")
+                    .clicked()
+                {
+                    self.visible_password = !self.visible_password;
+                }
+            });
+
+            ui.horizontal(|ui| {
+                ui.label("IRC server");
+                let input = egui::TextEdit::singleline(&mut state.settings.chat.irc.server)
+                        .desired_width(text_input_singleline_width);
+
+                ui.add(input).on_hover_text_at_pointer(
+                    "possible options: \n\
+                    - cho.ppy.sh\n\
+                    - irc.ppy.sh"
+                );
+            });
+
+            ui.horizontal(|ui: &mut egui::Ui| {
+                ui.label("ping timeout");
+                let input = egui::Slider::new(&mut state.settings.chat.irc.ping_timeout, 15..=120).integer();
+                ui.add(input).on_hover_text_at_pointer(
+                    "if the server doesn't respond to IRC PING (regular status checks) for this amount of time, reconnect.\n\
+                    large values help when on slow/unstable network, but may keep you hanging."
+                );
+            });
+        });
+    }
+
+    fn show_api_settings(
+        &mut self,
+        ui: &mut eframe::egui::Ui,
+        state: &mut UIState,
+        text_input_singleline_width: f32,
+    ) {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.label("authentication mode");
+                egui::ComboBox::from_id_salt("oauth-mode")
+                    .selected_text(state.settings.chat.api.oauth_mode.to_string())
+                    .show_ui(ui, |ui| {
+                        ui.selectable_value(
+                            &mut state.settings.chat.api.oauth_mode,
+                            OAuthMode::Default,
+                            OAuthMode::Default.to_string(),
+                        ).on_hover_text_at_pointer(
+                            "Use the default jump server to authenticate.\n\
+                            Simpler setup, no need to create your own OAuth application."
+                        );
+                        ui.selectable_value(
+                            &mut state.settings.chat.api.oauth_mode,
+                            OAuthMode::SelfHosted,
+                            OAuthMode::SelfHosted.to_string(),
+                        ).on_hover_text_at_pointer(
+                            "Use your own OAuth application.\n\
+                            Requires creating an app at osu.ppy.sh."
+                        );
+                    });
+            });
+
+            match state.settings.chat.api.oauth_mode {
+                OAuthMode::Default => {
+                    ui.label("jump server URL:");
+                    let input =
+                        egui::TextEdit::multiline(&mut state.settings.chat.api.jump_server_url)
+                            .desired_rows(2)
+                            .desired_width(f32::INFINITY);
+                    ui.add(input).on_hover_text_at_pointer(
+                        "URL of the OAuth jump server that will redirect you to osu! for authentication"
+                    );
+                }
+                OAuthMode::SelfHosted => {
+                    let total_width = ui
+                        .horizontal(|ui| {
+                            let mut sz = ui.label("client ID").rect.width();
+
+                            let client_id_edit = egui::TextEdit::singleline(&mut state.settings.chat.api.client_id)
+                                .desired_width(text_input_singleline_width);
+
+                            sz += ui
+                                .add(client_id_edit)
+                                .on_hover_text_at_pointer("osu! API application client ID")
+                                .rect
+                                .width();
+                            sz
+                        })
+                        .inner;
+
+                    ui.horizontal(|ui| {
+                        let label_width = ui
+                            .hyperlink_to(
+                                "client secret",
+                                "https://osu.ppy.sh/home/account/edit#new-oauth-application",
+                            )
+                            .rect
+                            .width();
+                        let input =
+                            egui::TextEdit::singleline(&mut state.settings.chat.api.client_secret)
+                                .password(!self.visible_password)
+                                .desired_width(total_width - label_width - 26.);
+                        ui.add(input).on_hover_text_at_pointer(
+                            "if you don't have an OAuth application, click the link on the left",
+                        );
+                        if ui
+                            .button("👁")
+                            .on_hover_text_at_pointer("show/hide secret")
+                            .clicked()
+                        {
+                            self.visible_password = !self.visible_password;
+                        }
+                    });
+
+                    ui.label("redirect URI:");
+                    let input =
+                        egui::TextEdit::multiline(&mut state.settings.chat.api.redirect_uri)
+                            .desired_rows(2)
+                            .desired_width(f32::INFINITY);
+                    ui.add(input).on_hover_text_at_pointer(
+                        "OAuth redirect URI (must match application settings)"
+                    );
+                }
+            }
+
+            ui.horizontal(|ui| {
+                ui.label("local port");
+                ui.add(
+                    egui::DragValue::new(&mut state.settings.chat.api.local_port)
+                        .range(1024..=65535)
+                ).on_hover_text_at_pointer(
+                    "Local port to listen for OAuth callback.\n\
+                    The OAuth server will redirect back to this port."
+                );
+            });
+
+            ui.label("WebSocket URI:");
+            let input =
+                egui::TextEdit::multiline(&mut state.settings.chat.api.ws_base_uri)
+                    .desired_rows(2)
+                    .desired_width(f32::INFINITY);
+            ui.add(input).on_hover_text_at_pointer(
+                "WebSocket server address (default: wss://notify.ppy.sh)"
+            );
         });
     }
 }
