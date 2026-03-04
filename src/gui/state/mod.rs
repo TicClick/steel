@@ -151,6 +151,13 @@ impl UIState {
         matches!(self.connection, ConnectionStatus::Connected)
     }
 
+    pub fn is_disconnected(&self) -> bool {
+        matches!(
+            self.connection,
+            ConnectionStatus::Disconnected { .. } | ConnectionStatus::Scheduled(..)
+        )
+    }
+
     pub fn add_new_chat(&mut self, name: String, switch_to_chat: bool) -> Option<&Chat> {
         self.chats.push(Chat::new(&name));
         if let Some(chat) = self.chats.last() {
