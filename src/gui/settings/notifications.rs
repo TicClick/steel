@@ -5,18 +5,20 @@ use crate::core::sound::SoundPlayer;
 use crate::gui::{state::UIState, HIGHLIGHTS_SEPARATOR};
 use steel_core::settings::{BuiltInSound, NotificationStyle, Sound};
 
-fn show_test_button(ui: &mut egui::Ui, sound_player: &mut SoundPlayer) -> bool {
+fn sound_test_button(
+    ui: &mut egui::Ui,
+    sound_player: &mut SoundPlayer,
+) -> egui::response::Response {
     let test_button = egui::Button::new("🔈");
     match sound_player.functional() {
-        true => ui.add(test_button).clicked(),
+        true => ui.add(test_button),
         false => {
             let error_text = match sound_player.initialization_error() {
                 None => "unknown initialization error".into(),
                 Some(e) => e.to_string(),
             };
             ui.add_enabled(false, test_button)
-                .on_disabled_hover_text(error_text);
-            false
+                .on_disabled_hover_text(error_text)
         }
     }
 }
@@ -172,7 +174,7 @@ impl SettingsWindow {
                     response.mark_changed();
                 }
 
-                if show_test_button(ui, &mut state.sound_player) {
+                if sound_test_button(ui, &mut state.sound_player).clicked() {
                     state
                         .sound_player
                         .play(&Sound::BuiltIn(self.notifications_builtin_sound.clone()));
@@ -214,12 +216,9 @@ impl SettingsWindow {
                     response.mark_changed();
                 }
 
-                if custom_sound_chosen {
-                    let clicked = show_test_button(ui, &mut state.sound_player);
-                    if clicked {
-                        if let Some(sound) = &state.settings.notifications.highlights.sound {
-                            state.sound_player.play(sound);
-                        }
+                if let Some(path) = &self.notifications_custom_sound_path {
+                    if sound_test_button(ui, &mut state.sound_player).clicked() {
+                        state.sound_player.play(&Sound::Custom(path.clone()));
                     }
                 }
             });
