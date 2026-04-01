@@ -46,7 +46,7 @@ winit-test = "0.2.0"
 
 [package]
 name = "steel"
-version = "0.9.3"
+version = "0.9.4"
 edition = "2021"
 build = "src/build.rs"
 
@@ -99,6 +99,7 @@ tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 url = "2.5"
 html-escape = "0.2.13"
 base64 = "0.22"
+egui-snow = "0.32.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

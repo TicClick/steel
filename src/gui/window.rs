@@ -1,3 +1,4 @@
+use chrono::Datelike;
 use eframe::egui::{self, Theme};
 #[cfg(feature = "puffin")]
 use puffin;
@@ -486,6 +487,19 @@ impl eframe::App for ApplicationWindow {
         puffin_egui::profiler_window(ctx);
 
         self.refresh_window_geometry_settings(ctx);
+
+        let today = chrono::Local::now().date_naive();
+        if today.day() == 1 && today.month() == 4 {
+            let colour = match self.s.settings.ui.theme {
+                ThemeMode::Dark => egui::Color32::from_white_alpha(200),
+                ThemeMode::Light => egui::Color32::from_black_alpha(200),
+            };
+            egui_snow::Snow::new("snow_effect")
+                .color(colour)
+                .speed(40.0..=100.0)
+                .size(0.5..=3.0)
+                .show(ctx);
+        }
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
