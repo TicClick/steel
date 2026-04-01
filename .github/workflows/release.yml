@@ -88,10 +88,10 @@ jobs:
         run: |
           cd .github/asset-pusher
           uv run asset-pusher sftp \
-              --host ${{ secrets.SFTP_HOST }} \
+              --host '${{ secrets.SFTP_HOST }}' \
               --port ${{ secrets.SFTP_PORT }} \
-              --user ${{ secrets.SFTP_USER }} \
-              --password ${{ secrets.SFTP_PASSWORD }} \
+              --user '${{ secrets.SFTP_USER }}' \
+              --password '${{ secrets.SFTP_PASSWORD }}' \
               --remote-dir ${{ secrets.SFTP_REMOTE_DIR }} \
               --filename $( ls steel-* ) \
               --tag ${{ github.ref_name }} \
