@@ -85,6 +85,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          SFTP_REMOTE_DIR: .
         run: |
           cd .github/asset-pusher
           uv run asset-pusher sftp \
@@ -92,8 +93,8 @@ jobs:
               --port ${{ secrets.SFTP_PORT }} \
               --user '${{ secrets.SFTP_USER }}' \
               --password '${{ secrets.SFTP_PASSWORD }}' \
-              --remote-dir ${{ secrets.SFTP_REMOTE_DIR }} \
-              --filename $( ls steel-* ) \
+              --remote-dir '${{ env.SFTP_REMOTE_DIR }}' \
+              --filename $( ls ../../steel-* ) \
               --tag ${{ github.ref_name }} \
               --releases ${{ secrets.RELEASES_METADATA_GIST }} \
               --uploads ${{ secrets.UPLOADS_METADATA_GIST }} \
