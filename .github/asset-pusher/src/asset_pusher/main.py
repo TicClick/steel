@@ -70,7 +70,7 @@ def main() -> None:
     match args.uploader:
         case "catbox":
             uploader = CatboxUploader(catbox_hash=args.catbox_hash)
-        case "stfp":
+        case "sftp":
             uploader = SftpUploader(
                 host=args.host,
                 port=args.port,
