@@ -7,7 +7,7 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = { version = "0.34", features = ["glow"] }
+eframe = { version = "0.34", default-features = false, features = ["glow", "accesskit", "default_fonts", "wayland", "x11"] }
 egui_extras = "0.34"
 ecolor = "0.34"
 egui_dnd = "0.15.0"
