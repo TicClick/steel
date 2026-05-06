@@ -28,12 +28,13 @@ impl Menu {
 
     pub fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         frame: &mut eframe::Frame,
         state: &mut UIState,
         response_widget_id: &mut Option<egui::Id>,
     ) {
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
+        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+            let ctx = &ui.ctx().clone();
             egui::MenuBar::new().ui(ui, |ui| {
                 global_theme_preference_switch(ui);
                 let new_theme = match ui.ctx().theme() {

@@ -48,7 +48,7 @@ pub struct WindowAttention {
 
 impl WindowAttention {
     /// Called when an incoming message warrants a window attention request.
-    #[cfg_attr(target_os = "macos", allow(unused_variables))]
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
     pub fn request(&mut self, ctx: &egui::Context, style: NotificationStyle) {
         #[cfg(target_os = "linux")]
         {
@@ -90,7 +90,7 @@ impl WindowAttention {
     }
 
     /// Called every frame. Clear the attention request once the timeout elapses.
-    #[cfg_attr(target_os = "macos", allow(unused_variables))]
+    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))]
     pub fn check_timeout(&mut self, ctx: &egui::Context, settings: &Notifications) {
         if !settings.enable_notification_timeout
             || !matches!(settings.notification_style, NotificationStyle::Intensive)

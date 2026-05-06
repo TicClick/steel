@@ -35,7 +35,7 @@ impl ErrorPopup {
     pub fn show(&mut self, ctx: &egui::Context) {
         if let Some(most_recent_error) = self.errors.last() {
             let response = egui::Modal::new("errors-modal".into()).show(ctx, |ui| {
-                ui.set_max_width((ctx.screen_rect().width() * 0.5).min(450.0));
+                ui.set_max_width((ctx.content_rect().width() * 0.5).min(450.0));
                 ui.heading("Application error");
                 ui.label(format!("{}", most_recent_error.error));
                 if let Some(source_error) = most_recent_error.error.source() {
