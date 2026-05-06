@@ -1,5 +1,5 @@
 use clap::Parser;
-use rand::{RngExt, rng};
+use rand::{rng, RngExt};
 use tokio::sync::mpsc::unbounded_channel;
 
 use steel::core::chat::Message;

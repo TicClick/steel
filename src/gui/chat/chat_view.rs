@@ -227,7 +227,10 @@ impl ChatView {
         egui::CentralPanel::default()
             .frame(
                 egui::Frame::central_panel(&ctx.global_style()).inner_margin(
-                    egui::Margin::symmetric(CENTRAL_PANEL_INNER_MARGIN_X, CENTRAL_PANEL_INNER_MARGIN_Y),
+                    egui::Margin::symmetric(
+                        CENTRAL_PANEL_INNER_MARGIN_X,
+                        CENTRAL_PANEL_INNER_MARGIN_Y,
+                    ),
                 ),
             )
             .show_inside(ui, |ui| {
