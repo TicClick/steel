@@ -7,10 +7,10 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = "0.32"
-egui_extras = "0.32"
-ecolor = "0.32"
-egui_dnd = "0.13.0"
+eframe = { version = "0.34", default-features = false, features = ["glow", "accesskit", "default_fonts", "wayland", "x11"] }
+egui_extras = "0.34"
+ecolor = "0.34"
+egui_dnd = "0.15.0"
 
 # Supporting library for rodio's "alsa-sys" dependency: librust-alsa-sys-dev
 # TODO(TicClick): The fork is a workaround for Windows not respecting default audio device change.
@@ -19,28 +19,28 @@ rodio = { git = "https://github.com/TicClick/rodio.git", branch = "master" } # v
 
 # other dependencies
 
-chrono = { version = "0.4.41", features = ["serde"] }
+chrono = { version = "0.4.44", features = ["serde"] }
 irc = "1.1.0"
 irc-proto = "1.1.0"
-futures = "0.3.31"
-serde = "1.0.219"
+futures = "0.3.32"
+serde = "1.0.228"
 serde_yaml = "0.9.34"
-serde_json = "1.0.141"
-tokio = { version = "1.47.0", features = ["rt"] }
-thiserror = "2.0.12"
+serde_json = "1.0.149"
+tokio = { version = "1.52.2", features = ["rt"] }
+thiserror = "2.0.18"
 simplelog = "0.12.2"
-log = "0.4.27"
+log = "0.4.29"
 log-panics = { version = "2.1.0", features = ["with-backtrace"] }
-time = { version = "0.3.41", features = ["macros"] }
-percent-encoding = "2.3.1"
-ureq = { version = "3.0.12", features = ["json", "native-tls"] }
-flate2 = "1.1.2"
-tar = "0.4.44"
-zip = "4.3.0"
+time = { version = "0.3.47", features = ["macros"] }
+percent-encoding = "2.3.2"
+ureq = { version = "3.3.0", features = ["json", "native-tls"] }
+flate2 = "1.1.9"
+tar = "0.4.45"
+zip = "8.6.0"
 md5 = "0.8.0"
-png = "0.17.16"
+png = "0.18.1"
 parking_lot = "0.12"
-winresource = "0.1.23"
+winresource = "0.1.31"
 winit-test = "0.2.0"
 
 
@@ -83,23 +83,24 @@ zip = { workspace = true }
 md5 = { workspace = true }
 
 rodio = { workspace = true }
-rfd = "0.15"
+rfd = "0.17"
 png = { workspace = true }
 parking_lot = { workspace = true }
 
-puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"] }
-puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true }
+# egui v0.34.0
+puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"], rev = "7e08a533f9debfb7d051547263d2ab84c666314f"}
+puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true, rev = "7e08a533f9debfb7d051547263d2ab84c666314f"}
 
 winresource = { workspace = true }
 serde_json = { workspace = true }
 winit-test = { workspace = true }
 
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2.git", rev = "8a0cfe6fd649e6dc06545c91a3fcc83ba16d8734", features = ["serialize"] }
-tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.29.0", features = ["native-tls"] }
 url = "2.5"
 html-escape = "0.2.13"
 base64 = "0.22"
-egui-snow = "0.32.0"
+egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-0.34" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

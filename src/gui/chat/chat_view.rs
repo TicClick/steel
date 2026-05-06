@@ -87,18 +87,19 @@ impl ChatView {
         format!("{}-{}", prefix, self.chat_name)
     }
 
-    fn show_chat_input(&mut self, ctx: &egui::Context, state: &UIState, chat: &Chat) {
+    fn show_chat_input(&mut self, ui: &mut egui::Ui, state: &UIState, chat: &Chat) {
         let text_field_id = self.egui_id("chat-input");
-        egui::TopBottomPanel::bottom(self.egui_id("input-panel"))
+        let ctx = &ui.ctx().clone();
+        egui::Panel::bottom(self.egui_id("input-panel"))
             .frame(
-                egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
+                egui::Frame::central_panel(&ctx.global_style()).inner_margin(egui::Margin {
                     left: 8,
                     right: 8,
                     top: 0,
                     bottom: 2,
                 }),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
 
@@ -163,14 +164,15 @@ impl ChatView {
             });
     }
 
-    fn show_filter(&mut self, ctx: &egui::Context, state: &UIState, chat: &Chat) {
+    fn show_filter(&mut self, ui: &mut egui::Ui, state: &UIState, chat: &Chat) {
+        let ctx = &ui.ctx().clone();
         let (activated_now, scroll_to) = self.filter.handle_input(ctx);
 
         if let Some(message_idx) = scroll_to {
             self.scroll_to = Some(message_idx);
         }
 
-        if let Some(message_idx) = self.filter.show_ui(ctx, state, chat, activated_now) {
+        if let Some(message_idx) = self.filter.show_ui(ui, state, chat, activated_now) {
             self.scroll_to = Some(message_idx);
         }
     }
@@ -179,7 +181,7 @@ impl ChatView {
         self.filter.enable();
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
+    pub fn show(&mut self, ui: &mut egui::Ui, state: &UIState) {
         #[cfg(feature = "puffin")]
         puffin::profile_function!();
 
@@ -188,12 +190,14 @@ impl ChatView {
             None => return,
         };
 
-        self.show_filter(ctx, state, chat);
+        self.show_filter(ui, state, chat);
 
         match state.is_connected() {
-            true => self.show_chat_input(ctx, state, chat),
+            true => self.show_chat_input(ui, state, chat),
             false => self.response_widget_id = None,
         }
+
+        let ctx = &ui.ctx().clone();
 
         let add_filler_space = matches!(
             state.settings.chat.behaviour.chat_position,
@@ -201,7 +205,7 @@ impl ChatView {
         );
 
         let chat_row_height = 18.0; // ui.text_style_height(&egui::TextStyle::Body) + 2x spacing
-        let chat_view_size = ctx.available_rect().size()
+        let chat_view_size = ui.available_rect_before_wrap().size()
             - egui::vec2(
                 (2 * CENTRAL_PANEL_INNER_MARGIN_X).into(),
                 (2 * CENTRAL_PANEL_INNER_MARGIN_Y).into(),
@@ -222,12 +226,14 @@ impl ChatView {
 
         egui::CentralPanel::default()
             .frame(
-                egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin::symmetric(
-                    CENTRAL_PANEL_INNER_MARGIN_X,
-                    CENTRAL_PANEL_INNER_MARGIN_Y,
-                )),
+                egui::Frame::central_panel(&ctx.global_style()).inner_margin(
+                    egui::Margin::symmetric(
+                        CENTRAL_PANEL_INNER_MARGIN_X,
+                        CENTRAL_PANEL_INNER_MARGIN_Y,
+                    ),
+                ),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 if self
                     .command_helper
                     .has_applicable_commands(&self.chat_input)

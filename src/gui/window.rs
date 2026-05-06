@@ -102,7 +102,7 @@ fn setup_custom_fonts(ctx: &egui::Context) {
 fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
     setup_custom_fonts(ctx);
 
-    ctx.style_mut(|style| {
+    ctx.global_style_mut(|style| {
         style.url_in_tooltip = true;
     });
 
@@ -129,7 +129,7 @@ fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
         ThemeMode::Dark => Theme::Dark,
         ThemeMode::Light => Theme::Light,
     });
-    ctx.style_mut(|style| {
+    ctx.global_style_mut(|style| {
         style.url_in_tooltip = true;
     });
 }
@@ -433,13 +433,14 @@ impl ApplicationWindow {
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
 
 impl eframe::App for ApplicationWindow {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui, frame: &mut eframe::Frame) {
         #[cfg(feature = "puffin")]
         {
             puffin::profile_function!();
             puffin::GlobalProfiler::lock().new_frame();
         }
 
+        let ctx = &ui.ctx().clone();
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
         self.process_pending_events(ctx);
 
@@ -459,7 +460,7 @@ impl eframe::App for ApplicationWindow {
 
         let active_chat_name = self.s.active_chat_tab_name.clone();
         self.menu.show(
-            ctx,
+            ui,
             frame,
             &mut self.s,
             &mut self
@@ -467,7 +468,7 @@ impl eframe::App for ApplicationWindow {
                 .response_widget_id(&active_chat_name),
         );
 
-        self.chat_tabs.show(ctx, &mut self.s);
+        self.chat_tabs.show(ui, &mut self.s);
 
         // Return focus BEFORE showing chat view to prevent tiny chat and input flicker.
         if self.s.is_connected()
@@ -479,7 +480,7 @@ impl eframe::App for ApplicationWindow {
                 .return_focus(ctx, &active_chat_name);
         }
 
-        self.chat_view_controller.show(ctx, &self.s);
+        self.chat_view_controller.show(ui, &self.s);
 
         show_report_dialog(ctx, &mut self.s);
 

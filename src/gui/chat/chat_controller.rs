@@ -73,11 +73,11 @@ impl ChatViewController {
     }
 
     // FIXME(TicClick): rework this into a screen that supports BOTH modes.
-    pub fn show(&mut self, ctx: &egui::Context, state: &UIState) {
+    pub fn show(&mut self, ui: &mut egui::Ui, state: &UIState) {
         match self.views.get_mut(&state.active_chat_tab_name) {
-            Some(chat_view) => chat_view.show(ctx, state),
+            Some(chat_view) => chat_view.show(ui, state),
             None => {
-                egui::CentralPanel::default().show(ctx, |ui| {
+                egui::CentralPanel::default().show_inside(ui, |ui| {
                     if matches!(state.settings.chat.backend, ChatBackend::API) {
                         match state.connection {
                             ConnectionStatus::Disconnected { auth_failed, .. } => {

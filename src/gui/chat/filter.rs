@@ -235,7 +235,7 @@ impl ChatFilter {
 
     pub fn show_ui(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         _state: &UIState,
         chat: &Chat,
         activated_now: bool,
@@ -243,6 +243,8 @@ impl ChatFilter {
         if !self.should_show_filter {
             return None;
         }
+
+        let ctx = &ui.ctx().clone();
 
         let mut filter_action: Option<FilterAction> = None;
 
@@ -253,16 +255,16 @@ impl ChatFilter {
             ctx.memory_mut(|mem| mem.request_focus(username_input_id.clone().into()));
         }
 
-        egui::TopBottomPanel::top(format!("filter-panel-{}", chat.chat_key.as_str()))
+        egui::Panel::top(format!("filter-panel-{}", chat.chat_key.as_str()))
             .frame(
-                egui::Frame::central_panel(&ctx.style()).inner_margin(egui::Margin {
+                egui::Frame::central_panel(&ctx.global_style()).inner_margin(egui::Margin {
                     left: 8,
                     right: 8,
                     top: 4,
                     bottom: 4,
                 }),
             )
-            .show(ctx, |ui| {
+            .show_inside(ui, |ui| {
                 let is_shift_pressed = ui.input(|i| i.modifiers.shift);
 
                 ui.horizontal_centered(|ui| {

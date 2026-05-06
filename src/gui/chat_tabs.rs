@@ -49,7 +49,7 @@ pub struct ChatTabs {
 }
 
 impl ChatTabs {
-    pub fn show(&mut self, ctx: &egui::Context, state: &mut UIState) {
+    pub fn show(&mut self, ui: &mut egui::Ui, state: &mut UIState) {
         let frame_maker = || Frame::new().inner_margin(Margin::symmetric(2, 2));
 
         let WindowGeometry {
@@ -59,18 +59,18 @@ impl ChatTabs {
             ..
         } = state.settings.application.window;
 
-        let mut side_panel = egui::SidePanel::left("chats");
+        let mut side_panel = egui::Panel::left("chats");
         if let Some(w) = sidebar_width {
-            side_panel = side_panel.default_width(w);
+            side_panel = side_panel.default_size(w);
         }
 
-        let sidebar = side_panel.show(ctx, |ui| {
-            let mut ch_panel = egui::TopBottomPanel::top("public-channels-panel")
+        let sidebar = side_panel.show_inside(ui, |ui| {
+            let mut ch_panel = egui::Panel::top("public-channels-panel")
                 .resizable(true)
                 .show_separator_line(false)
                 .frame(frame_maker());
             if let Some(h) = channels_panel_height {
-                ch_panel = ch_panel.default_height(h);
+                ch_panel = ch_panel.default_size(h);
             }
 
             let ch_response = ch_panel.show_inside(ui, |ui| {
@@ -83,12 +83,12 @@ impl ChatTabs {
             state.settings.application.window.channels_panel_height =
                 Some(ch_response.response.rect.height());
 
-            let mut pm_panel = egui::TopBottomPanel::top("private-chats-panel")
+            let mut pm_panel = egui::Panel::top("private-chats-panel")
                 .resizable(true)
                 .show_separator_line(false)
                 .frame(frame_maker());
             if let Some(h) = private_chats_panel_height {
-                pm_panel = pm_panel.default_height(h);
+                pm_panel = pm_panel.default_size(h);
             }
 
             let pm_response = pm_panel.show_inside(ui, |ui| {
@@ -101,7 +101,7 @@ impl ChatTabs {
             state.settings.application.window.private_chats_panel_height =
                 Some(pm_response.response.rect.height());
 
-            egui::TopBottomPanel::top("system-chats-panel")
+            egui::Panel::top("system-chats-panel")
                 .resizable(false)
                 .show_separator_line(false)
                 .frame(frame_maker())
