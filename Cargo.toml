@@ -100,7 +100,7 @@ tokio-tungstenite = { version = "0.29.0", features = ["native-tls"] }
 url = "2.5"
 html-escape = "0.2.13"
 base64 = "0.22"
-egui-snow = "0.33.0"
+egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-0.34" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
