@@ -36,8 +36,10 @@ pub struct UIState {
     pub core: CoreClient,
 
     pub update_state: UpdateState,
-    pub sound_player: crate::core::sound::SoundPlayer,
+    pub sound_player: crate::core::sound::SoundPlayerHandle,
     pub original_exe_path: Option<std::path::PathBuf>,
+
+    pub detached_chats: HashSet<String>,
 
     #[cfg(feature = "glass")]
     pub glass: glass::Glass,
@@ -65,8 +67,10 @@ impl UIState {
             active_chat_tab_name: String::new(),
             core: CoreClient::new(app_queue_handle),
             update_state: UpdateState::default(),
-            sound_player: crate::core::sound::SoundPlayer::new(),
+            sound_player: crate::core::sound::SoundPlayerHandle::spawn(),
             original_exe_path,
+
+            detached_chats: HashSet::new(),
 
             #[cfg(feature = "glass")]
             glass: glass::Glass::default(),
@@ -100,7 +104,10 @@ impl UIState {
     }
 
     pub fn update_settings(&mut self, settings: &Settings) {
+        let detached_chat_windows =
+            std::mem::take(&mut self.settings.application.detached_chat_windows);
         self.settings = settings.clone();
+        self.settings.application.detached_chat_windows = detached_chat_windows;
         self.update_highlights(
             &self
                 .settings
@@ -182,9 +189,20 @@ impl UIState {
         }
     }
 
+    fn is_detached_window_focused(&self, ctx: &egui::Context, chat_key: &str) -> bool {
+        self.is_detached(chat_key)
+            && ctx.input(|i| {
+                i.raw
+                    .viewports
+                    .get(&crate::gui::chat::detached::viewport_id(chat_key))
+                    .is_some_and(|v| v.focused.unwrap_or(false))
+            })
+    }
+
     pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
         let normalized = target.normalize();
-        let is_tab_active = self.is_active_tab(&normalized);
+        let is_tab_active =
+            self.is_active_tab(&normalized) || self.is_detached_window_focused(ctx, &normalized);
         let is_system_message = matches!(message.r#type, MessageType::System);
 
         #[allow(unused_mut)] // glass
@@ -235,7 +253,8 @@ impl UIState {
         message: &Message,
         normalized_chat_name: &str,
     ) {
-        let is_window_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+        let is_window_focused =
+            ctx.input(|i| i.raw.viewports.values().any(|v| v.focused.unwrap_or(false)));
         let is_system_message = message.r#type == MessageType::System;
         let is_own_message = message.username.is_same_username(
             self.own_username
@@ -275,6 +294,11 @@ impl UIState {
         if let Some(pos) = self.name_to_chat(&normalized) {
             self.chats.remove(pos);
         }
+        self.detached_chats.remove(&normalized);
+        self.settings
+            .application
+            .detached_chat_windows
+            .remove(&normalized);
 
         if is_active_chat {
             self.switch_to_first_chat();
@@ -282,10 +306,45 @@ impl UIState {
     }
 
     pub fn switch_to_first_chat(&mut self) {
-        if let Some(first_chat) = self.chats.first() {
-            self.active_chat_tab_name = first_chat.chat_key.as_str().to_owned();
-        } else {
-            self.active_chat_tab_name.clear();
+        let first_attached_chat = self
+            .chats
+            .iter()
+            .map(|chat| chat.chat_key.as_str())
+            .find(|key| !self.detached_chats.contains(*key))
+            .map(|key| key.to_owned());
+        match first_attached_chat {
+            Some(key) => self.active_chat_tab_name = key,
+            None => self.active_chat_tab_name.clear(),
+        }
+    }
+
+    pub fn is_detached(&self, chat_key: &str) -> bool {
+        self.detached_chats.contains(chat_key)
+    }
+
+    pub fn detach_chat(&mut self, chat_key: &str) {
+        self.detached_chats.insert(chat_key.to_owned());
+        self.settings
+            .application
+            .detached_chat_windows
+            .entry(chat_key.to_owned())
+            .or_default();
+        if self.is_active_tab(chat_key) {
+            self.switch_to_first_chat();
+        }
+    }
+
+    pub fn reattach_chat(&mut self, chat_key: &str) {
+        self.detached_chats.remove(chat_key);
+        self.settings
+            .application
+            .detached_chat_windows
+            .remove(chat_key);
+    }
+
+    pub fn repaint_detached_windows(&self, ctx: &egui::Context) {
+        for chat_key in &self.detached_chats {
+            ctx.request_repaint_of(crate::gui::chat::detached::viewport_id(chat_key));
         }
     }
 

@@ -7,6 +7,64 @@ const PING: &[u8] = include_bytes!("../../media/sounds/ping.mp3");
 const TICK: &[u8] = include_bytes!("../../media/sounds/tick.mp3");
 const TWO_TONE: &[u8] = include_bytes!("../../media/sounds/two-tone.mp3");
 
+// rodio's OutputStream is !Send, which would prevent UIState from being shared with
+// detached chat windows (egui deferred viewport callbacks must be Send + Sync).
+// The player therefore lives on its own thread, behind a channel-based handle.
+pub struct SoundPlayerHandle {
+    tx: std::sync::mpsc::Sender<Sound>,
+    initialization_error: Option<String>,
+}
+
+impl std::fmt::Debug for SoundPlayerHandle {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SoundPlayerHandle(functional={})", self.functional())
+    }
+}
+
+impl Default for SoundPlayerHandle {
+    fn default() -> Self {
+        Self::spawn()
+    }
+}
+
+impl SoundPlayerHandle {
+    pub fn spawn() -> Self {
+        let (tx, rx) = std::sync::mpsc::channel::<Sound>();
+        let (init_tx, init_rx) = std::sync::mpsc::channel();
+        std::thread::Builder::new()
+            .name("sound-player".into())
+            .spawn(move || {
+                let mut player = SoundPlayer::new();
+                let _ = init_tx.send(
+                    player
+                        .initialization_error()
+                        .as_ref()
+                        .map(|e| e.to_string()),
+                );
+                while let Ok(sound) = rx.recv() {
+                    player.play(&sound);
+                }
+            })
+            .expect("failed to spawn the sound player thread");
+        Self {
+            tx,
+            initialization_error: init_rx.recv().unwrap_or(None),
+        }
+    }
+
+    pub fn play(&self, sound: &Sound) {
+        let _ = self.tx.send(sound.clone());
+    }
+
+    pub fn functional(&self) -> bool {
+        self.initialization_error.is_none()
+    }
+
+    pub fn initialization_error(&self) -> Option<&str> {
+        self.initialization_error.as_deref()
+    }
+}
+
 pub struct SoundPlayer {
     _stream: Option<rodio::OutputStream>,
     stream_handle: Option<rodio::OutputStreamHandle>,

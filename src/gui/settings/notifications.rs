@@ -1,22 +1,22 @@
 use eframe::egui;
 
 use super::SettingsWindow;
-use crate::core::sound::SoundPlayer;
+use crate::core::sound::SoundPlayerHandle;
 use crate::gui::{state::UIState, HIGHLIGHTS_SEPARATOR};
 use steel_core::settings::{BuiltInSound, NotificationStyle, Sound};
 
 fn sound_test_button(
     ui: &mut egui::Ui,
-    sound_player: &mut SoundPlayer,
+    sound_player: &SoundPlayerHandle,
 ) -> egui::response::Response {
     let test_button = egui::Button::new("🔈");
     match sound_player.functional() {
         true => ui.add(test_button),
         false => {
-            let error_text = match sound_player.initialization_error() {
-                None => "unknown initialization error".into(),
-                Some(e) => e.to_string(),
-            };
+            let error_text = sound_player
+                .initialization_error()
+                .unwrap_or("unknown initialization error")
+                .to_owned();
             ui.add_enabled(false, test_button)
                 .on_disabled_hover_text(error_text)
         }
@@ -174,7 +174,7 @@ impl SettingsWindow {
                     response.mark_changed();
                 }
 
-                if sound_test_button(ui, &mut state.sound_player).clicked() {
+                if sound_test_button(ui, &state.sound_player).clicked() {
                     state
                         .sound_player
                         .play(&Sound::BuiltIn(self.notifications_builtin_sound.clone()));
@@ -217,7 +217,7 @@ impl SettingsWindow {
                 }
 
                 if let Some(path) = &self.notifications_custom_sound_path {
-                    if sound_test_button(ui, &mut state.sound_player).clicked() {
+                    if sound_test_button(ui, &state.sound_player).clicked() {
                         state.sound_player.play(&Sound::Custom(path.clone()));
                     }
                 }

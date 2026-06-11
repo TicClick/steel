@@ -211,8 +211,10 @@ impl ChatView {
                 (2 * CENTRAL_PANEL_INNER_MARGIN_Y).into(),
             );
 
+        let is_chat_on_display = state.active_chat_tab_name == chat.chat_key.as_str()
+            || state.is_detached(chat.chat_key.as_str());
         let unread_marker_active = state.settings.chat.behaviour.track_unread_messages
-            && state.active_chat_tab_name == chat.chat_key.as_str()
+            && is_chat_on_display
             && chat.prev_unread_pointer < chat.messages.len();
 
         let row_count =
