@@ -6,7 +6,7 @@ use steel_core::{
 
 pub const COMMAND_PREFIX: char = '/';
 
-trait Command {
+trait Command: Send + Sync {
     fn new() -> Self
     where
         Self: Sized;

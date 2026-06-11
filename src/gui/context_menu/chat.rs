@@ -19,6 +19,12 @@ const LEAVE_CHANNEL: &str = "Leave";
 const ICON_CLOSE_CHAT: &str = "✖ Close";
 const CLOSE_CHAT: &str = "Close";
 
+const ICON_DETACH_CHAT: &str = "🗗 Open in a separate window";
+const DETACH_CHAT: &str = "Open in a separate window";
+
+const ICON_REATTACH_CHAT: &str = "🗖 Return to the main window";
+const REATTACH_CHAT: &str = "Return to the main window";
+
 pub fn menu_item_add_to_favourites(
     ui: &mut egui::Ui,
     state: &mut UIState,
@@ -65,6 +71,43 @@ pub fn menu_item_clear_chat_tab(ui: &mut egui::Ui, state: &UIState, show_icon: b
 
     if ui.button(text).clicked() {
         state.core.chat_tab_cleared(target, target.chat_type());
+        ui.close();
+    }
+}
+
+pub fn menu_item_detach_chat(
+    ui: &mut egui::Ui,
+    state: &mut UIState,
+    show_icon: bool,
+    target: &str,
+) {
+    let text = match show_icon {
+        true => ICON_DETACH_CHAT,
+        false => DETACH_CHAT,
+    };
+
+    if ui.button(text).clicked() {
+        state.detach_chat(target);
+        ui.close();
+    }
+}
+
+pub fn menu_item_reattach_chat(
+    ui: &mut egui::Ui,
+    state: &mut UIState,
+    show_icon: bool,
+    target: &str,
+) {
+    let text = match show_icon {
+        true => ICON_REATTACH_CHAT,
+        false => REATTACH_CHAT,
+    };
+
+    if ui.button(text).clicked() {
+        state.reattach_chat(target);
+        state
+            .core
+            .chat_switch_requested(target, target.chat_type(), None);
         ui.close();
     }
 }

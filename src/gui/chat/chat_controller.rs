@@ -1,11 +1,12 @@
 use eframe::egui::{self, Widget};
+use parking_lot::Mutex;
 use steel_core::{
     chat::ConnectionStatus,
     settings::{chat::ChatPosition, ChatBackend},
     string_utils::UsernameString,
 };
 
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, sync::Arc, time::Instant};
 
 use crate::gui::{chat::chat_view::ChatView, state::UIState};
 use crate::{
@@ -14,7 +15,7 @@ use crate::{
 };
 
 pub struct ChatViewController {
-    views: HashMap<String, ChatView>,
+    views: HashMap<String, Arc<Mutex<ChatView>>>,
     oauth_flow: OAuthFlowManager,
     cached_token_state: Option<PersistedTokenState>,
     last_token_check: Instant,
@@ -33,8 +34,8 @@ impl ChatViewController {
     }
 
     pub fn scroll_chat_to(&mut self, state: &UIState, lowercase_name: &str, message_id: usize) {
-        if let Some(chat_view) = self.views.get_mut(lowercase_name) {
-            chat_view.scroll_to = match state.settings.chat.behaviour.chat_position {
+        if let Some(chat_view) = self.views.get(lowercase_name) {
+            chat_view.lock().scroll_to = match state.settings.chat.behaviour.chat_position {
                 ChatPosition::Bottom => Some(message_id + 1),
                 ChatPosition::Top => Some(message_id),
             };
@@ -42,22 +43,26 @@ impl ChatViewController {
     }
 
     pub fn insert_user_mention(&mut self, ctx: &egui::Context, state: &UIState, username: String) {
-        if let Some(chat_view) = self.views.get_mut(&state.active_chat_tab_name) {
-            chat_view.insert_user_mention(ctx, username);
+        if let Some(chat_view) = self.views.get(&state.active_chat_tab_name) {
+            chat_view.lock().insert_user_mention(ctx, username);
         }
     }
 
     pub fn enable_filter(&mut self, state: &UIState) {
-        if let Some(chat_view) = self.views.get_mut(&state.active_chat_tab_name) {
-            chat_view.enable_filter();
+        if let Some(chat_view) = self.views.get(&state.active_chat_tab_name) {
+            chat_view.lock().enable_filter();
         }
     }
 
     pub fn response_widget_id(&self, active_chat_name: &str) -> Option<egui::Id> {
         if let Some(chat_view) = self.views.get(active_chat_name) {
-            return chat_view.response_widget_id;
+            return chat_view.lock().response_widget_id;
         }
         None
+    }
+
+    pub fn view_handle(&self, chat_key: &str) -> Option<Arc<Mutex<ChatView>>> {
+        self.views.get(chat_key).cloned()
     }
 
     pub fn return_focus(&self, ctx: &egui::Context, active_chat_name: &str) {
@@ -74,8 +79,12 @@ impl ChatViewController {
 
     // FIXME(TicClick): rework this into a screen that supports BOTH modes.
     pub fn show(&mut self, ui: &mut egui::Ui, state: &UIState) {
-        match self.views.get_mut(&state.active_chat_tab_name) {
-            Some(chat_view) => chat_view.show(ui, state),
+        debug_assert!(
+            !state.is_detached(&state.active_chat_tab_name),
+            "a detached chat must never be the active tab of the main window"
+        );
+        match self.views.get(&state.active_chat_tab_name) {
+            Some(chat_view) => chat_view.lock().show(ui, state),
             None => {
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     if matches!(state.settings.chat.backend, ChatBackend::API) {
@@ -117,8 +126,10 @@ impl ChatViewController {
     }
 
     pub fn add(&mut self, chat_name: String) {
-        self.views
-            .insert(chat_name.clone(), ChatView::new(chat_name));
+        self.views.insert(
+            chat_name.clone(),
+            Arc::new(Mutex::new(ChatView::new(chat_name))),
+        );
     }
 
     pub fn remove(&mut self, name: &str) {

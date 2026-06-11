@@ -1,5 +1,8 @@
+use std::sync::Arc;
+
 use chrono::Datelike;
 use eframe::egui::{self, Theme};
+use parking_lot::RwLock;
 #[cfg(feature = "puffin")]
 use puffin;
 #[cfg(feature = "puffin")]
@@ -10,6 +13,7 @@ use steel_core::string_utils::{UsernameKey, UsernameString};
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use crate::gui::chat::chat_controller::ChatViewController;
+use crate::gui::chat::detached;
 use crate::gui::error::GuiError;
 use crate::gui::widgets::report_dialog::show_report_dialog;
 use crate::gui::{self, widgets::error_popup::ErrorPopup};
@@ -144,7 +148,7 @@ pub struct ApplicationWindow {
     usage_window: gui::usage::UsageWindow,
 
     ui_queue: UnboundedReceiver<UIMessageIn>,
-    s: UIState,
+    s: Arc<RwLock<UIState>>,
 
     error_popup: gui::widgets::error_popup::ErrorPopup,
 
@@ -177,11 +181,11 @@ impl ApplicationWindow {
             update_window: gui::update_window::UpdateWindow::default(),
             usage_window: gui::usage::UsageWindow::default(),
             ui_queue,
-            s: UIState::new(
+            s: Arc::new(RwLock::new(UIState::new(
                 app_queue_handle.clone(),
                 initial_settings.clone(),
                 original_exe_path,
-            ),
+            ))),
             error_popup: ErrorPopup::new(CoreClient::new(app_queue_handle)),
             #[cfg(feature = "puffin")]
             auto_profiler: gui::auto_profiler::AutoProfiler::new(),
@@ -189,23 +193,26 @@ impl ApplicationWindow {
             profile_output,
         };
 
-        window.add_chat_to_controller(SERVER_TAB_NAME, false);
-        window.add_chat_to_controller(HIGHLIGHTS_TAB_NAME, false);
+        let shared = Arc::clone(&window.s);
+        let mut s = shared.write();
+        window.add_chat_to_controller(&mut s, SERVER_TAB_NAME, false);
+        window.add_chat_to_controller(&mut s, HIGHLIGHTS_TAB_NAME, false);
+        drop(s);
 
         window
     }
 
-    fn add_chat_to_controller(&mut self, target: &str, switch: bool) {
-        if let Some(_chat) = self.s.add_new_chat(target.to_owned(), switch) {
+    fn add_chat_to_controller(&mut self, s: &mut UIState, target: &str, switch: bool) {
+        if let Some(_chat) = s.add_new_chat(target.to_owned(), switch) {
             self.chat_view_controller.add(target.normalize());
         }
     }
 
-    fn refresh_window_title(&self, ctx: &egui::Context) {
-        let new_tab_title = match self.s.active_chat_tab_name.starts_with('$') {
+    fn refresh_window_title(&self, ctx: &egui::Context, s: &UIState) {
+        let new_tab_title = match s.active_chat_tab_name.starts_with('$') {
             true => format!("steel v{}", crate::VERSION),
             false => {
-                if let Some(chat) = self.s.active_chat() {
+                if let Some(chat) = s.active_chat() {
                     format!("{} – steel v{}", chat.name, crate::VERSION)
                 } else {
                     format!("steel v{}", crate::VERSION)
@@ -215,30 +222,30 @@ impl ApplicationWindow {
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(new_tab_title));
     }
 
-    fn refresh_window_geometry_settings(&mut self, ctx: &egui::Context) {
+    fn refresh_window_geometry_settings(&self, ctx: &egui::Context, s: &mut UIState) {
         ctx.input(|i| {
             let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
 
-            self.s.settings.application.window.maximized = i.viewport().maximized.unwrap_or(false);
+            s.settings.application.window.maximized = i.viewport().maximized.unwrap_or(false);
 
             if let Some(outer_rect) = i.viewport().outer_rect {
-                self.s.settings.application.window.x = (outer_rect.left_top().x / ppi) as i32;
-                self.s.settings.application.window.y = (outer_rect.left_top().y / ppi) as i32;
+                s.settings.application.window.x = (outer_rect.left_top().x / ppi) as i32;
+                s.settings.application.window.y = (outer_rect.left_top().y / ppi) as i32;
             }
 
             if let Some(inner_rect) = i.viewport().inner_rect {
-                self.s.settings.application.window.width = (inner_rect.width() / ppi) as i32;
-                self.s.settings.application.window.height = (inner_rect.height() / ppi) as i32;
+                s.settings.application.window.width = (inner_rect.width() / ppi) as i32;
+                s.settings.application.window.height = (inner_rect.height() / ppi) as i32;
             }
         });
     }
 
-    pub fn process_pending_events(&mut self, ctx: &egui::Context) {
+    pub fn process_pending_events(&mut self, ctx: &egui::Context, s: &mut UIState) {
         // If the main window is restored after having being minimized for some time, it still needs to be responsive
         // enough.
         let mut i = 0;
         while let Ok(event) = self.ui_queue.try_recv() {
-            self.dispatch_event(event, ctx);
+            self.dispatch_event(event, ctx, s);
             i += 1;
             if i >= UI_EVENT_INTAKE_PER_REFRESH {
                 break;
@@ -246,137 +253,159 @@ impl ApplicationWindow {
         }
     }
 
-    fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context) {
+    fn dispatch_event(&mut self, event: UIMessageIn, ctx: &egui::Context, s: &mut UIState) {
         match event {
             UIMessageIn::NewSystemMessage { target, message } => {
-                self.s.push_chat_message(&target, message, ctx);
+                s.push_chat_message(&target, message, ctx);
+                let normalized = target.normalize();
+                if s.is_detached(&normalized) {
+                    ctx.request_repaint_of(detached::viewport_id(&normalized));
+                }
             }
 
             UIMessageIn::SettingsChanged(settings) => {
                 update_ui_settings(ctx, &settings);
-                self.s.update_settings(&settings);
+                s.update_settings(&settings);
+                s.repaint_detached_windows(ctx);
             }
 
             UIMessageIn::SettingsPatched(patch) => {
-                self.s.apply_settings_patch(patch);
+                s.apply_settings_patch(patch);
             }
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
-                self.s.connection = conn;
+                s.connection = conn;
                 match conn {
                     steel_core::chat::ConnectionStatus::Connected => {
-                        self.s.connection_indicator.connect();
+                        s.connection_indicator.connect();
                     }
                     steel_core::chat::ConnectionStatus::Disconnected { .. } => {
-                        self.s.connection_indicator.disconnect();
+                        s.connection_indicator.disconnect();
                     }
                     _ => {}
                 }
             }
 
             UIMessageIn::ConnectionDetailsChanged(details) => {
-                self.s.connection_indicator.update_details(details);
+                s.connection_indicator.update_details(details);
             }
 
             UIMessageIn::ConnectionActivity => {
-                self.s.connection_indicator.refresh();
+                s.connection_indicator.refresh();
             }
 
             UIMessageIn::NewChatRequested { target, switch } => {
-                self.add_chat_to_controller(&target, switch);
+                self.add_chat_to_controller(s, &target, switch);
+                let normalized = target.normalize();
+                if s.settings
+                    .application
+                    .detached_chat_windows
+                    .contains_key(&normalized)
+                {
+                    s.detach_chat(&normalized);
+                }
                 if switch {
-                    self.refresh_window_title(ctx);
+                    self.refresh_window_title(ctx, s);
                 }
             }
 
             UIMessageIn::NewChatStateReceived { target, state } => {
-                self.s.set_chat_state(&target, state);
+                s.set_chat_state(&target, state);
             }
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
                 let lowercase_name = name.to_lowercase();
 
                 if let Some(mid) = message_id {
-                    if !self.s.validate_reference(&lowercase_name, mid) {
+                    if !s.validate_reference(&lowercase_name, mid) {
                         self.error_popup
                             .push_error(Box::new(GuiError::message_not_found(mid, name)), false);
                     }
                 }
 
-                if let Some(chat) = self.s.find_chat_mut(&lowercase_name) {
+                if s.is_detached(&lowercase_name) {
+                    if let Some(chat) = s.find_chat_mut(&lowercase_name) {
+                        chat.mark_as_read();
+                    }
+                    if let Some(message_id) = message_id {
+                        self.chat_view_controller
+                            .scroll_chat_to(s, &lowercase_name, message_id);
+                    }
+                    ctx.send_viewport_cmd_to(
+                        detached::viewport_id(&lowercase_name),
+                        egui::ViewportCommand::Focus,
+                    );
+                } else if let Some(chat) = s.find_chat_mut(&lowercase_name) {
                     chat.mark_as_read();
-                    self.s.active_chat_tab_name = lowercase_name;
+                    s.active_chat_tab_name = lowercase_name;
 
                     if let Some(message_id) = message_id {
+                        let active_chat_tab_name = s.active_chat_tab_name.clone();
                         self.chat_view_controller.scroll_chat_to(
-                            &self.s,
-                            &self.s.active_chat_tab_name,
+                            s,
+                            &active_chat_tab_name,
                             message_id,
                         );
                     }
                 }
-                self.refresh_window_title(ctx);
+                self.refresh_window_title(ctx, s);
             }
 
             UIMessageIn::NewMessageReceived { target, message } => {
-                self.s.push_chat_message(&target, message.clone(), ctx);
+                s.push_chat_message(&target, message.clone(), ctx);
 
                 #[cfg(feature = "glass")]
                 {
-                    let own_username = self
-                        .s
+                    let own_username = s
                         .own_username
                         .as_deref()
-                        .unwrap_or(&self.s.settings.chat.irc.username);
-                    match message.username.is_same_username(own_username) {
-                        false => {
-                            self.s
-                                .glass
-                                .handle_incoming_message(&self.s.core, &target, &message)
-                        }
-                        true => {
-                            self.s
-                                .glass
-                                .handle_outgoing_message(&self.s.core, &target, &message)
-                        }
+                        .unwrap_or(&s.settings.chat.irc.username)
+                        .to_owned();
+                    match message.username.is_same_username(&own_username) {
+                        false => s.glass.handle_incoming_message(&s.core, &target, &message),
+                        true => s.glass.handle_outgoing_message(&s.core, &target, &message),
                     }
                 }
 
+                let normalized = target.normalize();
+                if s.is_detached(&normalized) {
+                    ctx.request_repaint_of(detached::viewport_id(&normalized));
+                }
                 ctx.request_repaint();
             }
 
             UIMessageIn::NewServerMessageReceived(text) => {
                 let message = Message::new_system(&text);
-                self.s.push_chat_message(SERVER_TAB_NAME, message, ctx);
+                s.push_chat_message(SERVER_TAB_NAME, message, ctx);
                 ctx.request_repaint();
             }
 
             UIMessageIn::ChatClosed(name) => {
                 self.chat_view_controller.remove(&name);
-                self.s.remove_chat(name);
-                self.refresh_window_title(ctx);
+                s.remove_chat(name);
+                self.refresh_window_title(ctx, s);
             }
 
             UIMessageIn::ChatCleared(name) => {
-                self.s.clear_chat(&name);
+                s.clear_chat(&name);
             }
 
             UIMessageIn::ChatModeratorAdded(name) => {
                 for mods in [
-                    &mut self.s.settings.ui.dark_colours.mod_users,
-                    &mut self.s.settings.ui.light_colours.mod_users,
+                    &mut s.settings.ui.dark_colours.mod_users,
+                    &mut s.settings.ui.light_colours.mod_users,
                 ] {
                     mods.insert(UsernameKey::new(&name));
                 }
             }
 
             UIMessageIn::WindowTitleRefreshRequested => {
-                self.refresh_window_title(ctx);
+                self.refresh_window_title(ctx, s);
             }
 
             UIMessageIn::UIUserMentionRequested(username) => {
                 self.chat_view_controller
-                    .insert_user_mention(ctx, &self.s, username);
+                    .insert_user_mention(ctx, s, username);
             }
 
             UIMessageIn::UsageWindowRequested => {
@@ -384,11 +413,11 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::ChatFilterRequested => {
-                self.chat_view_controller.enable_filter(&self.s);
+                self.chat_view_controller.enable_filter(s);
             }
 
             UIMessageIn::UpdateStateChanged(state) => {
-                self.s.update_state = state;
+                s.update_state = state;
             }
 
             UIMessageIn::BackendError { error, is_fatal } => {
@@ -402,7 +431,7 @@ impl ApplicationWindow {
                     if let Ok(glass_settings) =
                         serde_yaml::from_str::<glass::config::GlassSettings>(&settings_data_yaml)
                     {
-                        self.s.update_glass_settings(glass_settings);
+                        s.update_glass_settings(glass_settings);
                     }
                 }
             }
@@ -411,7 +440,7 @@ impl ApplicationWindow {
                 username,
                 chat_name,
             } => {
-                self.s.report_dialog = Some(crate::gui::state::ReportDialogState {
+                s.report_dialog = Some(crate::gui::state::ReportDialogState {
                     username,
                     chat_name,
                     reason: String::new(),
@@ -420,7 +449,7 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::OwnUsernameChanged(username) => {
-                self.s.own_username = Some(username);
+                s.own_username = Some(username);
             }
 
             UIMessageIn::Shutdown => {
@@ -442,65 +471,71 @@ impl eframe::App for ApplicationWindow {
 
         let ctx = &ui.ctx().clone();
         ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
-        self.process_pending_events(ctx);
 
-        self.s.update_window_attention(ctx);
-
-        self.error_popup.show(ctx);
-
-        self.usage_window
-            .show(ctx, &mut self.s, &mut self.menu.show_usage);
-        self.settings
-            .show(ctx, &mut self.s, &mut self.menu.show_settings);
-
-        self.about.show(ctx, &mut self.s, &mut self.menu.show_about);
-
-        self.update_window
-            .show(ctx, &mut self.s, &mut self.menu.show_update);
-
-        let active_chat_name = self.s.active_chat_tab_name.clone();
-        self.menu.show(
-            ui,
-            frame,
-            &mut self.s,
-            &mut self
-                .chat_view_controller
-                .response_widget_id(&active_chat_name),
-        );
-
-        self.chat_tabs.show(ui, &mut self.s);
-
-        // Return focus BEFORE showing chat view to prevent tiny chat and input flicker.
-        if self.s.is_connected()
-            && self.s.settings.chat.behaviour.keep_focus_on_input
-            && !self.menu.dialogs_visible()
-            && self.s.report_dialog.is_none()
+        let shared = Arc::clone(&self.s);
         {
-            self.chat_view_controller
-                .return_focus(ctx, &active_chat_name);
-        }
+            let s = &mut *shared.write();
+            self.process_pending_events(ctx, s);
 
-        self.chat_view_controller.show(ui, &self.s);
+            s.update_window_attention(ctx);
 
-        show_report_dialog(ctx, &mut self.s);
+            self.error_popup.show(ctx);
 
-        #[cfg(feature = "puffin")]
-        puffin_egui::profiler_window(ctx);
+            self.usage_window.show(ctx, s, &mut self.menu.show_usage);
+            self.settings.show(ctx, s, &mut self.menu.show_settings);
 
-        self.refresh_window_geometry_settings(ctx);
+            self.about.show(ctx, s, &mut self.menu.show_about);
 
-        let today = chrono::Local::now().date_naive();
-        if today.day() == 1 && today.month() == 4 {
-            let colour = match self.s.settings.ui.theme {
-                ThemeMode::Dark => egui::Color32::from_white_alpha(200),
-                ThemeMode::Light => egui::Color32::from_black_alpha(200),
-            };
-            egui_snow::Snow::new("snow_effect")
-                .color(colour)
-                .speed(40.0..=100.0)
-                .size(0.5..=3.0)
-                .show(ctx);
-        }
+            self.update_window.show(ctx, s, &mut self.menu.show_update);
+
+            let active_chat_name = s.active_chat_tab_name.clone();
+            self.menu.show(
+                ui,
+                frame,
+                s,
+                &mut self
+                    .chat_view_controller
+                    .response_widget_id(&active_chat_name),
+            );
+
+            self.chat_tabs.show(ui, s);
+
+            // Return focus BEFORE showing chat view to prevent tiny chat and input flicker.
+            let root_focused = ctx.input(|i| i.viewport().focused.unwrap_or(false));
+            if root_focused
+                && s.is_connected()
+                && s.settings.chat.behaviour.keep_focus_on_input
+                && !self.menu.dialogs_visible()
+                && s.report_dialog.is_none()
+            {
+                self.chat_view_controller
+                    .return_focus(ctx, &active_chat_name);
+            }
+
+            self.chat_view_controller.show(ui, s);
+
+            show_report_dialog(ctx, s);
+
+            #[cfg(feature = "puffin")]
+            puffin_egui::profiler_window(ctx);
+
+            self.refresh_window_geometry_settings(ctx, s);
+
+            let today = chrono::Local::now().date_naive();
+            if today.day() == 1 && today.month() == 4 {
+                let colour = match s.settings.ui.theme {
+                    ThemeMode::Dark => egui::Color32::from_white_alpha(200),
+                    ThemeMode::Light => egui::Color32::from_black_alpha(200),
+                };
+                egui_snow::Snow::new("snow_effect")
+                    .color(colour)
+                    .speed(40.0..=100.0)
+                    .size(0.5..=3.0)
+                    .show(ctx);
+            }
+        } // the guard must be dropped before viewport callbacks can run
+
+        detached::show_detached_chat_windows(ctx, &self.s, &self.chat_view_controller);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
@@ -509,6 +544,7 @@ impl eframe::App for ApplicationWindow {
             self.auto_profiler.save(path);
         }
 
-        self.s.core.exit_requested(Some(&self.s.settings), 0);
+        let s = self.s.read();
+        s.core.exit_requested(Some(&s.settings), 0);
     }
 }

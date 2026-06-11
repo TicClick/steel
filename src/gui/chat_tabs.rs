@@ -11,7 +11,7 @@ use crate::gui::state::UIState;
 
 use super::context_menu::chat::{
     menu_item_add_to_favourites, menu_item_clear_chat_tab, menu_item_close_chat,
-    menu_item_remove_from_favourites,
+    menu_item_detach_chat, menu_item_reattach_chat, menu_item_remove_from_favourites,
 };
 use super::context_menu::chat_user::{
     menu_item_ignore_user, menu_item_open_chat_user_profile, menu_item_unignore_user,
@@ -158,6 +158,13 @@ fn tab_context_menu(
         }
     }
     menu_item_open_chat_log(ui, &state.core, false, normalized_chat_name);
+
+    ui.separator();
+
+    match state.is_detached(normalized_chat_name) {
+        true => menu_item_reattach_chat(ui, state, false, normalized_chat_name),
+        false => menu_item_detach_chat(ui, state, false, normalized_chat_name),
+    }
 
     ui.separator();
 
