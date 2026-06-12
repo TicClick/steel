@@ -51,11 +51,12 @@ pub struct Application {
     updater: Option<Updater>,
     _date_announcer: DateAnnouncer,
     ui_queue: UnboundedSender<UIMessageIn>,
+    ui_context: crate::SharedUIContext,
     pub app_queue: UnboundedSender<AppMessageIn>,
 }
 
 impl Application {
-    pub fn new(ui_queue: UnboundedSender<UIMessageIn>) -> Self {
+    pub fn new(ui_queue: UnboundedSender<UIMessageIn>, ui_context: crate::SharedUIContext) -> Self {
         let (app_queue, events) = unbounded_channel();
         Self {
             state: ApplicationState::default(),
@@ -66,13 +67,19 @@ impl Application {
             http: HTTPActorHandle::new(app_queue.clone()),
             chat_logger: None,
             ui_queue,
+            ui_context,
             app_queue,
         }
     }
 
     fn ui_send_or_log(&self, message: UIMessageIn) {
-        if let Err(e) = self.ui_queue.send(message) {
-            log::error!("Failed to send UI message: channel closed ({e})");
+        match self.ui_queue.send(message) {
+            Ok(()) => {
+                if let Some(ctx) = self.ui_context.get() {
+                    ctx.request_repaint();
+                }
+            }
+            Err(e) => log::error!("Failed to send UI message: channel closed ({e})"),
         }
     }
 

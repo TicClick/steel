@@ -123,6 +123,7 @@ enum MessageMode {
 pub fn main() {
     let args = Args::parse();
     let (ui_queue_in, ui_queue_out) = unbounded_channel();
+    let ui_context = steel::SharedUIContext::default();
 
     ui_queue_in
         .send(UIMessageIn::ConnectionStatusChanged(
@@ -173,6 +174,7 @@ pub fn main() {
 
     if args.go {
         let mq = ui_queue_in.clone();
+        let ui_ctx = ui_context.clone();
         let max_len = args.len;
         let message_mode = args.mode.clone();
         let channels = args.ch;
@@ -188,6 +190,9 @@ pub fn main() {
                 message: Message::new_text("continuous", msg.as_str()),
             })
             .unwrap();
+            if let Some(ctx) = ui_ctx.get() {
+                ctx.request_repaint();
+            }
 
             std::thread::sleep(std::time::Duration::from_secs(1));
         });
@@ -195,9 +200,13 @@ pub fn main() {
 
     if let Some(duration_secs) = args.bench_duration {
         let mq = ui_queue_in.clone();
+        let ui_ctx = ui_context.clone();
         std::thread::spawn(move || {
             std::thread::sleep(std::time::Duration::from_secs(duration_secs));
             let _ = mq.send(UIMessageIn::Shutdown);
+            if let Some(ctx) = ui_ctx.get() {
+                ctx.request_repaint();
+            }
         });
     }
 
@@ -210,6 +219,7 @@ pub fn main() {
         ui_queue_in,
         ui_queue_out,
         std::env::current_exe().ok(),
+        ui_context,
         #[cfg(feature = "puffin")]
         profile_output,
     );

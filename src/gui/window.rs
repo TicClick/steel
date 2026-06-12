@@ -25,7 +25,7 @@ use steel_core::{
     settings::{Settings, ThemeMode},
 };
 
-const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
+const UI_EVENT_INTAKE_PER_REFRESH: u32 = 2000;
 
 pub const NOTO_ARABIC: &str = "noto-arabic";
 pub const NOTO_HEBREW: &str = "noto-hebrew";
@@ -248,6 +248,7 @@ impl ApplicationWindow {
             self.dispatch_event(event, ctx, s);
             i += 1;
             if i >= UI_EVENT_INTAKE_PER_REFRESH {
+                ctx.request_repaint();
                 break;
             }
         }
@@ -459,7 +460,8 @@ impl ApplicationWindow {
     }
 }
 
-const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_millis(200);
+// This is for fallback only, the backend wakes the UI immediately on new events in `ui_send_or_log`.
+const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_secs(1);
 
 impl eframe::App for ApplicationWindow {
     fn ui(&mut self, ui: &mut eframe::egui::Ui, frame: &mut eframe::Frame) {

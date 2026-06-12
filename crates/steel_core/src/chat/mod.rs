@@ -33,6 +33,8 @@ pub struct Message {
 
     // Cached lowercase version for performance
     pub text_lowercase: String,
+    // Cached "HH:MM:SS" -- the chat view shows it on every repaint
+    pub time_formatted: String,
 
     // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
@@ -81,13 +83,15 @@ impl fmt::Display for Message {
 
 impl Message {
     pub fn new(username: &str, text: &str, r#type: MessageType) -> Self {
+        let time = chrono::Local::now();
         let mut msg = Self {
-            time: chrono::Local::now(),
+            time,
             r#type,
             username: username.as_username_key(),
             username_display: username.to_owned(),
             text: text.to_string(),
             text_lowercase: text.to_lowercase(),
+            time_formatted: time.format(crate::DEFAULT_TIME_FORMAT).to_string(),
 
             chunks: None,
             id: None,
@@ -101,6 +105,7 @@ impl Message {
 
     pub fn with_time(mut self, dt: chrono::DateTime<chrono::Local>) -> Self {
         self.time = dt;
+        self.time_formatted = dt.format(crate::DEFAULT_TIME_FORMAT).to_string();
         self
     }
 

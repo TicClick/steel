@@ -19,6 +19,7 @@ fn main() {
         ui_queue_in,
         ui_queue_out,
         original_exe_path,
+        steel::SharedUIContext::default(),
         #[cfg(feature = "puffin")]
         None,
     );
