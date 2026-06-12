@@ -1,4 +1,5 @@
 use eframe::egui;
+use steel_core::settings::Renderer;
 
 use super::SettingsWindow;
 use crate::{core::updater, gui::state::UIState};
@@ -75,6 +76,27 @@ impl SettingsWindow {
                     }
                 }
             }
+
+            ui.heading("graphics");
+            ui.horizontal(|ui| {
+                ui.label("renderer:");
+                egui::ComboBox::from_id_salt("application-renderer")
+                    .selected_text(state.settings.application.renderer.to_string())
+                    .show_ui(ui, |ui| {
+                        for option in [Renderer::Auto, Renderer::Wgpu, Renderer::Glow] {
+                            ui.selectable_value(
+                                &mut state.settings.application.renderer,
+                                option,
+                                option.to_string(),
+                            );
+                        }
+                    });
+            })
+            .response
+            .on_hover_text_at_pointer(
+                "graphics backend used to draw the interface (applied after a restart).\n\
+                \"auto\" prefers wgpu, but falls back to glow if the device doesn't support it",
+            );
         });
 
         if autoupdate != state.settings.application.autoupdate.enabled {

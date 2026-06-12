@@ -11,7 +11,7 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 use serde_yaml;
 
-pub use application::Application;
+pub use application::{Application, Renderer};
 pub use chat::{Chat, ChatBackend, HTTPChatSettings, IRCChatSettings, OAuthMode};
 pub use colour::Colour;
 pub use errors::SettingsError;

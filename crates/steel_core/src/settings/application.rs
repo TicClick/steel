@@ -10,6 +10,31 @@ pub struct Application {
     pub window: WindowGeometry,
     #[serde(default)]
     pub detached_chat_windows: BTreeMap<String, DetachedWindowGeometry>,
+    #[serde(default)]
+    pub renderer: Renderer,
+}
+
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Renderer {
+    #[default]
+    Auto,
+    Wgpu,
+    Glow,
+}
+
+impl std::fmt::Display for Renderer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Renderer::Auto => "auto",
+                Renderer::Wgpu => "wgpu (Direct3D 12 / Metal / Vulkan)",
+                Renderer::Glow => "glow (OpenGL)",
+            }
+        )
+    }
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
