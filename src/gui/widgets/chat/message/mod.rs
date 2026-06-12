@@ -150,7 +150,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                         let styles = vec![TextStyle::Monospace];
                         ui.horizontal(|ui| {
                             ui.spacing_mut().item_spacing.x /= 2.;
-                            ui.add(TimestampLabel::new(&message.time, Some(&styles)));
+                            ui.add(TimestampLabel::new(message, Some(&styles)));
                             ui.add(ChatMessageText::new(
                                 message.chunks.as_ref(),
                                 Some(&styles),
@@ -169,7 +169,7 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                             ui.horizontal_wrapped(|ui| {
                                 ui.spacing_mut().item_spacing.x /= 2.;
 
-                                ui.add(TimestampLabel::new(&message.time, None));
+                                ui.add(TimestampLabel::new(message, None));
 
                                 if chat.chat_key.as_str() == HIGHLIGHTS_TAB_NAME {
                                     insert_original_chat_reference(ui, core, message);
