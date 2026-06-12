@@ -25,7 +25,7 @@ use steel_core::{
     settings::{Settings, ThemeMode},
 };
 
-const UI_EVENT_INTAKE_PER_REFRESH: u32 = 100;
+const UI_EVENT_INTAKE_PER_REFRESH: u32 = 2000;
 
 pub const NOTO_ARABIC: &str = "noto-arabic";
 pub const NOTO_HEBREW: &str = "noto-hebrew";
