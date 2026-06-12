@@ -345,13 +345,15 @@ mod tests {
     use crate::chat::MessageType;
 
     fn m(s: &str) -> Message {
+        let now = chrono::Local::now();
         let mut m = Message {
-            time: chrono::Local::now(),
             r#type: MessageType::Text,
             username: "abc".into(),
             username_display: "abc".to_owned(),
             text: s.into(),
             text_lowercase: s.to_lowercase(),
+            time: now,
+            time_formatted: now.format(crate::DEFAULT_TIME_FORMAT).to_string(),
             chunks: None,
             id: None,
             is_highlight: false,
