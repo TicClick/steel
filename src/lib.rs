@@ -10,6 +10,8 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const LOG_FILE_NAME: &str = "runtime.log";
 
+pub type SharedUIContext = std::sync::Arc<std::sync::OnceLock<eframe::egui::Context>>;
+
 pub fn setup_logging() {
     let file = std::fs::OpenOptions::new()
         .create(true)
@@ -94,9 +96,10 @@ pub fn run_app(
     ui_queue_in: UnboundedSender<UIMessageIn>,
     ui_queue_out: UnboundedReceiver<UIMessageIn>,
     original_exe_path: Option<std::path::PathBuf>,
+    ui_context: SharedUIContext,
     #[cfg(feature = "puffin")] profile_output: Option<std::path::PathBuf>,
 ) -> std::thread::JoinHandle<()> {
-    let mut app = app::Application::new(ui_queue_in);
+    let mut app = app::Application::new(ui_queue_in, std::sync::Arc::clone(&ui_context));
     let settings = match app.initialize() {
         Ok(()) => app.current_settings().to_owned(),
         Err(e) => {
@@ -124,7 +127,8 @@ pub fn run_app(
     eframe::run_native(
         &format!("steel v{VERSION}"),
         native_options,
-        Box::new(|cc| {
+        Box::new(move |cc| {
+            let _ = ui_context.set(cc.egui_ctx.clone());
             Ok(Box::new(gui::window::ApplicationWindow::new(
                 cc,
                 ui_queue_out,
