@@ -83,16 +83,31 @@ impl ChatViewController {
             !state.is_detached(&state.active_chat_tab_name),
             "a detached chat must never be the active tab of the main window"
         );
+        let auth_required = matches!(state.settings.chat.backend, ChatBackend::API)
+            && matches!(
+                state.connection,
+                ConnectionStatus::Disconnected {
+                    auth_failed: true,
+                    ..
+                }
+            );
+        if auth_required {
+            egui::CentralPanel::default().show_inside(ui, |ui| {
+                self.cached_token_state = None;
+                self.ensure_token_state_loaded();
+                LoginScreen::new(state, &self.oauth_flow, self.cached_token_state.as_ref()).ui(ui);
+                show_connection_progress(ui, state);
+            });
+            return;
+        }
+
         match self.views.get(&state.active_chat_tab_name) {
             Some(chat_view) => chat_view.lock().show(ui, state),
             None => {
                 egui::CentralPanel::default().show_inside(ui, |ui| {
                     if matches!(state.settings.chat.backend, ChatBackend::API) {
                         match state.connection {
-                            ConnectionStatus::Disconnected { auth_failed, .. } => {
-                                if auth_failed {
-                                    self.cached_token_state = None;
-                                }
+                            ConnectionStatus::Disconnected { .. } => {
                                 self.ensure_token_state_loaded();
                                 LoginScreen::new(
                                     state,
@@ -114,6 +129,7 @@ impl ChatViewController {
                             ConnectionStatus::InProgress => {
                                 ui.label("Logging in...");
                                 ui.add(egui::Spinner::new());
+                                show_connection_progress(ui, state);
                             }
                             ConnectionStatus::Connected => {
                                 // some kind of "welcome, you are connected" screen?
@@ -135,6 +151,18 @@ impl ChatViewController {
     pub fn remove(&mut self, name: &str) {
         self.views.remove(&name.normalize());
     }
+}
+
+fn show_connection_progress(ui: &mut egui::Ui, state: &UIState) {
+    if state.connection_progress.is_empty() {
+        return;
+    }
+    ui.add_space(10.0);
+    ui.vertical_centered(|ui| {
+        for line in &state.connection_progress {
+            ui.label(egui::RichText::new(format!("· {line}")).small().weak());
+        }
+    });
 }
 
 impl Default for ChatViewController {

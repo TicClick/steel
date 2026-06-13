@@ -29,6 +29,7 @@ pub struct ReportDialogState {
 #[derive(Debug)]
 pub struct UIState {
     pub connection: ConnectionStatus,
+    pub connection_progress: Vec<String>,
     pub settings: Settings,
     chats: Vec<Chat>,
     pub active_chat_tab_name: String,
@@ -62,6 +63,7 @@ impl UIState {
     ) -> Self {
         Self {
             connection: ConnectionStatus::default(),
+            connection_progress: Vec::new(),
             settings,
             chats: Vec::new(),
             active_chat_tab_name: String::new(),

@@ -3,6 +3,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 pub mod client;
+mod connect;
+mod session;
+
+fn is_auth_error(message: &str) -> bool {
+    message.contains("authentication failed") || message.contains("Connection reset")
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum EventType {

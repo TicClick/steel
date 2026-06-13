@@ -11,6 +11,7 @@ pub enum UIMessageIn {
     SettingsChanged(Box<Settings>),
     SettingsPatched(SettingsPatch),
     ConnectionStatusChanged(ConnectionStatus),
+    ConnectionProgress(String),
     ConnectionActivity,
     NewSystemMessage {
         target: String,

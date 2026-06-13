@@ -224,6 +224,9 @@ impl Application {
     fn handle_chat_event(&mut self, evt: ChatEvent) {
         match evt {
             ChatEvent::ConnectionChanged(status) => self.handle_connection_status(status),
+            ChatEvent::ConnectionProgress(text) => {
+                self.ui_send_or_log(UIMessageIn::ConnectionProgress(text));
+            }
             ChatEvent::ConnectionActivity => {
                 self.ui_send_or_log(UIMessageIn::ConnectionActivity);
             }
@@ -468,6 +471,14 @@ impl Application {
 
     pub fn ui_handle_settings_updated(&mut self, settings: settings::Settings) {
         self.handle_logging_settings_change(&settings.logging);
+
+        let backend_changed = self.state.settings.chat.backend != settings.chat.backend;
+        if backend_changed
+            && !matches!(self.state.connection, ConnectionStatus::Disconnected { .. })
+        {
+            log::info!("Chat backend changed - disconnecting the active connection");
+            self.get_backend().disconnect();
+        }
 
         self.state.settings = settings;
         if let Err(e) = self.state.settings.to_file(SETTINGS_FILE_NAME) {

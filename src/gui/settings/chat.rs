@@ -473,6 +473,17 @@ impl SettingsWindow {
                 );
             });
 
+            ui.horizontal(|ui| {
+                ui.label("session renewal threshold (days)");
+                ui.add(
+                    egui::DragValue::new(&mut state.settings.chat.api.token_rotation_days)
+                        .range(1..=89)
+                ).on_hover_text_at_pointer(
+                    "Renew the session whenever its refresh token has fewer than this many days left.\n\
+                    Determines for how long the app can stay closed without you having to log in again."
+                );
+            });
+
             ui.label("WebSocket URI:");
             let input =
                 egui::TextEdit::multiline(&mut state.settings.chat.api.ws_base_uri)

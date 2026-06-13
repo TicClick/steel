@@ -73,6 +73,7 @@ pub enum ConnectionDetails {
     API {
         server: String,
         token_expires_at: chrono::DateTime<chrono::Utc>,
+        refresh_token_expires_at: Option<chrono::DateTime<chrono::Utc>>,
     },
 }
 
@@ -80,6 +81,7 @@ pub enum ConnectionDetails {
 pub enum ChatEvent {
     ConnectionChanged(ConnectionStatus),
     ConnectionDetailsChanged(ConnectionDetails),
+    ConnectionProgress(String),
     ConnectionActivity,
     Error(IRCError),
     MessageReceived { target: String, message: Message },
@@ -162,6 +164,10 @@ impl AppMessageIn {
 
     pub fn connection_details_changed(details: ConnectionDetails) -> Self {
         Self::Chat(ChatEvent::ConnectionDetailsChanged(details))
+    }
+
+    pub fn connection_progress(text: impl Into<String>) -> Self {
+        Self::Chat(ChatEvent::ConnectionProgress(text.into()))
     }
 
     // UI commands

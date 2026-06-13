@@ -6,6 +6,9 @@ pub enum SteelApplicationError {
     #[error("Invalid OAuth token")]
     InvalidOAuth,
 
+    #[error("Failed to refresh the API token: {0}")]
+    TokenRefreshFailed(String),
+
     #[error("Failed to initialize osu! API client")]
     APIInitializationError {
         #[from]

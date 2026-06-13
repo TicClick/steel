@@ -11,8 +11,7 @@ use tokio::{
 use crate::{
     actor::Actor,
     core::http::{
-        api::Client, websocket::client::websocket_thread_main_with_auth_check, APISettings,
-        HTTPMessageIn,
+        api::Client, websocket::client::websocket_thread_main, APISettings, HTTPMessageIn,
     },
 };
 
@@ -137,13 +136,19 @@ impl HTTPActor {
 
         let tx = self.output.clone();
 
-        let client = match self.runtime.block_on(Client::from_stored_token(
-            settings.client_id,
-            settings.client_secret.clone(),
-        )) {
+        let client = match self
+            .runtime
+            .block_on(Client::from_stored_token(&settings, self.output.clone()))
+        {
             Ok(c) => c,
             Err(e) => {
                 log::warn!("Failed to restore token: {e}");
+                if matches!(
+                    e,
+                    crate::core::error::SteelApplicationError::TokenRefreshFailed(_)
+                ) {
+                    Self::push_error_to_ui(&self.output, &e.to_string(), false);
+                }
                 self.output
                     .send(AppMessageIn::connection_changed(
                         ConnectionStatus::Disconnected {
@@ -163,11 +168,7 @@ impl HTTPActor {
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(websocket_thread_main_with_auth_check(
-                    tx.clone(),
-                    settings,
-                    client,
-                ))
+                .block_on(websocket_thread_main(tx.clone(), settings, client))
         });
     }
 

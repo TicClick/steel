@@ -110,6 +110,11 @@ impl Widget for LoginScreen<'_> {
                         if ui.button("Connect").clicked() {
                             self.state.core.connect_requested();
                         }
+
+                        ui.add_space(20.0);
+                        ui.label("If connecting doesn't help, log in again:");
+                        ui.add_space(10.0);
+                        self.show_login_button(ui, self.state);
                     } else {
                         ui.label("Token status: expired");
                         ui.add_space(10.0);

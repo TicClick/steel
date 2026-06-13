@@ -275,6 +275,11 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::ConnectionStatusChanged(conn) => {
+                if matches!(conn, steel_core::chat::ConnectionStatus::InProgress)
+                    && !matches!(s.connection, steel_core::chat::ConnectionStatus::InProgress)
+                {
+                    s.connection_progress.clear();
+                }
                 s.connection = conn;
                 match conn {
                     steel_core::chat::ConnectionStatus::Connected => {
@@ -285,6 +290,10 @@ impl ApplicationWindow {
                     }
                     _ => {}
                 }
+            }
+
+            UIMessageIn::ConnectionProgress(line) => {
+                s.connection_progress.push(line);
             }
 
             UIMessageIn::ConnectionDetailsChanged(details) => {
