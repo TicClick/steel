@@ -2,7 +2,9 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+// Token lifetimes are defined in osu-web's app/Providers/AuthServiceProvider.php:
 pub const API_TOKEN_LIFETIME_SECS: i64 = 24 * 60 * 60;
+pub const API_REFRESH_TOKEN_LIFETIME_SECS: i64 = 90 * 24 * 60 * 60;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PersistedTokenState {
@@ -10,7 +12,6 @@ pub struct PersistedTokenState {
     pub access_token: String,
     pub refresh_token: Option<String>,
     pub access_expires_at: DateTime<Utc>,
-    // Note: For osu! API, refresh tokens have the same lifetime as access tokens
     pub refresh_expires_at: DateTime<Utc>,
 }
 
@@ -27,7 +28,7 @@ impl PersistedTokenState {
             access_token,
             refresh_token,
             access_expires_at: expires_at,
-            refresh_expires_at: expires_at,
+            refresh_expires_at: now + chrono::Duration::seconds(API_REFRESH_TOKEN_LIFETIME_SECS),
         }
     }
 
@@ -66,25 +67,6 @@ pub fn save_token_state(state: &PersistedTokenState) -> Result<(), Box<dyn std::
     std::fs::write(&path, yaml)?;
     log::warn!("Token state saved to {path:?} - this file contains sensitive authentication data");
     Ok(())
-}
-
-pub fn create_and_save_new_state(
-    new_access_token: &str,
-    new_refresh_token: Option<&str>,
-) -> Result<PersistedTokenState, Box<dyn std::error::Error>> {
-    let new_state = PersistedTokenState::new(
-        new_access_token.to_owned(),
-        new_refresh_token.map(|s| s.to_string()),
-        API_TOKEN_LIFETIME_SECS,
-    );
-
-    if let Err(e) = save_token_state(&new_state) {
-        log::error!("Failed to save refreshed token state: {e}");
-        Err(e)
-    } else {
-        log::info!("Successfully saved new token state.");
-        Ok(new_state)
-    }
 }
 
 pub fn load_token_state() -> Result<PersistedTokenState, Box<dyn std::error::Error>> {

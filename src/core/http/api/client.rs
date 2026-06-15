@@ -9,12 +9,20 @@ use rosu_v2::{
     request::UserId,
     Osu,
 };
+use steel_core::ipc::server::{AppMessageIn, ConnectionDetails};
 use tokio::sync::broadcast;
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::RwLock as AsyncRwLock;
 
+use crate::core::error::SteelApplicationError;
+use crate::core::http::jwt::AccessTokenTiming;
+use crate::core::http::token_manager::TokenManager;
+use crate::core::http::token_refresh::{TokenRefreshConfig, TokenRefreshError};
 use crate::core::http::token_storage;
-use crate::core::{error::SteelApplicationError, http::token_storage::API_TOKEN_LIFETIME_SECS};
+use crate::core::http::{send_progress, APISettings};
 use steel_core::string_utils::UsernameString;
+
+const TOKEN_REFRESH_RETRY_SECS: u64 = 5 * 60;
 
 #[derive(Clone)]
 pub struct Client {
@@ -24,13 +32,14 @@ pub struct Client {
 struct ClientInner {
     api: AsyncRwLock<Osu>,
 
+    tokens: TokenManager,
+    ws_base_uri: String,
+    output: UnboundedSender<AppMessageIn>,
+
     user_cache: RwLock<HashMap<u32, User>>,
     username_cache: RwLock<HashMap<String, u32>>,
     channel_cache: RwLock<HashMap<ChatChannelId, ChatChannel>>,
     channel_name_cache: RwLock<HashMap<String, ChatChannelId>>,
-
-    current_token: RwLock<String>,
-    token_expires_at: RwLock<DateTime<Utc>>,
 
     shutdown_tx: broadcast::Sender<()>,
 
@@ -39,39 +48,30 @@ struct ClientInner {
 }
 
 impl Client {
-    pub async fn new(
-        client_id: u64,
-        client_secret: String,
-        token: Token,
-        expires_in: Option<i64>,
+    async fn new(
+        settings: &APISettings,
+        output: UnboundedSender<AppMessageIn>,
+        tokens: TokenManager,
     ) -> Result<Self, SteelApplicationError> {
-        let api = rosu_v2::OsuBuilder::new()
-            .client_id(client_id)
-            .client_secret(client_secret.clone())
-            .with_token(token, expires_in)
-            .build()
-            .await?;
-
-        let access_token = api
-            .token()
-            .access()
-            .ok_or(SteelApplicationError::InvalidOAuth)?
-            .to_string();
-
-        let exp_secs = expires_in.unwrap_or(API_TOKEN_LIFETIME_SECS);
-        let token_expires_at = Utc::now() + chrono::Duration::seconds(exp_secs);
+        let state = tokens.snapshot();
+        let token = Token::new(
+            &state.access_token,
+            state.refresh_token.clone().map(|s| s.into_boxed_str()),
+        );
+        let api = Self::build_api(tokens.config(), token).await?;
 
         let (shutdown_tx, _) = broadcast::channel(1);
 
         let client = Self {
             inner: Arc::new(ClientInner {
                 api: AsyncRwLock::new(api),
+                tokens,
+                ws_base_uri: settings.ws_base_uri.clone(),
+                output,
                 user_cache: RwLock::new(HashMap::new()),
                 username_cache: RwLock::new(HashMap::new()),
                 channel_cache: RwLock::new(HashMap::new()),
                 channel_name_cache: RwLock::new(HashMap::new()),
-                current_token: RwLock::new(access_token),
-                token_expires_at: RwLock::new(token_expires_at),
                 shutdown_tx,
                 own_user_id: RwLock::new(None),
                 own_username: RwLock::new(None),
@@ -82,37 +82,65 @@ impl Client {
 
         Ok(client)
     }
+
+    // work around rosu-v2 to direct the token refresh procedure towards the jump server
+    async fn build_api(
+        config: &TokenRefreshConfig,
+        token: Token,
+    ) -> Result<Osu, rosu_v2::error::OsuError> {
+        rosu_v2::OsuBuilder::new()
+            .client_id(config.client_id)
+            .client_secret(config.client_secret.clone())
+            .with_token(token, None)
+            .build()
+            .await
+    }
+
     pub async fn from_stored_token(
-        client_id: u64,
-        client_secret: String,
+        settings: &APISettings,
+        output: UnboundedSender<AppMessageIn>,
     ) -> Result<Self, SteelApplicationError> {
-        let token_state =
+        let stored =
             token_storage::load_token_state().map_err(|_| SteelApplicationError::InvalidOAuth)?;
 
-        if !token_state.has_valid_token() {
+        if !stored.has_valid_token() {
             return Err(SteelApplicationError::InvalidOAuth);
         }
 
-        let refresh_token = token_state
-            .refresh_token
-            .clone()
-            .map(|s| s.into_boxed_str());
+        let rotation_threshold = chrono::Duration::days(settings.token_rotation_days as i64);
+        let tokens = TokenManager::new(settings.token_refresh_config(), rotation_threshold, stored);
 
-        let token = Token::new(&token_state.access_token, refresh_token);
-
-        let expires_in = if token_state.is_access_token_valid() {
-            let now = Utc::now();
-            Some(
-                token_state
-                    .access_expires_at
-                    .signed_duration_since(now)
-                    .num_seconds(),
-            )
+        let needs_rotation = tokens.refresh_token_needs_rotation();
+        if tokens.is_access_token_valid() && !needs_rotation {
+            send_progress(&output, "using the stored access token");
         } else {
-            None
-        };
+            if needs_rotation {
+                log::info!("The refresh token is about to expire, rotating the token pair");
+                send_progress(
+                    &output,
+                    "renewing the session (the refresh token expires soon)",
+                );
+            } else {
+                log::info!("Stored access token has expired, refreshing it before connecting");
+                send_progress(&output, "the access token has expired, refreshing it");
+            }
 
-        Self::new(client_id, client_secret, token, expires_in).await
+            tokens.refresh().await.map_err(|e| {
+                log::error!("Failed to refresh tokens: {e}");
+                if matches!(e, TokenRefreshError::Rejected(_)) {
+                    // The refresh token has been revoked or is otherwise unusable --
+                    // start from a clean slate, as if the user has never logged in.
+                    if let Err(e) = token_storage::clear_token_state() {
+                        log::error!("Failed to clear token state: {e}");
+                    }
+                }
+                SteelApplicationError::TokenRefreshFailed(e.to_string())
+            })?;
+
+            send_progress(&output, "received a new token pair");
+        }
+
+        Self::new(settings, output, tokens).await
     }
 
     pub fn get_cached_user(&self, user_id: u32) -> Option<User> {
@@ -194,62 +222,86 @@ impl Client {
         let inner = Arc::clone(&self.inner);
         let mut shutdown_rx = self.inner.shutdown_tx.subscribe();
 
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
+        std::thread::spawn(move || {
+            let runtime = match tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+            {
+                Ok(rt) => rt,
+                Err(e) => {
+                    log::error!("Failed to create a runtime for the token refresh task: {e}");
+                    return;
+                }
+            };
 
-            loop {
-                tokio::select! {
-                    _ = interval.tick() => {
-                        Self::check_and_save_token(&inner).await;
-                    }
-                    _ = shutdown_rx.recv() => {
-                        log::info!("Token refresh task: shutdown signal received");
-                        Self::check_and_save_token(&inner).await;
-                        break;
+            runtime.block_on(async move {
+                let mut retry_delay: Option<std::time::Duration> = None;
+
+                loop {
+                    let wait = retry_delay.take().unwrap_or_else(|| {
+                        inner
+                            .tokens
+                            .next_refresh_due()
+                            .signed_duration_since(Utc::now())
+                            .to_std()
+                            .unwrap_or(std::time::Duration::ZERO)
+                            .max(std::time::Duration::from_secs(1))
+                    });
+
+                    tokio::select! {
+                        _ = tokio::time::sleep(wait) => {
+                            if Utc::now() < inner.tokens.next_refresh_due() {
+                                continue;
+                            }
+
+                            if let Err(e) = Self::refresh_and_apply(&inner).await {
+                                log::error!("Scheduled token refresh failed: {e}");
+                                retry_delay = Some(std::time::Duration::from_secs(TOKEN_REFRESH_RETRY_SECS));
+                            }
+                        }
+                        _ = shutdown_rx.recv() => {
+                            log::info!("Token refresh task: shutdown signal received");
+                            break;
+                        }
                     }
                 }
-            }
 
-            log::info!("Token refresh task stopped");
+                log::info!("Token refresh task stopped");
+            });
         });
     }
 
-    async fn check_and_save_token(inner: &Arc<ClientInner>) {
-        log::info!("Token refresh task: running");
-        let (new_access_token, new_refresh_token, stored_token) = {
-            let api = inner.api.read().await;
-            let access = api.token().access().map(|s| s.to_string());
-            let refresh = api.token().refresh().map(|s| s.to_string());
-            let stored = inner.current_token.read().clone();
-            (access, refresh, stored)
-        };
+    pub async fn refresh_token_now(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        Self::refresh_and_apply(&self.inner).await
+    }
 
-        if let Some(ref access_token) = new_access_token {
-            if stored_token != *access_token {
-                log::info!("Token has been refreshed by rosu_v2, saving to disk");
+    async fn refresh_and_apply(
+        inner: &Arc<ClientInner>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let new_state = inner.tokens.refresh().await?;
 
-                match token_storage::create_and_save_new_state(
-                    access_token,
-                    new_refresh_token.as_deref(),
-                ) {
-                    Ok(new_state) => {
-                        *inner.current_token.write() = access_token.clone();
-                        *inner.token_expires_at.write() = new_state.access_expires_at;
-                        log::info!(
-                            "Token saved successfully, expires at {}",
-                            new_state.access_expires_at
-                        );
-                    }
-                    Err(e) => {
-                        log::error!("Failed to save refreshed token: {}", e);
-                    }
-                }
-            } else {
-                log::debug!("Token unchanged during periodic check");
-            }
-        } else {
-            log::warn!("API client has no access token during refresh check");
-        }
+        let token = Token::new(
+            &new_state.access_token,
+            new_state.refresh_token.clone().map(|s| s.into_boxed_str()),
+        );
+        let api = Self::build_api(inner.tokens.config(), token).await?;
+        *inner.api.write().await = api;
+
+        inner
+            .output
+            .send(AppMessageIn::connection_details_changed(
+                ConnectionDetails::API {
+                    server: inner.ws_base_uri.clone(),
+                    token_expires_at: new_state.access_expires_at,
+                    refresh_token_expires_at: new_state
+                        .refresh_token
+                        .as_ref()
+                        .map(|_| new_state.refresh_expires_at),
+                },
+            ))
+            .unwrap_or_else(|e| log::error!("Failed to send connection details: {e}"));
+
+        Ok(())
     }
 
     pub async fn own_data(&self) -> Result<User, rosu_v2::error::OsuError> {
@@ -343,19 +395,13 @@ impl Client {
             .await
     }
 
+    pub async fn chat_channels(&self) -> Result<Vec<ChatChannel>, rosu_v2::error::OsuError> {
+        self.inner.api.read().await.chat_channels().await
+    }
+
     pub async fn chat_keepalive(&self) -> Result<(), rosu_v2::error::OsuError> {
         self.inner.api.read().await.chat_keepalive().await?;
         Ok(())
-    }
-
-    pub async fn get_current_token(&self) -> Token {
-        let api = self.inner.api.read().await;
-        let token = api.token();
-
-        let access = token.access().map(|s| s.to_string().into_boxed_str());
-        let refresh = token.refresh().map(|s| s.to_string().into_boxed_str());
-
-        Token::new(access.as_deref().unwrap_or(""), refresh)
     }
 
     pub async fn get_access_token(&self) -> Option<String> {
@@ -369,16 +415,19 @@ impl Client {
     }
 
     pub fn get_token_expires_at(&self) -> DateTime<Utc> {
-        *self.inner.token_expires_at.read()
+        self.inner.tokens.access_token_expires_at()
     }
 
-    pub fn is_token_valid(&self) -> bool {
-        let expires_at = *self.inner.token_expires_at.read();
-        let now = Utc::now();
-        let buffer = chrono::Duration::seconds(
-            (expires_at.signed_duration_since(now).num_seconds() as f64 * 0.05) as i64,
-        );
-        now < (expires_at - buffer)
+    pub fn get_refresh_token_expires_at(&self) -> Option<DateTime<Utc>> {
+        self.inner.tokens.refresh_token_expires_at()
+    }
+
+    pub fn access_token_timing(&self) -> Option<AccessTokenTiming> {
+        self.inner.tokens.access_token_timing()
+    }
+
+    pub fn is_refresh_token_usable(&self) -> bool {
+        self.inner.tokens.is_refresh_token_usable()
     }
 
     pub fn get_own_user_id(&self) -> Option<u32> {

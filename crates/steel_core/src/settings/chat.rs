@@ -124,6 +124,10 @@ fn default_api_ws_uri() -> String {
     "wss://notify.ppy.sh".into()
 }
 
+fn default_token_rotation_days() -> u32 {
+    7
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct HTTPChatSettings {
     #[serde(default)]
@@ -146,6 +150,8 @@ pub struct HTTPChatSettings {
 
     #[serde(default = "default_api_ws_uri")]
     pub ws_base_uri: String,
+    #[serde(default = "default_token_rotation_days")]
+    pub token_rotation_days: u32,
 }
 
 impl Default for HTTPChatSettings {
@@ -158,6 +164,7 @@ impl Default for HTTPChatSettings {
             client_secret: String::new(),
             redirect_uri: default_api_redirect_uri(),
             ws_base_uri: default_api_ws_uri(),
+            token_rotation_days: default_token_rotation_days(),
         }
     }
 }

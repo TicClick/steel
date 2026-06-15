@@ -147,17 +147,29 @@ impl ConnectionIndicator {
                 Some(ConnectionDetails::API {
                     server,
                     token_expires_at,
+                    refresh_token_expires_at,
                 }) => {
                     let now = chrono::Utc::now();
                     let remaining = *token_expires_at - now;
                     let hours = remaining.num_hours();
                     let minutes = remaining.num_minutes() % 60;
 
+                    let refresh_token_line = match refresh_token_expires_at {
+                        Some(expires_at) => {
+                            let remaining = *expires_at - now;
+                            let days = remaining.num_days();
+                            let hours = remaining.num_hours() % 24;
+                            format!("refresh token valid for: {days}d {hours}h (approx.)")
+                        }
+                        None => "refresh token: none".to_owned(),
+                    };
+
                     format!(
                         "connection: HTTP API\n\
                         server: {server}\n\
                         network activity: {delta_s:.1} s ago\n\
-                        token valid for: {hours}h {minutes}m"
+                        token valid for: {hours}h {minutes}m\n\
+                        {refresh_token_line}"
                     )
                 }
                 None => String::new(),

@@ -33,8 +33,7 @@ impl<'msg> TimestampLabel<'msg> {
 
 impl Widget for TimestampLabel<'_> {
     fn ui(self, ui: &mut egui::Ui) -> egui::Response {
-        let timestamp =
-            egui::RichText::new(&self.message.time_formatted).with_styles(self.styles);
+        let timestamp = egui::RichText::new(&self.message.time_formatted).with_styles(self.styles);
         ui.label(timestamp).on_hover_ui_at_pointer(|ui| {
             ui.vertical(|ui| {
                 ui.label(format!(
