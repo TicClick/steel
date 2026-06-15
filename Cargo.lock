@@ -1140,6 +1140,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "core_maths"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77745e017f5edba1a9c1d854f6f3a52dac8a12dd5af5d2f54aecf61e43d80d30"
+dependencies = [
+ "libm",
+]
+
+[[package]]
 name = "coreaudio-rs"
 version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1397,9 +1406,8 @@ checksum = "d8b14ccef22fc6f5a8f4d7d768562a182c04ce9a3b3157b91390b52ddfdf1a76"
 
 [[package]]
 name = "ecolor"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a05fbfa222ffb51989d5ccf33e5f7aebfcf96c5023413856b0c3618a7f79896e"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "bytemuck",
  "emath",
@@ -1408,9 +1416,8 @@ dependencies = [
 
 [[package]]
 name = "eframe"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f98fe83b2589105b69dd25ca1e0fa2135a6e864d502fd8e08978f937e128cfef"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1445,9 +1452,8 @@ dependencies = [
 
 [[package]]
 name = "egui"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42112be0ae157289312b92b3dfaf20e911b5a3c4c65d4aab0e7c47fbc0ce16e3"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "accesskit",
  "ahash",
@@ -1479,9 +1485,8 @@ dependencies = [
 
 [[package]]
 name = "egui-wgpu"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f0c0559ac5598a1b887a6206dccbab7e3e6246c57cb00ae287262bd44776c9c"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1499,9 +1504,8 @@ dependencies = [
 
 [[package]]
 name = "egui-winit"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "967c5b323625d46d46a59b5daba3fef742248d27693cc18972458619858c4239"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "accesskit_winit",
  "arboard",
@@ -1544,9 +1548,8 @@ dependencies = [
 
 [[package]]
 name = "egui_extras"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "598d8675f6fd9088db8a93d8c7aacda936b2f3d0c2b0660ad1744a45b5caf922"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "ahash",
  "egui",
@@ -1559,9 +1562,8 @@ dependencies = [
 
 [[package]]
 name = "egui_glow"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b652957fa7e1ab01e8fecbfbf4e35f6e43a53fa98af8a562b50d5403cd44b9"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "bytemuck",
  "egui",
@@ -1582,9 +1584,8 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
 name = "emath"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b53f0d33a479321da6b0caa71366c9f67e8a2c149762d90bdc0d16e601ee8ecb"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1724,9 +1725,8 @@ dependencies = [
 
 [[package]]
 name = "epaint"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6675898a291ec212fc3df04f537d177fce8496120244590e6359dcaa4c25da79"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 dependencies = [
  "ahash",
  "bytemuck",
@@ -1734,6 +1734,7 @@ dependencies = [
  "emath",
  "epaint_default_fonts",
  "font-types",
+ "harfrust",
  "log",
  "nohash-hasher",
  "parking_lot",
@@ -1742,14 +1743,15 @@ dependencies = [
  "serde",
  "skrifa",
  "smallvec",
+ "unicode-general-category",
+ "unicode-segmentation",
  "vello_cpu",
 ]
 
 [[package]]
 name = "epaint_default_fonts"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8970033a4282a7bcf899b38b5ed3a58b732fe093d03785d58648515d8d309da"
+version = "0.34.1"
+source = "git+https://github.com/TicClick/egui.git?rev=86a7f47738b70e0b5c39950ca0962ee79e128033#86a7f47738b70e0b5c39950ca0962ee79e128033"
 
 [[package]]
 name = "equivalent"
@@ -1826,12 +1828,9 @@ dependencies = [
 
 [[package]]
 name = "fearless_simd"
-version = "0.3.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fb2907d1f08b2b316b9223ced5b0e89d87028ba8deae9764741dba8ff7f3903"
-dependencies = [
- "bytemuck",
-]
+checksum = "b97b65636e5b9ef369943878ac74335ba1c55c1cb6adbf1e2c293c624248d693"
 
 [[package]]
 name = "filetime"
@@ -2249,6 +2248,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "guillotiere"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b17e70c989c36bad147b27a58d148c0741c51448aa5653436547323e524d0ab"
+dependencies = [
+ "euclid",
+]
+
+[[package]]
 name = "h2"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2277,6 +2285,19 @@ dependencies = [
  "crunchy",
  "num-traits",
  "zerocopy",
+]
+
+[[package]]
+name = "harfrust"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9da2e5ae821f6e96664977bf974d6d6a2d6682f9ccee23e62ec1d134246845f9"
+dependencies = [
+ "bitflags 2.13.0",
+ "bytemuck",
+ "core_maths",
+ "read-fonts",
+ "smallvec",
 ]
 
 [[package]]
@@ -4427,6 +4448,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7b634fabf032fab15307ffd272149b622260f55974d9fad689292a5d33df02e5"
 dependencies = [
  "bytemuck",
+ "core_maths",
  "font-types",
 ]
 
@@ -5712,6 +5734,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbc4bc3a9f746d862c45cb89d705aa10f187bb96c76001afab07a0d35ce60142"
 
 [[package]]
+name = "unicode-general-category"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b993bddc193ae5bd0d623b49ec06ac3e9312875fdae725a975c51db1cc1677f"
+
+[[package]]
 name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5842,28 +5870,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eab68b56840f69efb0fefbe3ab6661499217ffdc58e2eef7c3f6f69835386322"
 
 [[package]]
-name = "vello_common"
-version = "0.0.6"
+name = "vello_api"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd1a4c633ce09e7d713df1a6e036644a125e15e0c169cfb5180ddf5836ca04b"
+checksum = "a5088cd0113bc5332c753f24503825e3bc93e26c7883c9dc3ad9637bb62c4634"
+dependencies = [
+ "bytemuck",
+ "peniko",
+]
+
+[[package]]
+name = "vello_common"
+version = "0.0.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "986dc49a501a683477614bf07b8e7b6c79ae4828efce3bf22e51850f4a0a8a4c"
 dependencies = [
  "bytemuck",
  "fearless_simd",
+ "guillotiere",
  "hashbrown 0.16.1",
  "log",
  "peniko",
  "skrifa",
  "smallvec",
+ "thiserror 2.0.18",
 ]
 
 [[package]]
 name = "vello_cpu"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0162bfe48aabf6a9fdcd401b628c7d9f260c2cbabb343c70a65feba6f7849edc"
+checksum = "a678f91c7524a3a9ac9a19df9f83552866ec70b2ca26441b916a6b219b6aa2de"
 dependencies = [
  "bytemuck",
  "hashbrown 0.16.1",
+ "vello_api",
  "vello_common",
 ]
 

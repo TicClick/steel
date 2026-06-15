@@ -111,3 +111,16 @@ objc2-foundation = { version = "0.3", features = ["NSString"] }
 default = []
 glass = ["dep:glass"]
 puffin = ["dep:puffin", "dep:puffin_egui"]
+
+# pin an upstream commit that has IME working with XIM/IBus and Cyrillic input.
+[patch.crates-io]
+ecolor               = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+eframe               = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+egui                 = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+egui-wgpu            = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+egui-winit           = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+egui_extras          = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+egui_glow            = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+emath                = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+epaint               = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
+epaint_default_fonts = { git = "https://github.com/TicClick/egui.git", rev = "86a7f47738b70e0b5c39950ca0962ee79e128033" }
