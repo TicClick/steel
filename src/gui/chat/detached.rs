@@ -27,7 +27,17 @@ fn app_icon() -> Arc<egui::IconData> {
 
 fn record_geometry(ctx: &egui::Context, state: &mut UIState, chat_key: &str) {
     ctx.input(|i| {
-        let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
+        let Some(inner_rect) = i.viewport().inner_rect else {
+            return;
+        };
+        let width = inner_rect.width() as i32;
+        let height = inner_rect.height() as i32;
+
+        // skip when the viewport is transitioning -- wgpu (Metal) can report 0x0
+        if width <= 0 || height <= 0 {
+            return;
+        }
+
         let geometry = state
             .settings
             .application
@@ -36,14 +46,12 @@ fn record_geometry(ctx: &egui::Context, state: &mut UIState, chat_key: &str) {
             .or_default();
 
         if let Some(outer_rect) = i.viewport().outer_rect {
-            geometry.x = Some((outer_rect.left_top().x / ppi) as i32);
-            geometry.y = Some((outer_rect.left_top().y / ppi) as i32);
+            geometry.x = Some(outer_rect.left_top().x as i32);
+            geometry.y = Some(outer_rect.left_top().y as i32);
         }
 
-        if let Some(inner_rect) = i.viewport().inner_rect {
-            geometry.width = (inner_rect.width() / ppi) as i32;
-            geometry.height = (inner_rect.height() / ppi) as i32;
-        }
+        geometry.width = width;
+        geometry.height = height;
     });
 }
 

@@ -224,18 +224,20 @@ impl ApplicationWindow {
 
     fn refresh_window_geometry_settings(&self, ctx: &egui::Context, s: &mut UIState) {
         ctx.input(|i| {
-            let ppi = i.viewport().native_pixels_per_point.unwrap_or(1.);
-
             s.settings.application.window.maximized = i.viewport().maximized.unwrap_or(false);
 
             if let Some(outer_rect) = i.viewport().outer_rect {
-                s.settings.application.window.x = (outer_rect.left_top().x / ppi) as i32;
-                s.settings.application.window.y = (outer_rect.left_top().y / ppi) as i32;
+                s.settings.application.window.x = outer_rect.left_top().x as i32;
+                s.settings.application.window.y = outer_rect.left_top().y as i32;
             }
 
             if let Some(inner_rect) = i.viewport().inner_rect {
-                s.settings.application.window.width = (inner_rect.width() / ppi) as i32;
-                s.settings.application.window.height = (inner_rect.height() / ppi) as i32;
+                let width = inner_rect.width() as i32;
+                let height = inner_rect.height() as i32;
+                if width > 0 && height > 0 {
+                    s.settings.application.window.width = width;
+                    s.settings.application.window.height = height;
+                }
             }
         });
     }
