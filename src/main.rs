@@ -6,6 +6,21 @@ use steel::setup_logging;
 use tokio::sync::mpsc::unbounded_channel;
 
 fn main() {
+    // Disable IME on Linux to avoid odd egui v0.34 behaviour where it reorders ligature sequences
+    // (such as ff: differ -> diferf, etc). This also fixes Cyrillic input (and likely others).
+    // Must be set up before winit is initialized by eframe::run_native.
+
+    // TODO(TicClick): Remove this when it's fixed in the upstream.
+    #[cfg(target_os = "linux")]
+    {
+        // SAFETY: called before any other threads are spawned.
+        unsafe {
+            std::env::set_var("XMODIFIERS", "@im=none");
+            std::env::set_var("GTK_IM_MODULE", "none");
+            std::env::set_var("QT_IM_MODULE", "none");
+        }
+    }
+
     // Save original executable path before any potential fs::rename operations -- it's not guaranteed to be preserved.
     let original_exe_path = std::env::current_exe().ok();
 
