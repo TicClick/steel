@@ -99,7 +99,7 @@ impl ChatView {
                     bottom: 2,
                 }),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 ui.vertical_centered_justified(|ui| {
                     let message_length_exceeded = self.chat_input.len() >= MAX_MESSAGE_LENGTH;
 
@@ -235,7 +235,7 @@ impl ChatView {
                     ),
                 ),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 if self
                     .command_helper
                     .has_applicable_commands(&self.chat_input)
@@ -414,15 +414,15 @@ impl ChatView {
             if let Some(mut state) = egui::TextEdit::load_state(ctx, text_edit_id) {
                 let char_pos = match state.cursor.char_range() {
                     None => 0,
-                    Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index),
+                    Some(cc) => std::cmp::min(cc.primary.index, cc.secondary.index).into(),
                 };
 
                 let mut chars: Vec<char> = self.chat_input.chars().collect();
 
                 // Delete selected text if any
                 if let Some(cc) = state.cursor.char_range() {
-                    let start = std::cmp::min(cc.primary.index, cc.secondary.index);
-                    let end = std::cmp::max(cc.primary.index, cc.secondary.index);
+                    let start: usize = std::cmp::min(cc.primary.index, cc.secondary.index).into();
+                    let end: usize = std::cmp::max(cc.primary.index, cc.secondary.index).into();
                     if start != end {
                         chars.drain(start..end);
                     }

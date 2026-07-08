@@ -33,7 +33,7 @@ impl Menu {
         state: &mut UIState,
         response_widget_id: &mut Option<egui::Id>,
     ) {
-        egui::Panel::top("top_panel").show_inside(ui, |ui| {
+        egui::Panel::top("top_panel").show(ui, |ui| {
             let ctx = &ui.ctx().clone();
             egui::MenuBar::new().ui(ui, |ui| {
                 global_theme_preference_switch(ui);

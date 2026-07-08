@@ -264,7 +264,7 @@ impl ChatFilter {
                     bottom: 4,
                 }),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let is_shift_pressed = ui.input(|i| i.modifiers.shift);
 
                 ui.horizontal_centered(|ui| {
