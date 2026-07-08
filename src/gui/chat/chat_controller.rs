@@ -92,7 +92,7 @@ impl ChatViewController {
                 }
             );
         if auth_required {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 self.cached_token_state = None;
                 self.ensure_token_state_loaded();
                 LoginScreen::new(state, &self.oauth_flow, self.cached_token_state.as_ref()).ui(ui);
@@ -104,7 +104,7 @@ impl ChatViewController {
         match self.views.get(&state.active_chat_tab_name) {
             Some(chat_view) => chat_view.lock().show(ui, state),
             None => {
-                egui::CentralPanel::default().show_inside(ui, |ui| {
+                egui::CentralPanel::default().show(ui, |ui| {
                     if matches!(state.settings.chat.backend, ChatBackend::API) {
                         match state.connection {
                             ConnectionStatus::Disconnected { .. } => {

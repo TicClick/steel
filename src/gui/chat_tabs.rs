@@ -64,7 +64,7 @@ impl ChatTabs {
             side_panel = side_panel.default_size(w);
         }
 
-        let sidebar = side_panel.show_inside(ui, |ui| {
+        let sidebar = side_panel.show(ui, |ui| {
             let mut ch_panel = egui::Panel::top("public-channels-panel")
                 .resizable(true)
                 .show_separator_line(false)
@@ -73,7 +73,7 @@ impl ChatTabs {
                 ch_panel = ch_panel.default_size(h);
             }
 
-            let ch_response = ch_panel.show_inside(ui, |ui| {
+            let ch_response = ch_panel.show(ui, |ui| {
                 ui.heading("public channels");
                 if state.is_connected() {
                     self.show_new_chat_input(state, ui, ChatType::Channel);
@@ -91,7 +91,7 @@ impl ChatTabs {
                 pm_panel = pm_panel.default_size(h);
             }
 
-            let pm_response = pm_panel.show_inside(ui, |ui| {
+            let pm_response = pm_panel.show(ui, |ui| {
                 ui.heading("private messages");
                 if state.is_connected() {
                     self.show_new_chat_input(state, ui, ChatType::Person);
@@ -105,7 +105,7 @@ impl ChatTabs {
                 .resizable(false)
                 .show_separator_line(false)
                 .frame(frame_maker())
-                .show_inside(ui, |ui| {
+                .show(ui, |ui| {
                     ui.heading("system");
                     self.show_chats(state, ui, ChatType::System);
                 });
