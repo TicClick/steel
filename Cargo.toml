@@ -7,10 +7,10 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = { version = "0.34", default-features = false, features = ["glow", "wgpu", "accesskit", "default_fonts", "wayland", "x11"] }
-egui_extras = "0.34"
-ecolor = "0.34"
-egui_dnd = "0.15.0"
+eframe = { version = "0.35", default-features = false, features = ["glow", "wgpu", "accesskit", "default_fonts", "wayland", "x11"] }
+egui_extras = "0.35"
+ecolor = "0.35"
+egui_dnd = "0.16.0"
 
 # Supporting library for rodio's "alsa-sys" dependency: librust-alsa-sys-dev
 # TODO(TicClick): The fork is a workaround for Windows not respecting default audio device change.
@@ -19,23 +19,23 @@ rodio = { git = "https://github.com/TicClick/rodio.git", branch = "master" } # v
 
 # other dependencies
 
-chrono = { version = "0.4.44", features = ["serde"] }
+chrono = { version = "0.4.45", features = ["serde"] }
 irc = "1.1.0"
 irc-proto = "1.1.0"
 futures = "0.3.32"
 serde = "1.0.228"
 serde_yaml = "0.9.34"
-serde_json = "1.0.149"
-tokio = { version = "1.52.2", features = ["rt"] }
+serde_json = "1.0.150"
+tokio = { version = "1.52.3", features = ["rt"] }
 thiserror = "2.0.18"
 simplelog = "0.12.2"
-log = "0.4.29"
+log = "0.4.33"
 log-panics = { version = "2.1.0", features = ["with-backtrace"] }
-time = { version = "0.3.47", features = ["macros"] }
+time = { version = "0.3.53", features = ["macros"] }
 percent-encoding = "2.3.2"
 ureq = { version = "3.3.0", features = ["json", "native-tls"] }
 flate2 = "1.1.9"
-tar = "0.4.45"
+tar = "0.4.46"
 zip = "8.6.0"
 md5 = "0.8.0"
 png = "0.18.1"
@@ -87,9 +87,9 @@ rfd = "0.17"
 png = { workspace = true }
 parking_lot = { workspace = true }
 
-# egui v0.34.0
-puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"], rev = "7e08a533f9debfb7d051547263d2ab84c666314f"}
-puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true, rev = "7e08a533f9debfb7d051547263d2ab84c666314f"}
+# egui v0.35.0
+puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"], rev = "d06bed0fcb8c8e4c78643d4ead7cf1de9b76fd3b"}
+puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true, rev = "d06bed0fcb8c8e4c78643d4ead7cf1de9b76fd3b"}
 
 winresource = { workspace = true }
 serde_json = { workspace = true }
@@ -98,9 +98,9 @@ winit-test = { workspace = true }
 rosu-v2 = { git = "https://github.com/MaxOhn/rosu-v2.git", rev = "8a0cfe6fd649e6dc06545c91a3fcc83ba16d8734", features = ["serialize"] }
 tokio-tungstenite = { version = "0.29.0", features = ["native-tls"] }
 url = "2.5"
-html-escape = "0.2.13"
+html-escape = "0.2.14"
 base64 = "0.22"
-egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-0.34" }
+egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-v035" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
