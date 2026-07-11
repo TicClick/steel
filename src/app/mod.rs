@@ -10,7 +10,7 @@ use steel_core::string_utils::{ChatKey, UsernameString};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use steel_core::chat::irc::IRCError;
-use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message};
+use steel_core::chat::{ChatLike, ChatState, ChatType, ConnectionStatus, Message, MessageSeq};
 
 use crate::core::chat_backend::ChatBackend;
 use crate::core::http::token_storage::{
@@ -119,6 +119,9 @@ impl Application {
                 self.ui_handle_chat_switch_requested(&target, chat_type, id);
             }
             UICommand::ChatFilterRequested => self.ui_request_chat_filter(),
+            UICommand::ChatHistoryRequested(target) => {
+                self.get_backend().load_message_history(&target);
+            }
             UICommand::ChatMessageSent {
                 target,
                 chat_type,
@@ -234,6 +237,12 @@ impl Application {
             ChatEvent::MessageReceived { target, message } => {
                 self.handle_chat_message(&target, message);
             }
+            ChatEvent::MissedMessagesReceived { target, messages } => {
+                self.handle_missed_messages(&target, messages);
+            }
+            ChatEvent::OlderMessagesReceived { target, messages } => {
+                self.handle_older_messages(&target, messages);
+            }
             ChatEvent::ServerMessageReceived { content } => self.handle_server_message(content),
             ChatEvent::ChannelJoined(channel, chat_type) => {
                 self.handle_channel_join(channel, chat_type);
@@ -304,7 +313,7 @@ impl Application {
         &self,
         chat: &str,
         _chat_type: ChatType,
-        message_id: Option<usize>,
+        message_id: Option<MessageSeq>,
     ) {
         self.ui_send_or_log(UIMessageIn::ChatSwitchRequested(
             chat.to_owned(),
@@ -617,6 +626,52 @@ impl Application {
         self.ui_send_or_log(UIMessageIn::NewMessageReceived {
             target: target.to_owned(),
             message,
+        });
+    }
+
+    fn drop_ignored_users(&self, messages: Vec<Message>) -> Vec<Message> {
+        messages
+            .into_iter()
+            .filter(|message| {
+                !self
+                    .state
+                    .settings
+                    .chat
+                    .ignored_users
+                    .iter()
+                    .any(|u| u == message.username.as_str())
+            })
+            .collect()
+    }
+
+    pub fn handle_missed_messages(&mut self, target: &str, messages: Vec<Message>) {
+        let messages = self.drop_ignored_users(messages);
+        if messages.is_empty() {
+            return;
+        }
+
+        if !self.state.chats.contains(target.normalize().as_str()) {
+            self.save_chat(target);
+            self.ui_add_chat(target, false);
+        }
+
+        if let Some(chat_logger) = &self.chat_logger {
+            for message in &messages {
+                chat_logger.log(target, message);
+            }
+        }
+
+        self.ui_send_or_log(UIMessageIn::MissedMessagesReceived {
+            target: target.to_owned(),
+            messages,
+        });
+    }
+
+    pub fn handle_older_messages(&mut self, target: &str, messages: Vec<Message>) {
+        let messages = self.drop_ignored_users(messages);
+        self.ui_send_or_log(UIMessageIn::OlderMessagesReceived {
+            target: target.to_owned(),
+            messages,
         });
     }
 

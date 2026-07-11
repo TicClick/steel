@@ -1,6 +1,7 @@
 use rosu_v2::prelude::Scopes;
 
 pub mod client;
+pub mod messages;
 pub use client::Client;
 
 fn default_scopes() -> Vec<(Scopes, &'static str)> {

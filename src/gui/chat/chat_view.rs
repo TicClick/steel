@@ -1,7 +1,8 @@
 use eframe::egui;
 use egui_extras::{Column, TableBuilder};
-use steel_core::chat::{Chat, ChatLike};
+use steel_core::chat::{Chat, ChatLike, ChatType, MessageSeq};
 use steel_core::settings::chat::ChatPosition;
+use steel_core::settings::ChatBackend;
 
 #[cfg(feature = "puffin")]
 use puffin;
@@ -19,8 +20,13 @@ use crate::gui::command::{self, CommandHelper};
 
 const MAX_MESSAGE_LENGTH: usize = 450;
 
+const HISTORY_REQUEST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
+const CHAT_ROW_SPACING: f32 = 2.;
+
 enum RowMetadata {
     Filler,
+    LoadMore,
     UnreadMarker,
     Message { message_idx: usize },
 }
@@ -28,13 +34,20 @@ enum RowMetadata {
 fn row_metadata_for_index(
     row_idx: usize,
     add_filler_space: bool,
+    load_more_active: bool,
     unread_marker_active: bool,
     prev_unread_pointer: usize,
 ) -> RowMetadata {
     if add_filler_space && row_idx == 0 {
         return RowMetadata::Filler;
     }
-    let content_idx = row_idx - add_filler_space as usize;
+    let mut content_idx = row_idx - add_filler_space as usize;
+    if load_more_active {
+        if content_idx == 0 {
+            return RowMetadata::LoadMore;
+        }
+        content_idx -= 1;
+    }
     if unread_marker_active {
         if content_idx < prev_unread_pointer {
             RowMetadata::Message {
@@ -58,7 +71,7 @@ pub struct ChatView {
     chat_name: String,
     chat_input: String,
     pub response_widget_id: Option<egui::Id>,
-    pub scroll_to: Option<usize>,
+    pub scroll_to: Option<MessageSeq>,
     scroll_to_attempts: u8,
     cached_row_heights: Vec<f32>,
     command_helper: command::CommandHelper,
@@ -66,6 +79,11 @@ pub struct ChatView {
     filter: ChatFilter,
 
     user_context_menu_open: bool,
+    history_request_pending: Option<std::time::Instant>,
+
+    // how many historical messages are prepended -- required so that the scroll area doesn't wobble when they load in show()
+    pending_scroll_adjustment: usize,
+    scroll_area_id: Option<egui::Id>,
 }
 
 impl ChatView {
@@ -80,7 +98,15 @@ impl ChatView {
             command_helper: CommandHelper::default(),
             filter: ChatFilter::new(),
             user_context_menu_open: false,
+            history_request_pending: None,
+            pending_scroll_adjustment: 0,
+            scroll_area_id: None,
         }
+    }
+
+    pub fn history_request_completed(&mut self, prepended_messages: usize) {
+        self.history_request_pending = None;
+        self.pending_scroll_adjustment += prepended_messages;
     }
 
     fn egui_id(&self, prefix: &str) -> String {
@@ -217,8 +243,38 @@ impl ChatView {
             && is_chat_on_display
             && chat.prev_unread_pointer < chat.messages.len();
 
-        let row_count =
-            add_filler_space as usize + chat.messages.len() + unread_marker_active as usize;
+        if let Some(requested_at) = self.history_request_pending {
+            if requested_at.elapsed() > HISTORY_REQUEST_TIMEOUT {
+                self.history_request_pending = None;
+            }
+        }
+        let load_more_active = matches!(state.settings.chat.backend, ChatBackend::API)
+            && state.is_connected()
+            && !matches!(chat.category, ChatType::System);
+
+        let prepended_messages = std::mem::take(&mut self.pending_scroll_adjustment);
+        if prepended_messages > 0 {
+            let first_message_row = (add_filler_space as usize + load_more_active as usize)
+                .min(self.cached_row_heights.len());
+            self.cached_row_heights.splice(
+                first_message_row..first_message_row,
+                std::iter::repeat_n(chat_row_height, prepended_messages),
+            );
+
+            if let Some(scroll_area_id) = self.scroll_area_id {
+                if let Some(mut scroll_state) = egui::scroll_area::State::load(ctx, scroll_area_id)
+                {
+                    scroll_state.offset.y +=
+                        prepended_messages as f32 * (chat_row_height + CHAT_ROW_SPACING);
+                    scroll_state.store(ctx, scroll_area_id);
+                }
+            }
+        }
+
+        let row_count = add_filler_space as usize
+            + load_more_active as usize
+            + chat.messages.len()
+            + unread_marker_active as usize;
 
         self.cached_row_heights.resize(row_count, chat_row_height);
         let heights = self.cached_row_heights.clone();
@@ -257,7 +313,7 @@ impl ChatView {
                 }
 
                 // Chat row spacing, which is by default zero for table rows.
-                ui.spacing_mut().item_spacing.y = 2.;
+                ui.spacing_mut().item_spacing.y = CHAT_ROW_SPACING;
 
                 ui.push_id(&chat_view_id, |ui| {
                     let view_height = ui.available_height();
@@ -267,27 +323,41 @@ impl ChatView {
                         || self.scroll_to.is_some());
                     let mut builder = TableBuilder::new(ui)
                         .stick_to_bottom(should_stick_to_bottom) // Disable scrolling when filter is active or context menu is open
+                        .drag_to_scroll(egui::scroll_area::DragScroll::Always)
                         .max_scroll_height(chat_view_size.y)
                         .column(Column::remainder())
                         .auto_shrink([false; 2]);
 
-                    if let Some(message_id) = self.scroll_to {
-                        let is_message_past_unread_marker =
-                            unread_marker_active && chat.prev_unread_pointer <= message_id;
-                        let adjusted_row_id = <bool as Into<usize>>::into(add_filler_space)
-                            + message_id
-                            + <bool as Into<usize>>::into(is_message_past_unread_marker);
+                    if let Some(seq) = self.scroll_to {
+                        let scroll_index = chat
+                            .index_of(seq)
+                            .or_else(|| (seq == chat.next_seq()).then_some(chat.messages.len()));
+                        match scroll_index {
+                            None => {
+                                // The referenced message is gone (chat cleared?)
+                                self.scroll_to = None;
+                                self.scroll_to_attempts = 0;
+                            }
+                            Some(message_id) => {
+                                let is_message_past_unread_marker =
+                                    unread_marker_active && chat.prev_unread_pointer <= message_id;
+                                let adjusted_row_id = <bool as Into<usize>>::into(add_filler_space)
+                                    + <bool as Into<usize>>::into(load_more_active)
+                                    + message_id
+                                    + <bool as Into<usize>>::into(is_message_past_unread_marker);
 
-                        let should_stick_to_bottom = message_id == chat.messages.len();
-                        builder = builder
-                            .scroll_to_row(adjusted_row_id, Some(egui::Align::Center))
-                            .stick_to_bottom(should_stick_to_bottom);
+                                let should_stick_to_bottom = message_id == chat.messages.len();
+                                builder = builder
+                                    .scroll_to_row(adjusted_row_id, Some(egui::Align::Center))
+                                    .stick_to_bottom(should_stick_to_bottom);
 
-                        // Keep scroll_to active for multiple frames to ensure it takes effect
-                        self.scroll_to_attempts += 1;
-                        if self.scroll_to_attempts >= 3 {
-                            self.scroll_to = None;
-                            self.scroll_to_attempts = 0;
+                                // Keep scroll_to active for multiple frames to ensure it takes effect
+                                self.scroll_to_attempts += 1;
+                                if self.scroll_to_attempts >= 3 {
+                                    self.scroll_to = None;
+                                    self.scroll_to_attempts = 0;
+                                }
+                            }
                         }
                     }
 
@@ -299,6 +369,7 @@ impl ChatView {
 
                     let heights = heights.into_iter();
                     let mut user_context_menu_open = false;
+                    let mut load_more_clicked = false;
                     let scroll_area_output = builder.body(|body| {
                         #[cfg(feature = "puffin")]
                         puffin::profile_scope!("render_table_body");
@@ -314,13 +385,20 @@ impl ChatView {
                                 let mut chat_row_widget = match row_metadata_for_index(
                                     row_idx,
                                     add_filler_space,
+                                    load_more_active,
                                     unread_marker_active,
                                     chat.prev_unread_pointer,
                                 ) {
-                                    RowMetadata::Filler => ChatViewRow::filler(
-                                        chat,
-                                        chat_view_size.x,
-                                        chat_view_size.y - chat_row_height - 4.0,
+                                    RowMetadata::Filler => {
+                                        let mut filler_height =
+                                            chat_view_size.y - chat_row_height - 4.0;
+                                        if load_more_active {
+                                            filler_height -= chat_row_height;
+                                        }
+                                        ChatViewRow::filler(chat, chat_view_size.x, filler_height)
+                                    }
+                                    RowMetadata::LoadMore => ChatViewRow::load_more(
+                                        self.history_request_pending.is_some(),
                                     ),
                                     RowMetadata::UnreadMarker => ChatViewRow::unread_marker(
                                         chat,
@@ -362,7 +440,7 @@ impl ChatView {
                                         }
 
                                         let search_result_color = self.filter.get_highlight_color(
-                                            message_idx,
+                                            chat.seq_of(message_idx),
                                             state.settings.ui.colours(),
                                         );
 
@@ -389,11 +467,20 @@ impl ChatView {
                                 if chat_row_widget.is_user_menu_opened() {
                                     user_context_menu_open = true;
                                 }
+                                if chat_row_widget.is_load_more_clicked() {
+                                    load_more_clicked = true;
+                                }
                             });
                         });
                     });
 
                     self.user_context_menu_open = user_context_menu_open;
+                    self.scroll_area_id = Some(scroll_area_output.id);
+
+                    if load_more_clicked && self.history_request_pending.is_none() {
+                        self.history_request_pending = Some(std::time::Instant::now());
+                        state.core.chat_history_requested(&chat.name);
+                    }
 
                     // Decide if a shadow should be drawn.
                     let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;

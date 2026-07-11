@@ -201,12 +201,8 @@ impl UIState {
             })
     }
 
-    pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
-        let normalized = target.normalize();
-        let is_tab_active =
-            self.is_active_tab(&normalized) || self.is_detached_window_focused(ctx, &normalized);
-        let is_system_message = matches!(message.r#type, MessageType::System);
-
+    #[allow(unused_variables)] // glass
+    fn detect_message_highlights(&self, normalized_chat_name: &str, message: &mut Message) {
         #[allow(unused_mut)] // glass
         let mut current_username = self
             .own_username
@@ -216,7 +212,7 @@ impl UIState {
         #[cfg(feature = "glass")]
         if self
             .glass
-            .is_username_highlight_suppressed(&normalized, &message)
+            .is_username_highlight_suppressed(normalized_chat_name, message)
         {
             current_username = None;
         }
@@ -224,10 +220,19 @@ impl UIState {
         if message.r#type != MessageType::System {
             message.detect_highlights(&self.highlights, current_username);
         }
+    }
+
+    pub fn push_chat_message(&mut self, target: &str, mut message: Message, ctx: &egui::Context) {
+        let normalized = target.normalize();
+        let is_tab_active =
+            self.is_active_tab(&normalized) || self.is_detached_window_focused(ctx, &normalized);
+        let is_system_message = matches!(message.r#type, MessageType::System);
+
+        self.detect_message_highlights(&normalized, &mut message);
 
         let mut should_rename_chat = false;
         if let Some(chat) = self.find_chat_mut(&normalized) {
-            message.id = Some(chat.messages.len());
+            message.id = Some(chat.next_seq());
             if chat.name != target && !is_system_message {
                 chat.name = target.to_string();
                 should_rename_chat = true;
@@ -247,6 +252,89 @@ impl UIState {
                 highlights.push(message, false);
             }
         }
+    }
+
+    pub fn push_missed_messages(
+        &mut self,
+        target: &str,
+        mut messages: Vec<Message>,
+        ctx: &egui::Context,
+    ) {
+        if messages.is_empty() {
+            return;
+        }
+        let normalized = target.normalize();
+        let is_tab_active =
+            self.is_active_tab(&normalized) || self.is_detached_window_focused(ctx, &normalized);
+
+        for message in messages.iter_mut() {
+            self.detect_message_highlights(&normalized, message);
+        }
+
+        let batch_len = messages.len();
+        let mut highlight_copies;
+        let last_inserted;
+        {
+            let Some(chat) = self.find_chat_mut(&normalized) else {
+                return;
+            };
+            let insert_pos = chat.insert_missed_messages(messages);
+            if is_tab_active {
+                chat.mark_as_read();
+            }
+
+            highlight_copies = chat
+                .messages
+                .iter()
+                .skip(insert_pos)
+                .take(batch_len)
+                .filter(|message| message.is_highlight)
+                .cloned()
+                .collect::<Vec<Message>>();
+            last_inserted = chat.messages.get(insert_pos + batch_len - 1).cloned();
+        }
+        for message in highlight_copies.iter_mut() {
+            message.set_original_chat(target);
+        }
+
+        // notify at most once per batch
+        let notification_trigger =
+            highlight_copies
+                .first()
+                .cloned()
+                .or_else(|| match normalized.is_person() {
+                    true => last_inserted,
+                    false => None,
+                });
+        if let Some(message) = notification_trigger {
+            self.maybe_notify(ctx, &message, &normalized);
+        }
+
+        if let Some(highlights_tab) = self.find_chat_mut(HIGHLIGHTS_TAB_NAME) {
+            for message in highlight_copies {
+                highlights_tab.push(message, false);
+            }
+        }
+    }
+
+    pub fn insert_older_messages(&mut self, target: &str, mut messages: Vec<Message>) -> usize {
+        if messages.is_empty() {
+            return 0;
+        }
+        let normalized = target.normalize();
+
+        // only done for display purposes (no double highlighting happens)
+        for message in messages.iter_mut() {
+            self.detect_message_highlights(&normalized, message);
+        }
+
+        let inserted = messages.len();
+        let Some(chat) = self.find_chat_mut(&normalized) else {
+            return 0;
+        };
+        chat.insert_older_messages(messages);
+
+        inserted
     }
 
     pub fn maybe_notify(
@@ -284,9 +372,13 @@ impl UIState {
         }
     }
 
-    pub fn validate_reference(&self, chat_name: &str, message_id: usize) -> bool {
+    pub fn validate_reference(
+        &self,
+        chat_name: &str,
+        message_seq: steel_core::chat::MessageSeq,
+    ) -> bool {
         self.find_chat(chat_name)
-            .is_some_and(|c| c.messages.get(message_id).is_some())
+            .is_some_and(|c| c.message_by_seq(message_seq).is_some())
     }
 
     pub fn remove_chat(&mut self, target: String) {

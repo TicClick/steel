@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use crate::chat::ConnectionStatus;
-use crate::chat::{ChatState, Message};
+use crate::chat::{ChatState, Message, MessageSeq};
 use crate::ipc::server::{ConnectionDetails, SettingsPatch};
 use crate::ipc::updater::UpdateState;
 use crate::settings::Settings;
@@ -21,6 +21,14 @@ pub enum UIMessageIn {
         target: String,
         message: Message,
     },
+    MissedMessagesReceived {
+        target: String,
+        messages: Vec<Message>,
+    },
+    OlderMessagesReceived {
+        target: String,
+        messages: Vec<Message>,
+    },
     NewServerMessageReceived(String),
     NewChatStateReceived {
         target: String,
@@ -31,7 +39,7 @@ pub enum UIMessageIn {
         switch: bool,
     },
     WindowTitleRefreshRequested,
-    ChatSwitchRequested(String, Option<usize>),
+    ChatSwitchRequested(String, Option<MessageSeq>),
     ChatClosed(String),
     ChatCleared(String),
     ChatModeratorAdded(String),

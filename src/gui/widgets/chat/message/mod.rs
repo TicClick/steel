@@ -29,6 +29,10 @@ pub enum ChatViewRow<'chat, 'msg> {
         view_width: f32,
         view_height: f32,
     },
+    LoadMore {
+        request_pending: bool,
+        clicked: Cell<bool>,
+    },
     UnreadMarker {
         chat: &'chat Chat,
         chat_row_height: f32,
@@ -55,6 +59,13 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
             chat,
             view_width,
             view_height,
+        }
+    }
+
+    pub fn load_more(request_pending: bool) -> Self {
+        Self::LoadMore {
+            request_pending,
+            clicked: Cell::new(false),
         }
     }
 
@@ -102,6 +113,13 @@ impl<'chat, 'msg> ChatViewRow<'chat, 'msg> {
             _ => false,
         }
     }
+
+    pub fn is_load_more_clicked(&self) -> bool {
+        match self {
+            ChatViewRow::LoadMore { clicked, .. } => clicked.get(),
+            _ => false,
+        }
+    }
 }
 
 impl Widget for &mut ChatViewRow<'_, '_> {
@@ -121,6 +139,25 @@ impl Widget for &mut ChatViewRow<'_, '_> {
                 },
                 egui::Sense::hover(),
             ),
+
+            ChatViewRow::LoadMore {
+                request_pending,
+                clicked,
+            } => {
+                ui.vertical(|ui| match *request_pending {
+                    true => ui.add(egui::Spinner::new()),
+                    false => {
+                        let button = ui.add(egui::Button::new(
+                            egui::RichText::new("load earlier messages").small(),
+                        ));
+                        if button.clicked() {
+                            clicked.set(true);
+                        }
+                        button
+                    }
+                })
+                .response
+            }
 
             ChatViewRow::UnreadMarker {
                 chat_row_height,
