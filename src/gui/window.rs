@@ -386,6 +386,28 @@ impl ApplicationWindow {
                 ctx.request_repaint();
             }
 
+            UIMessageIn::MissedMessagesReceived { target, messages } => {
+                s.push_missed_messages(&target, messages, ctx);
+
+                let normalized = target.normalize();
+                if s.is_detached(&normalized) {
+                    ctx.request_repaint_of(detached::viewport_id(&normalized));
+                }
+                ctx.request_repaint();
+            }
+
+            UIMessageIn::OlderMessagesReceived { target, messages } => {
+                let normalized = target.normalize();
+                let inserted = s.insert_older_messages(&target, messages);
+                self.chat_view_controller
+                    .history_request_completed(&normalized, inserted);
+
+                if s.is_detached(&normalized) {
+                    ctx.request_repaint_of(detached::viewport_id(&normalized));
+                }
+                ctx.request_repaint();
+            }
+
             UIMessageIn::NewServerMessageReceived(text) => {
                 let message = Message::new_system(&text);
                 s.push_chat_message(SERVER_TAB_NAME, message, ctx);

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use parking_lot::RwLock;
 use rosu_v2::{
-    model::chat::{ChatChannel, ChatChannelId},
+    model::chat::{ChatChannel, ChatChannelId, ChatChannelMessage, ChatMessageId},
     prelude::{Token, User},
     request::UserId,
     Osu,
@@ -24,6 +24,71 @@ use steel_core::string_utils::UsernameString;
 
 const TOKEN_REFRESH_RETRY_SECS: u64 = 5 * 60;
 
+#[derive(Clone, Copy)]
+struct MessageRange {
+    first_ingested: Option<ChatMessageId>,
+    last_seen: ChatMessageId,
+}
+
+#[derive(Clone, Default)]
+pub struct MessageRangeTracker {
+    ranges: Arc<RwLock<HashMap<ChatChannelId, MessageRange>>>,
+}
+
+impl MessageRangeTracker {
+    pub fn observe(&self, channel_id: ChatChannelId, message_id: ChatMessageId) {
+        let mut ranges = self.ranges.write();
+        match ranges.entry(channel_id) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                let range = entry.get_mut();
+                range.first_ingested = Some(
+                    range
+                        .first_ingested
+                        .map_or(message_id, |first| first.min(message_id)),
+                );
+                range.last_seen = range.last_seen.max(message_id);
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(MessageRange {
+                    first_ingested: Some(message_id),
+                    last_seen: message_id,
+                });
+            }
+        }
+    }
+    pub fn anchor(&self, channel_id: ChatChannelId, message_id: ChatMessageId) {
+        self.ranges
+            .write()
+            .entry(channel_id)
+            .or_insert(MessageRange {
+                first_ingested: None,
+                last_seen: message_id,
+            });
+    }
+
+    pub fn first_ingested(&self, channel_id: ChatChannelId) -> Option<ChatMessageId> {
+        self.ranges
+            .read()
+            .get(&channel_id)
+            .and_then(|r| r.first_ingested)
+    }
+
+    pub fn is_seen(&self, channel_id: ChatChannelId, message_id: ChatMessageId) -> bool {
+        self.ranges
+            .read()
+            .get(&channel_id)
+            .is_some_and(|r| message_id <= r.last_seen)
+    }
+
+    pub fn last_seen_ids(&self) -> Vec<(ChatChannelId, ChatMessageId)> {
+        self.ranges
+            .read()
+            .iter()
+            .map(|(channel_id, range)| (*channel_id, range.last_seen))
+            .collect()
+    }
+}
+
 #[derive(Clone)]
 pub struct Client {
     inner: Arc<ClientInner>,
@@ -41,6 +106,8 @@ struct ClientInner {
     channel_cache: RwLock<HashMap<ChatChannelId, ChatChannel>>,
     channel_name_cache: RwLock<HashMap<String, ChatChannelId>>,
 
+    message_ranges: MessageRangeTracker,
+
     shutdown_tx: broadcast::Sender<()>,
 
     own_user_id: RwLock<Option<u32>>,
@@ -52,6 +119,7 @@ impl Client {
         settings: &APISettings,
         output: UnboundedSender<AppMessageIn>,
         tokens: TokenManager,
+        message_ranges: MessageRangeTracker,
     ) -> Result<Self, SteelApplicationError> {
         let state = tokens.snapshot();
         let token = Token::new(
@@ -72,6 +140,7 @@ impl Client {
                 username_cache: RwLock::new(HashMap::new()),
                 channel_cache: RwLock::new(HashMap::new()),
                 channel_name_cache: RwLock::new(HashMap::new()),
+                message_ranges,
                 shutdown_tx,
                 own_user_id: RwLock::new(None),
                 own_username: RwLock::new(None),
@@ -99,6 +168,7 @@ impl Client {
     pub async fn from_stored_token(
         settings: &APISettings,
         output: UnboundedSender<AppMessageIn>,
+        message_ranges: MessageRangeTracker,
     ) -> Result<Self, SteelApplicationError> {
         let stored =
             token_storage::load_token_state().map_err(|_| SteelApplicationError::InvalidOAuth)?;
@@ -140,7 +210,7 @@ impl Client {
             send_progress(&output, "received a new token pair");
         }
 
-        Self::new(settings, output, tokens).await
+        Self::new(settings, output, tokens, message_ranges).await
     }
 
     pub fn get_cached_user(&self, user_id: u32) -> Option<User> {
@@ -397,6 +467,28 @@ impl Client {
 
     pub async fn chat_channels(&self) -> Result<Vec<ChatChannel>, rosu_v2::error::OsuError> {
         self.inner.api.read().await.chat_channels().await
+    }
+
+    pub async fn chat_channel_messages(
+        &self,
+        channel_id: ChatChannelId,
+        since: Option<ChatMessageId>,
+        until: Option<ChatMessageId>,
+        limit: u32,
+    ) -> Result<Vec<ChatChannelMessage>, rosu_v2::error::OsuError> {
+        let api = self.inner.api.read().await;
+        let mut request = api.chat_channel_messages(channel_id).limit(limit);
+        if let Some(since) = since {
+            request = request.since_message_id(since);
+        }
+        if let Some(until) = until {
+            request = request.until_message_id(until);
+        }
+        request.await
+    }
+
+    pub fn message_ranges(&self) -> &MessageRangeTracker {
+        &self.inner.message_ranges
     }
 
     pub async fn chat_keepalive(&self) -> Result<(), rosu_v2::error::OsuError> {

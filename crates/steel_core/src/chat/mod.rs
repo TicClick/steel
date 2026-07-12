@@ -1,7 +1,7 @@
 pub mod irc;
 pub mod links;
 
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::fmt;
 use std::hash::Hash;
 
@@ -9,6 +9,8 @@ use crate::string_utils::{ChatKey, UsernameKey, UsernameString};
 
 use super::DATETIME_FORMAT_WITH_TZ;
 pub use links::MessageChunk;
+
+pub type MessageSeq = i64;
 
 #[derive(Clone, Debug, Hash, PartialEq)]
 pub enum MessageType {
@@ -38,7 +40,7 @@ pub struct Message {
 
     // Chat-oriented metadata, which is only used by UI.
     pub chunks: Option<Vec<MessageChunk>>,
-    pub id: Option<usize>,
+    pub id: Option<MessageSeq>,
     pub is_highlight: bool,
 
     pub original_chat: Option<String>,
@@ -206,9 +208,12 @@ pub enum TabState {
 pub struct Chat {
     pub name: String,
     pub chat_key: ChatKey,
-    pub messages: Box<Vec<Message>>,
+    pub messages: VecDeque<Message>,
     pub state: ChatState,
     pub category: ChatType,
+
+    // First message's identifier (becomes negative when older history is prepended)
+    first_seq: MessageSeq,
 
     pub unread_pointer: usize,
     pub prev_unread_pointer: usize,
@@ -223,13 +228,33 @@ impl Chat {
                 None => name.to_owned(),
             },
             chat_key: ChatKey::new(name),
-            messages: Box::new(Vec::new()),
+            messages: VecDeque::new(),
             state: ChatState::Left,
             category: name.chat_type(),
+            first_seq: 0,
             unread_pointer: 0,
             prev_unread_pointer: 0,
             highlights: Vec::new(),
         }
+    }
+
+    pub fn seq_of(&self, index: usize) -> MessageSeq {
+        self.first_seq + index as MessageSeq
+    }
+
+    pub fn next_seq(&self) -> MessageSeq {
+        self.seq_of(self.messages.len())
+    }
+
+    pub fn index_of(&self, seq: MessageSeq) -> Option<usize> {
+        let index = seq - self.first_seq;
+        (0..self.messages.len() as MessageSeq)
+            .contains(&index)
+            .then_some(index as usize)
+    }
+
+    pub fn message_by_seq(&self, seq: MessageSeq) -> Option<&Message> {
+        self.messages.get(self.index_of(seq)?)
     }
 
     pub fn push(&mut self, msg: Message, is_chat_active: bool) {
@@ -237,7 +262,7 @@ impl Chat {
         let is_highlight = msg.is_highlight;
         let is_system_message = msg.r#type == MessageType::System;
 
-        self.messages.push(msg);
+        self.messages.push_back(msg);
 
         if is_highlight && self.category != ChatType::System {
             self.highlights.push(idx)
@@ -279,8 +304,84 @@ impl Chat {
         self.unread_pointer = self.messages.len();
     }
 
+    pub fn insert_missed_messages(&mut self, messages: Vec<Message>) -> usize {
+        if messages.is_empty() {
+            return self.messages.len();
+        }
+        let batch_start_time = messages[0].time;
+
+        let mut insert_pos = self.messages.len();
+        while insert_pos > 0 {
+            let preceding = &self.messages[insert_pos - 1];
+            if preceding.r#type == MessageType::System && preceding.time > batch_start_time {
+                insert_pos -= 1;
+            } else {
+                break;
+            }
+        }
+
+        let shift = messages.len();
+        let highlight_split = self.highlights.partition_point(|&idx| idx < insert_pos);
+        for highlight_idx in self.highlights[highlight_split..].iter_mut() {
+            *highlight_idx += shift;
+        }
+
+        let mut batch_highlights = Vec::new();
+        for (offset, mut message) in messages.into_iter().enumerate() {
+            let index = insert_pos + offset;
+            message.id = Some(self.first_seq + index as MessageSeq);
+            if message.is_highlight && self.category != ChatType::System {
+                batch_highlights.push(index);
+            }
+            self.messages.insert(index, message);
+        }
+        self.highlights
+            .splice(highlight_split..highlight_split, batch_highlights);
+
+        for index in (insert_pos + shift)..self.messages.len() {
+            self.messages[index].id = Some(self.first_seq + index as MessageSeq);
+        }
+
+        for pointer in [&mut self.unread_pointer, &mut self.prev_unread_pointer] {
+            if *pointer > insert_pos {
+                *pointer = insert_pos;
+            }
+        }
+
+        insert_pos
+    }
+
+    pub fn insert_older_messages(&mut self, mut messages: Vec<Message>) {
+        if messages.is_empty() {
+            return;
+        }
+        let shift = messages.len();
+        self.first_seq -= shift as MessageSeq;
+
+        let mut older_highlights = Vec::new();
+        for (index, message) in messages.iter_mut().enumerate() {
+            message.id = Some(self.first_seq + index as MessageSeq);
+            if message.is_highlight && self.category != ChatType::System {
+                older_highlights.push(index);
+            }
+        }
+
+        for highlight_idx in self.highlights.iter_mut() {
+            *highlight_idx += shift;
+        }
+        self.highlights.splice(0..0, older_highlights);
+
+        for message in messages.into_iter().rev() {
+            self.messages.push_front(message);
+        }
+        self.unread_pointer += shift;
+        self.prev_unread_pointer += shift;
+    }
+
     pub fn clear(&mut self) {
+        self.first_seq = self.next_seq();
         self.unread_pointer = 0;
+        self.prev_unread_pointer = 0;
         self.messages.clear();
         self.highlights.clear();
     }

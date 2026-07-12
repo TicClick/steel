@@ -11,7 +11,9 @@ use tokio::{
 use crate::{
     actor::Actor,
     core::http::{
-        api::Client, websocket::client::websocket_thread_main, APISettings, HTTPMessageIn,
+        api::{client::MessageRangeTracker, messages::fetch_older_messages, Client},
+        websocket::client::websocket_thread_main,
+        APISettings, HTTPMessageIn,
     },
 };
 
@@ -20,6 +22,8 @@ pub struct HTTPActor {
     output: UnboundedSender<AppMessageIn>,
 
     client: Option<Client>,
+
+    message_ranges: MessageRangeTracker,
 
     runtime: Runtime,
 }
@@ -34,6 +38,7 @@ impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
             input,
             output,
             client: None,
+            message_ranges: MessageRangeTracker::default(),
             runtime,
         }
     }
@@ -54,6 +59,9 @@ impl Actor<HTTPMessageIn, AppMessageIn> for HTTPActor {
             }
             HTTPMessageIn::LeaveChannel(channel) => {
                 self.leave_channel(channel);
+            }
+            HTTPMessageIn::LoadMessageHistory(channel) => {
+                self.load_message_history(channel);
             }
             HTTPMessageIn::SendMessage {
                 r#type,
@@ -136,10 +144,11 @@ impl HTTPActor {
 
         let tx = self.output.clone();
 
-        let client = match self
-            .runtime
-            .block_on(Client::from_stored_token(&settings, self.output.clone()))
-        {
+        let client = match self.runtime.block_on(Client::from_stored_token(
+            &settings,
+            self.output.clone(),
+            self.message_ranges.clone(),
+        )) {
             Ok(c) => c,
             Err(e) => {
                 log::warn!("Failed to restore token: {e}");
@@ -342,6 +351,35 @@ impl HTTPActor {
             if let Err(e) = client.chat_leave_channel(channel.channel_id, user_id).await {
                 Self::push_error_to_ui(&tx, &format!("Failed to leave channel: {e}"), false);
             }
+        });
+    }
+
+    fn load_message_history(&mut self, channel_name: String) {
+        // reset the pending state of the "load more" button by sending an empty batch
+        let send_empty_batch = |output: &UnboundedSender<AppMessageIn>| {
+            output
+                .send(AppMessageIn::older_messages_received(
+                    channel_name.clone(),
+                    Vec::new(),
+                ))
+                .unwrap_or_else(|e| log::error!("Failed to send older messages: {e}"));
+        };
+
+        let Some(client) = self.client.clone() else {
+            log::warn!("Cannot load message history of {channel_name}: not connected");
+            send_empty_batch(&self.output);
+            return;
+        };
+
+        let Some(channel) = client.get_cached_channel_by_name(&channel_name) else {
+            log::warn!("Cannot load message history of {channel_name}: channel not found by name");
+            send_empty_batch(&self.output);
+            return;
+        };
+
+        let tx = self.output.clone();
+        self.runtime.block_on(async move {
+            fetch_older_messages(&tx, &client, channel_name, channel.channel_id).await;
         });
     }
 }

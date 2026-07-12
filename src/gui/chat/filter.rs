@@ -1,5 +1,5 @@
 use eframe::egui;
-use steel_core::chat::{Chat, MessageType};
+use steel_core::chat::{Chat, MessageSeq, MessageType};
 use steel_core::settings::ui::ChatColours;
 use steel_core::string_utils::UsernameString;
 
@@ -18,7 +18,7 @@ const SEARCH_BUTTON_HINT: &str = "Enter or Ctrl+F: Next result\n\
 
 enum FilterAction {
     Search,
-    NavigateToResult(usize),
+    NavigateToResult(MessageSeq),
 }
 
 #[derive(Default)]
@@ -27,7 +27,7 @@ pub struct ChatFilter {
     pub user_filter_input: String,
     pub message_filter_input: String,
 
-    cached_search_results: Vec<usize>,
+    cached_search_results: Vec<MessageSeq>,
     current_search_index: usize,
     last_search_query: (String, String), // (user_filter, message_filter)
     search_performed: bool,
@@ -50,20 +50,20 @@ impl ChatFilter {
         !self.cached_search_results.is_empty()
     }
 
-    pub fn get_current_result_index(&self) -> Option<usize> {
+    pub fn get_current_result_index(&self) -> Option<MessageSeq> {
         self.cached_search_results
             .get(self.current_search_index)
             .copied()
     }
 
-    pub fn is_message_highlighted(&self, message_idx: usize) -> Option<bool> {
-        if !self.should_show_filter || !self.cached_search_results.contains(&message_idx) {
+    pub fn is_message_highlighted(&self, message_seq: MessageSeq) -> Option<bool> {
+        if !self.should_show_filter || !self.cached_search_results.contains(&message_seq) {
             return None;
         }
 
         let is_current_result =
-            if let Some(&current_idx) = self.cached_search_results.get(self.current_search_index) {
-                current_idx == message_idx
+            if let Some(&current_seq) = self.cached_search_results.get(self.current_search_index) {
+                current_seq == message_seq
             } else {
                 false
             };
@@ -73,10 +73,10 @@ impl ChatFilter {
 
     pub fn get_highlight_color(
         &self,
-        message_idx: usize,
+        message_seq: MessageSeq,
         colours: &ChatColours,
     ) -> Option<egui::Color32> {
-        match self.is_message_highlighted(message_idx) {
+        match self.is_message_highlighted(message_seq) {
             Some(true) => Some(colours.search_result_current.clone().into()),
             Some(false) => Some(colours.search_result_other.clone().into()),
             None => None,
@@ -112,13 +112,13 @@ impl ChatFilter {
                         .contains(&self.message_filter_input);
 
                 if username_matches && message_matches {
-                    self.cached_search_results.push(idx);
+                    self.cached_search_results.push(chat.seq_of(idx));
                 }
             }
         }
     }
 
-    fn navigate_to_next_result(&mut self) -> Option<usize> {
+    fn navigate_to_next_result(&mut self) -> Option<MessageSeq> {
         if !self.cached_search_results.is_empty() {
             self.current_search_index =
                 (self.current_search_index + 1) % self.cached_search_results.len();
@@ -130,7 +130,7 @@ impl ChatFilter {
         }
     }
 
-    fn navigate_to_prev_result(&mut self) -> Option<usize> {
+    fn navigate_to_prev_result(&mut self) -> Option<MessageSeq> {
         if !self.cached_search_results.is_empty() {
             self.current_search_index =
                 (self.cached_search_results.len() + self.current_search_index - 1)
@@ -150,7 +150,7 @@ impl ChatFilter {
         self.search_performed = false;
     }
 
-    pub fn perform_search(&mut self, chat: &Chat) -> Option<usize> {
+    pub fn perform_search(&mut self, chat: &Chat) -> Option<MessageSeq> {
         self.search_messages(chat);
         self.search_performed = true;
         if !self.cached_search_results.is_empty() {
@@ -196,7 +196,7 @@ impl ChatFilter {
         }
     }
 
-    pub fn handle_input(&mut self, ctx: &egui::Context) -> (bool, Option<usize>) {
+    pub fn handle_input(&mut self, ctx: &egui::Context) -> (bool, Option<MessageSeq>) {
         let mut activated_now = false;
         let mut scroll_to = None;
 
@@ -239,7 +239,7 @@ impl ChatFilter {
         _state: &UIState,
         chat: &Chat,
         activated_now: bool,
-    ) -> Option<usize> {
+    ) -> Option<MessageSeq> {
         if !self.should_show_filter {
             return None;
         }

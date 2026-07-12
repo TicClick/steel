@@ -1,7 +1,7 @@
 use eframe::egui::{self, Widget};
 use parking_lot::Mutex;
 use steel_core::{
-    chat::ConnectionStatus,
+    chat::{ConnectionStatus, MessageSeq},
     settings::{chat::ChatPosition, ChatBackend},
     string_utils::UsernameString,
 };
@@ -33,12 +33,25 @@ impl ChatViewController {
         }
     }
 
-    pub fn scroll_chat_to(&mut self, state: &UIState, lowercase_name: &str, message_id: usize) {
+    pub fn scroll_chat_to(
+        &mut self,
+        state: &UIState,
+        lowercase_name: &str,
+        message_seq: MessageSeq,
+    ) {
         if let Some(chat_view) = self.views.get(lowercase_name) {
             chat_view.lock().scroll_to = match state.settings.chat.behaviour.chat_position {
-                ChatPosition::Bottom => Some(message_id + 1),
-                ChatPosition::Top => Some(message_id),
+                ChatPosition::Bottom => Some(message_seq + 1),
+                ChatPosition::Top => Some(message_seq),
             };
+        }
+    }
+
+    pub fn history_request_completed(&mut self, lowercase_name: &str, prepended_messages: usize) {
+        if let Some(chat_view) = self.views.get(lowercase_name) {
+            chat_view
+                .lock()
+                .history_request_completed(prepended_messages);
         }
     }
 

@@ -51,6 +51,7 @@ pub enum HTTPMessageIn {
     Disconnect,
     JoinChannel(String),
     LeaveChannel(String),
+    LoadMessageHistory(String),
     SendMessage {
         r#type: MessageType,
         destination: String,
@@ -109,6 +110,10 @@ impl ChatBackend for HTTPActorHandle {
 
     fn leave_channel(&self, channel: &str) {
         self.leave_channel(channel);
+    }
+
+    fn load_message_history(&self, channel: &str) {
+        self.send_or_log(HTTPMessageIn::LoadMessageHistory(channel.to_owned()));
     }
 }
 

@@ -1,9 +1,11 @@
 use std::fmt;
 
+use steel_core::chat::MessageSeq;
+
 #[derive(Debug)]
 pub enum GuiError {
     MessageNotFound {
-        message_id: usize,
+        message_id: MessageSeq,
         chat_name: String,
     },
     ChatNotFound {
@@ -30,7 +32,7 @@ impl fmt::Display for GuiError {
 impl std::error::Error for GuiError {}
 
 impl GuiError {
-    pub fn message_not_found(message_id: usize, chat_name: impl Into<String>) -> Self {
+    pub fn message_not_found(message_id: MessageSeq, chat_name: impl Into<String>) -> Self {
         Self::MessageNotFound {
             message_id,
             chat_name: chat_name.into(),

@@ -1,8 +1,8 @@
 use futures::{SinkExt, StreamExt};
-use rosu_v2::model::chat::{ChannelMessageType, ChannelType};
+use rosu_v2::model::chat::ChannelType;
 
 use steel_core::{
-    chat::{ChatType, ConnectionStatus, MessageType},
+    chat::{ChatType, ConnectionStatus},
     ipc::server::{AppMessageIn, ConnectionDetails},
 };
 use tokio::sync::mpsc::UnboundedSender;
@@ -12,7 +12,10 @@ use tokio_tungstenite::{
 };
 
 use crate::core::http::{
-    api::Client,
+    api::{
+        messages::{backfill_missed_messages, convert_message, register_user, resolve_username},
+        Client,
+    },
     send_progress,
     websocket::{ChatMessageNewData, EventType, GeneralWebsocketEvent},
     APISettings,
@@ -58,6 +61,11 @@ async fn fetch_initial_data(
             log::info!("Fetched {} existing channels", channels.len());
             for channel in channels.iter() {
                 client.insert_channel(channel);
+                if let Some(last_message_id) = channel.last_message_id {
+                    client
+                        .message_ranges()
+                        .anchor(channel.channel_id, last_message_id);
+                }
             }
 
             for channel in channels {
@@ -162,6 +170,8 @@ pub(super) async fn run_session(
                                         log::error!("Failed to send initial keepalive: {e}")
                                     }
 
+                                    backfill_missed_messages(tx, client).await;
+
                                     let chat_start = serde_json::to_string(&GeneralWebsocketEvent::new(
                                         EventType::ChatStart,
                                     ))
@@ -236,26 +246,21 @@ async fn handle_text_message(
                 match serde_json::from_value::<ChatMessageNewData>(data) {
                     Ok(chat_update) => {
                         for user in chat_update.users.iter() {
-                            client.insert_user(user);
-
-                            let is_privileged =
-                                matches!(user.default_group.as_str(), "gmt" | "nat" | "dev");
-
-                            if is_privileged {
-                                tx.send(AppMessageIn::moderator_added(
-                                    user.username.clone().into_string(),
-                                ))
-                                .unwrap_or_else(|e| log::error!("Failed to send moderator: {e}"));
-                            }
+                            register_user(client, tx, user);
                         }
 
                         for message in chat_update.messages {
-                            let username = chat_update
-                                .users
-                                .iter()
-                                .find(|u| u.user_id == message.sender_id)
-                                .map(|u| u.username.clone().into_string())
-                                .unwrap_or(format!("(id={})", message.sender_id));
+                            if client
+                                .message_ranges()
+                                .is_seen(message.channel_id, message.message_id)
+                            {
+                                continue;
+                            }
+                            client
+                                .message_ranges()
+                                .observe(message.channel_id, message.message_id);
+
+                            let username = resolve_username(client, &message);
 
                             let target = match client.get_or_fetch_channel(message.channel_id).await
                             {
@@ -270,26 +275,7 @@ async fn handle_text_message(
                                 }
                             };
 
-                            let timestamp = chrono::DateTime::from_timestamp(
-                                message.timestamp.unix_timestamp(),
-                                message.timestamp.nanosecond(),
-                            )
-                            .unwrap_or_else(chrono::Utc::now)
-                            .with_timezone(&chrono::Local);
-
-                            let message_type = match message.is_action
-                                || matches!(message.message_type, ChannelMessageType::Action)
-                            {
-                                true => MessageType::Action,
-                                false => MessageType::Text,
-                            };
-
-                            let msg = steel_core::chat::Message::new(
-                                &username,
-                                &message.content,
-                                message_type,
-                            )
-                            .with_time(timestamp);
+                            let msg = convert_message(&message, &username);
 
                             tx.send(AppMessageIn::chat_message_received(target, msg))
                                 .unwrap_or_else(|e| log::error!("Failed to send message: {e}"));

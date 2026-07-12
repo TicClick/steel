@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use tokio::sync::mpsc::UnboundedSender;
 
-use crate::chat::ChatType;
+use crate::chat::{ChatType, MessageSeq};
 use crate::ipc::error::{IpcError, IpcResult};
 use crate::ipc::server::AppMessageIn;
 use crate::ipc::server::SettingsPatch;
@@ -133,7 +133,7 @@ impl CoreClient {
         &self,
         target: &str,
         chat_type: ChatType,
-        message_id: Option<usize>,
+        message_id: Option<MessageSeq>,
     ) {
         self.send_or_log(AppMessageIn::UI(UICommand::ChatSwitchRequested(
             target.to_owned(),
@@ -144,6 +144,12 @@ impl CoreClient {
 
     pub fn chat_filter_requested(&self) {
         self.send_or_log(AppMessageIn::UI(UICommand::ChatFilterRequested));
+    }
+
+    pub fn chat_history_requested(&self, target: &str) {
+        self.send_or_log(AppMessageIn::UI(UICommand::ChatHistoryRequested(
+            target.to_owned(),
+        )));
     }
 
     pub fn open_chat_log(&self, target: &str) {

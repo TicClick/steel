@@ -2,7 +2,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use crate::chat::irc::IRCError;
-use crate::chat::{ChatType, ConnectionStatus, Message};
+use crate::chat::{ChatType, ConnectionStatus, Message, MessageSeq};
 use crate::ipc::updater::UpdateState;
 use crate::settings::application::AutoUpdate;
 use crate::settings::Settings;
@@ -24,8 +24,9 @@ pub enum UICommand {
     ChatOpened(String, ChatType),
     ChatClosed(String, ChatType),
     ChatCleared(String, ChatType),
-    ChatSwitchRequested(String, ChatType, Option<usize>),
+    ChatSwitchRequested(String, ChatType, Option<MessageSeq>),
     ChatFilterRequested,
+    ChatHistoryRequested(String),
     ChatMessageSent {
         target: String,
         chat_type: ChatType,
@@ -84,8 +85,21 @@ pub enum ChatEvent {
     ConnectionProgress(String),
     ConnectionActivity,
     Error(IRCError),
-    MessageReceived { target: String, message: Message },
-    ServerMessageReceived { content: String },
+    MessageReceived {
+        target: String,
+        message: Message,
+    },
+    MissedMessagesReceived {
+        target: String,
+        messages: Vec<Message>,
+    },
+    OlderMessagesReceived {
+        target: String,
+        messages: Vec<Message>,
+    },
+    ServerMessageReceived {
+        content: String,
+    },
     ChannelJoined(String, ChatType),
     ModeratorAdded(String),
     OwnUsernameDetected(String),
@@ -144,6 +158,14 @@ impl AppMessageIn {
 
     pub fn chat_message_received(target: String, message: Message) -> Self {
         Self::Chat(ChatEvent::MessageReceived { target, message })
+    }
+
+    pub fn missed_messages_received(target: String, messages: Vec<Message>) -> Self {
+        Self::Chat(ChatEvent::MissedMessagesReceived { target, messages })
+    }
+
+    pub fn older_messages_received(target: String, messages: Vec<Message>) -> Self {
+        Self::Chat(ChatEvent::OlderMessagesReceived { target, messages })
     }
 
     pub fn server_message_received(content: String) -> Self {

@@ -7,4 +7,5 @@ pub trait ChatBackend {
     fn send_action(&self, destination: &str, chat_type: ChatType, action: &str);
     fn join_channel(&self, channel: &str);
     fn leave_channel(&self, channel: &str);
+    fn load_message_history(&self, _channel: &str) {}
 }
