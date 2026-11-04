@@ -1,6 +1,31 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+pub fn app_bundle_path() -> Option<&'static Path> {
+    static BUNDLE: OnceLock<Option<PathBuf>> = OnceLock::new();
+    BUNDLE
+        .get_or_init(|| {
+            if !cfg!(target_os = "macos") {
+                return None;
+            }
+            let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
+            find_app_bundle(&exe)
+        })
+        .as_deref()
+}
+
+fn find_app_bundle(exe: &Path) -> Option<PathBuf> {
+    let macos = exe.parent()?;
+    let contents = macos.parent()?;
+    let bundle = contents.parent()?;
+    let is_bundle = macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app";
+    is_bundle.then(|| bundle.to_path_buf())
+}
 
 #[derive(Debug)]
 pub enum ArchiveType {
