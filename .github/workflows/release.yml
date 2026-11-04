@@ -45,6 +45,18 @@ jobs:
           token: ${{ secrets.GH_TOKEN }}
           target: ${{ matrix.target }}
 
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: packaging/macos/package.sh ${{ matrix.target }}
+
+      - name: Upload (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: gh release upload ${{ github.ref_name }} steel-macos-*
+
   upload-private-assets:
     strategy:
       matrix:
@@ -78,6 +90,11 @@ jobs:
           features: glass
           target: ${{ matrix.target }}
 
+      - name: Package (macOS, private)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: packaging/macos/package.sh ${{ matrix.target }}
+
       - name: Install uv
         uses: astral-sh/setup-uv@v7
 
@@ -88,14 +105,16 @@ jobs:
           SFTP_REMOTE_DIR: .
         run: |
           cd .github/asset-pusher
-          uv run asset-pusher sftp \
-              --host '${{ secrets.SFTP_HOST }}' \
-              --port ${{ secrets.SFTP_PORT }} \
-              --user '${{ secrets.SFTP_USER }}' \
-              --password '${{ secrets.SFTP_PASSWORD }}' \
-              --remote-dir '${{ env.SFTP_REMOTE_DIR }}' \
-              --filename $( ls ../../steel-* ) \
-              --tag ${{ github.ref_name }} \
-              --releases ${{ secrets.RELEASES_METADATA_GIST }} \
-              --uploads ${{ secrets.UPLOADS_METADATA_GIST }} \
-              --http-base-url ${{ secrets.SFTP_HTTP_BASE_URL }}
+          for filename in ../../steel-*; do
+            uv run asset-pusher sftp \
+                --host '${{ secrets.SFTP_HOST }}' \
+                --port ${{ secrets.SFTP_PORT }} \
+                --user '${{ secrets.SFTP_USER }}' \
+                --password '${{ secrets.SFTP_PASSWORD }}' \
+                --remote-dir '${{ env.SFTP_REMOTE_DIR }}' \
+                --filename "$filename" \
+                --tag ${{ github.ref_name }} \
+                --releases ${{ secrets.RELEASES_METADATA_GIST }} \
+                --uploads ${{ secrets.UPLOADS_METADATA_GIST }} \
+                --http-base-url ${{ secrets.SFTP_HTTP_BASE_URL }}
+          done

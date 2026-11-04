@@ -13,7 +13,12 @@
 
 ## where?
 
-[download the latest version](https://github.com/TicClick/steel/releases/latest) and extract it into a separate folder. enable automatic updates for better experience.
+[download the latest version](https://github.com/TicClick/steel/releases/latest) and extract it into a separate folder if you're running **Windows/Linux**. enable automatic updates for better experience.
+
+on **macOS** the app is not signed by Apple, so macOS will block the first launch:
+
+- open `System Settings` > `Privacy & Security` and click `Open Anyway`
+- alternatively, run `xattr -dr com.apple.quarantine /Applications/steel.app` in the terminal.
 
 ## dependencies
 
@@ -40,7 +45,7 @@ libc.so.6 # v2.39+
 
 ### is it cross-platform?
 
-yes, with Windows/Linux/MacOS support.
+yes, with Windows/Linux/macOS support.
 
 ### is it malware? my antivirus says so
 
