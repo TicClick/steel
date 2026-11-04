@@ -17,6 +17,12 @@ pub fn app_bundle_path() -> Option<&'static Path> {
         .as_deref()
 }
 
+pub const APP_ARCHIVE_SUFFIX: &str = ".app.tar.gz";
+
+pub fn app_archive_name() -> String {
+    format!("steel-macos-{}{APP_ARCHIVE_SUFFIX}", std::env::consts::ARCH)
+}
+
 fn find_app_bundle(exe: &Path) -> Option<PathBuf> {
     let macos = exe.parent()?;
     let contents = macos.parent()?;
@@ -31,6 +37,7 @@ fn find_app_bundle(exe: &Path) -> Option<PathBuf> {
 pub enum ArchiveType {
     Zip,
     TarGZip,
+    AppBundle,
     Unknown(String),
 }
 
@@ -43,6 +50,9 @@ pub struct ReleaseAsset {
 
 impl ReleaseAsset {
     pub fn archive_type(&self) -> ArchiveType {
+        if self.name.ends_with(APP_ARCHIVE_SUFFIX) {
+            return ArchiveType::AppBundle;
+        }
         let path = std::path::Path::new(&self.browser_download_url);
         match path.extension() {
             None => ArchiveType::Unknown("".into()),
@@ -83,6 +93,16 @@ pub struct FileMetadataGist {
 
 impl ReleaseMetadataGitHub {
     pub fn platform_specific_asset(&self) -> Option<&ReleaseAsset> {
+        if cfg!(target_os = "macos") {
+            let name = app_archive_name();
+            if let Some(asset) = self.assets.iter().find(|a| a.name == name) {
+                return Some(asset);
+            }
+            if app_bundle_path().is_some() {
+                return None;
+            }
+        }
+
         let os_marker = if cfg!(target_os = "windows") {
             "-windows"
         } else if cfg!(target_os = "macos") {

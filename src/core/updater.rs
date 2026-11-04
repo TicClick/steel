@@ -240,6 +240,8 @@ impl UpdaterBackend {
     }
 
     fn run(&mut self) {
+        #[cfg(target_os = "macos")]
+        crate::core::bundle::cleanup_after_update();
         std::thread::spawn(crate::core::os::cleanup_after_update);
         if self.autoupdate {
             self.self_channel
@@ -412,6 +414,14 @@ impl UpdaterBackend {
         let state = self.state.lock().unwrap().clone().state;
         if let State::MetadataReady(m) = state {
             if let Some(a) = m.platform_specific_asset() {
+                #[cfg(target_os = "macos")]
+                if let ArchiveType::AppBundle = a.archive_type() {
+                    if let Err(e) = crate::core::bundle::install_target() {
+                        set_state(&self.state, e.into(), &self.core);
+                        return;
+                    }
+                }
+
                 log::debug!(
                     "updater: fetching the new release from {}",
                     a.browser_download_url
@@ -445,10 +455,19 @@ impl UpdaterBackend {
         archive_type: ArchiveType,
     ) -> Result<(), std::io::Error> {
         log::info!("updater: archive type determined as {archive_type:?}");
-        if let ArchiveType::Unknown(ext) = archive_type {
-            return Err(io::Error::other(format!(
-                "unknown archive extension {ext} -- you might be able to deal with it yourself"
-            )));
+        match &archive_type {
+            ArchiveType::Unknown(ext) => {
+                return Err(io::Error::other(format!(
+                    "unknown archive extension {ext} -- you might be able to deal with it yourself"
+                )));
+            }
+            ArchiveType::AppBundle => {
+                #[cfg(target_os = "macos")]
+                return crate::core::bundle::install(data);
+                #[cfg(not(target_os = "macos"))]
+                return Err(io::Error::other("app bundles are only supported on macOS"));
+            }
+            ArchiveType::TarGZip | ArchiveType::Zip => {}
         }
 
         let target = std::env::current_exe()?;
@@ -465,7 +484,7 @@ impl UpdaterBackend {
             let extraction_result = match archive_type {
                 ArchiveType::TarGZip => self.extract_gzip(reader, &target),
                 ArchiveType::Zip => self.extract_zip(reader, &target),
-                ArchiveType::Unknown(_) => Ok(()), // handled above already
+                ArchiveType::AppBundle | ArchiveType::Unknown(_) => Ok(()), // handled above already
             };
             if extraction_result.is_err() {
                 log::error!("{extraction_result:?}");

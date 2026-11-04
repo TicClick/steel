@@ -96,6 +96,16 @@ pub fn cleanup_after_update() {
 }
 
 pub fn restart(executable_path: Option<PathBuf>) -> std::io::Result<()> {
+    #[cfg(target_os = "macos")]
+    if let Some(bundle) = crate::core::bundle::relaunch_target(executable_path.as_deref())? {
+        log::debug!("restart: going to launch {bundle:?} and then exit");
+        std::process::Command::new("open")
+            .arg("-n")
+            .arg(&bundle)
+            .spawn()?;
+        std::process::exit(0);
+    }
+
     let exe_path = executable_path
         .or(std::env::current_exe().ok())
         .ok_or_else(|| {
@@ -112,10 +122,14 @@ pub fn restart(executable_path: Option<PathBuf>) -> std::io::Result<()> {
     std::process::exit(0);
 }
 
+pub fn home_dir() -> std::io::Result<PathBuf> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "HOME is not set"))
+}
+
 pub fn app_support_dir() -> std::io::Result<PathBuf> {
-    let home = std::env::var_os("HOME")
-        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "HOME is not set"))?;
-    Ok(PathBuf::from(home).join("Library/Application Support/steel"))
+    Ok(home_dir()?.join("Library/Application Support/steel"))
 }
 
 pub fn data_dir() -> std::io::Result<PathBuf> {
