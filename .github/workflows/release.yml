@@ -12,7 +12,7 @@ jobs:
   create-release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: taiki-e/create-gh-release-action@v1.8.0
         with:
           token: ${{ secrets.GH_TOKEN }}
@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: create-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           target: ${{ matrix.target }}
@@ -74,7 +74,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: create-release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
         with:
           target: ${{ matrix.target }}
