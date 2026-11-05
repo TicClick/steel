@@ -94,6 +94,7 @@ impl ChatColours {
 pub struct UI {
     pub scaling: f32,
     pub theme: ThemeMode,
+    pub follow_system_theme: bool,
     pub light_colours: ChatColours,
     pub dark_colours: ChatColours,
     #[serde(default = "default_highlight_bg_opacity")]
@@ -108,6 +109,7 @@ impl Default for UI {
     fn default() -> Self {
         Self {
             theme: ThemeMode::Dark,
+            follow_system_theme: false,
             scaling: 1.0,
             light_colours: ChatColours::light(),
             dark_colours: ChatColours::dark(),

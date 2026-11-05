@@ -1,4 +1,4 @@
-use eframe::egui::{self, Color32, RichText, Theme, Ui};
+use eframe::egui::{Color32, RichText, Ui};
 
 use steel_core::TextStyle;
 
@@ -60,20 +60,6 @@ impl DecoratedText for String {
 impl DecoratedText for &str {
     fn with_styles(self, decorations: Option<&Vec<TextStyle>>) -> RichText {
         RichText::new(self).with_styles(decorations)
-    }
-}
-
-pub fn theme_toggle_button(ui: &mut Ui) {
-    let (icon, hint, new_theme) = match ui.ctx().theme() {
-        Theme::Dark => ("☀️", "Switch to light mode", Theme::Light),
-        Theme::Light => ("🌙", "Switch to dark mode", Theme::Dark),
-    };
-    if ui
-        .add(egui::Button::new(icon).frame(false))
-        .on_hover_text(hint)
-        .clicked()
-    {
-        ui.ctx().set_theme(new_theme);
     }
 }
 

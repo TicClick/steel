@@ -50,7 +50,7 @@ impl UsageWindow {
                     "most of the UI elements are self-explanatory -- hover over menu items, buttons, \
                     input fields, and other controls to see what they do. example: "
                 );
-                crate::gui::theme_toggle_button(ui);
+                egui::global_theme_preference_buttons(ui);
             });
 
             ui.label(

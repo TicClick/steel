@@ -1,7 +1,9 @@
 use eframe::egui;
 
 use crate::{core::settings::ui::ThemeMode, LOG_FILE_NAME};
-use steel_core::{chat::ConnectionStatus, settings::SETTINGS_FILE_NAME};
+use steel_core::{
+    chat::ConnectionStatus, ipc::server::SettingsPatch, settings::SETTINGS_FILE_NAME,
+};
 
 use crate::gui::state::UIState;
 
@@ -18,6 +20,50 @@ fn submenu_style(style: &mut egui::Style) {
     style.spacing.button_padding.x = 6.0;
     style.spacing.item_spacing.y = 0.0;
     style.spacing.menu_margin = egui::Margin::same(2);
+}
+
+fn show_theme_menu(ui: &mut egui::Ui, ctx: &egui::Context) {
+    let mut theme_preference = ctx.options(|o| o.theme_preference);
+    let previous_preference = theme_preference;
+    ui.menu_button(theme_preference.icon(), |ui| {
+        ui.spacing_mut().item_spacing.y = 3.0;
+        for preference in [
+            egui::ThemePreference::System,
+            egui::ThemePreference::Dark,
+            egui::ThemePreference::Light,
+        ] {
+            ui.selectable_value(&mut theme_preference, preference, preference.icon())
+                .on_hover_text(preference.name());
+        }
+    })
+    .response
+    .on_hover_text("theme");
+    if theme_preference != previous_preference {
+        ctx.set_theme(theme_preference);
+    }
+}
+
+fn sync_theme(ctx: &egui::Context, state: &mut UIState) {
+    let theme = match ctx.theme() {
+        egui::Theme::Dark => ThemeMode::Dark,
+        egui::Theme::Light => ThemeMode::Light,
+    };
+    let follow_system_theme = ctx.options(|o| o.theme_preference) == egui::ThemePreference::System;
+
+    let ui_settings = &state.settings.ui;
+    let preference_changed = follow_system_theme != ui_settings.follow_system_theme
+        || (!follow_system_theme && theme != ui_settings.theme);
+    if preference_changed {
+        state.core.settings_patched(SettingsPatch::ThemeChanged {
+            theme: theme.clone(),
+            follow_system_theme,
+        });
+    }
+    if preference_changed || theme != ui_settings.theme {
+        state.settings.ui.theme = theme;
+        state.settings.ui.follow_system_theme = follow_system_theme;
+        state.repaint_detached_windows(ctx);
+    }
 }
 
 #[derive(Default)]
@@ -52,19 +98,11 @@ impl Menu {
                 .style(menu_bar_style)
                 .config(egui::containers::menu::MenuConfig::new().style(submenu_style));
             menu_bar.ui(ui, |ui| {
-                crate::gui::theme_toggle_button(ui);
-                let new_theme = match ui.ctx().theme() {
-                    egui::Theme::Dark => ThemeMode::Dark,
-                    egui::Theme::Light => ThemeMode::Light,
-                };
-                if new_theme != state.settings.ui.theme {
-                    state.settings.ui.theme = new_theme;
-                    state.repaint_detached_windows(ctx);
-                }
-
+                show_theme_menu(ui, ctx);
                 self.show_application_menu(ui, ctx, frame, state);
                 self.show_chat_menu(ui, ctx, state, response_widget_id);
                 self.show_help_menu(ui, ctx, state);
+                sync_theme(ctx, state);
 
                 state.connection_indicator.ui(ui);
 

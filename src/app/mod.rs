@@ -503,6 +503,13 @@ impl Application {
             SettingsPatch::AutojoinRemoved(channel) => {
                 self.state.settings.chat.autojoin.retain(|s| s != channel);
             }
+            SettingsPatch::ThemeChanged {
+                theme,
+                follow_system_theme,
+            } => {
+                self.state.settings.ui.theme = theme.clone();
+                self.state.settings.ui.follow_system_theme = *follow_system_theme;
+            }
             SettingsPatch::UserIgnored(_) | SettingsPatch::UserUnignored(_) => {
                 // handled directly in UICommand::UserIgnored/UserUnignored
             }
