@@ -8,9 +8,9 @@ inputs:
   os:
     required: true
   glass:
-    description: 'Glass variant: fake (stub) or real (private crate)'
+    description: 'Glass variant: stub or real (private crate)'
     required: false
-    default: 'fake'
+    default: 'stub'
   gh-token:
     required: false
     default: ''
@@ -27,11 +27,6 @@ runs:
       shell: bash
       run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
 
-    - name: Add fake glass dependency
-      if: ${{ inputs.glass == 'fake' }}
-      shell: bash
-      run: crates/fake-glass.sh
-
     - name: Clone real glass dependency
       if: ${{ inputs.glass == 'real' }}
       uses: actions/checkout@v4
@@ -39,6 +34,18 @@ runs:
         repository: TicClick/glass
         path: crates/glass
         token: ${{ inputs.gh-token }}
+
+    - name: Use real glass dependency
+      if: ${{ inputs.glass == 'real' }}
+      shell: bash
+      run: |
+        cat >> .cargo/config.toml <<'EOF'
+
+        [patch."https://github.com/TicClick/steel"]
+        glass = { path = "crates/glass" }
+        EOF
+        sed -i.bak 's|^members = \[|&"./crates/glass", |' Cargo.toml
+        rm Cargo.toml.bak
 
     - name: Patch private dependencies' URLs
       if: ${{ inputs.glass == 'real' }}

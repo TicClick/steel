@@ -2,7 +2,6 @@
 members = [
     ".",
     "./crates/steel_core",
-    "./crates/glass",
     "./visual-tests",
 ]
 
@@ -57,7 +56,7 @@ winresource = "0.1"
 
 [dependencies]
 steel_core = { version = "*", path = "./crates/steel_core" }
-glass = { version = "*", path = "./crates/glass", optional = true}
+glass = { git = "https://github.com/TicClick/steel", optional = true }
 
 eframe = { workspace = true }
 egui_extras = { workspace = true }

@@ -6,7 +6,7 @@ edition = "2021"
 
 [dependencies]
 steel = { path = "../", version = "*" }
-glass = { version = "*", path = "../crates/glass", optional = true}
+glass = { git = "https://github.com/TicClick/steel", optional = true }
 
 eframe = { workspace = true }
 tokio = { workspace = true }
