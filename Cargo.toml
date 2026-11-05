@@ -6,7 +6,8 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = { version = "0.37", default-features = false, features = ["glow", "wgpu", "accesskit", "clipboard", "links", "default_fonts", "wayland", "x11"] }
+eframe = { version = "0.37", default-features = false, features = ["glow", "wgpu", "accesskit", "clipboard", "links", "default_fonts", "system_fonts", "wayland", "x11"] }
+egui = { version = "0.37", default-features = false, features = ["monochrome_emoji_fonts"] }
 egui_extras = "0.37"
 ecolor = "0.37"
 egui_dnd = "0.18.0"
@@ -59,6 +60,7 @@ steel_core = { version = "*", path = "./crates/steel_core" }
 glass = { git = "https://github.com/TicClick/steel", optional = true }
 
 eframe = { workspace = true }
+egui = { workspace = true }
 egui_extras = { workspace = true }
 egui_dnd = { workspace = true }
 
