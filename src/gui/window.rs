@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use chrono::Datelike;
-use eframe::egui::{self, Theme};
+use eframe::egui;
 use parking_lot::RwLock;
 #[cfg(feature = "puffin")]
 use puffin;
@@ -129,10 +129,13 @@ fn set_startup_ui_settings(ctx: &egui::Context, settings: &Settings) {
 
 fn update_ui_settings(ctx: &egui::Context, settings: &Settings) {
     ctx.set_pixels_per_point(settings.ui.scaling);
-    ctx.set_theme(match settings.ui.theme {
-        ThemeMode::Dark => Theme::Dark,
-        ThemeMode::Light => Theme::Light,
-    });
+    ctx.set_theme(
+        match (settings.ui.follow_system_theme, &settings.ui.theme) {
+            (true, _) => egui::ThemePreference::System,
+            (false, ThemeMode::Dark) => egui::ThemePreference::Dark,
+            (false, ThemeMode::Light) => egui::ThemePreference::Light,
+        },
+    );
     ctx.global_style_mut(|style| {
         style.url_in_tooltip = true;
     });

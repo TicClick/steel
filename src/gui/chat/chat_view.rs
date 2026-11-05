@@ -148,17 +148,7 @@ impl ChatView {
                     ui.add_space(2.);
 
                     // Check if filter input fields have focus to avoid intercepting Enter
-                    let filter_has_focus = ctx.memory(|mem| {
-                        if let Some(focused_id) = mem.focused() {
-                            let username_filter_id =
-                                egui::Id::new(format!("username-filter-input-{}", self.chat_name));
-                            let message_filter_id =
-                                egui::Id::new(format!("message-filter-input-{}", self.chat_name));
-                            focused_id == username_filter_id || focused_id == message_filter_id
-                        } else {
-                            false
-                        }
-                    });
+                    let filter_has_focus = self.filter.has_focus(ctx, chat);
 
                     if response.lost_focus()
                         && ui.input(|i| i.key_pressed(egui::Key::Enter))
@@ -253,6 +243,7 @@ impl ChatView {
             && !matches!(chat.category, ChatType::System);
 
         let prepended_messages = std::mem::take(&mut self.pending_scroll_adjustment);
+        let mut scroll_offset_override = None;
         if prepended_messages > 0 {
             let first_message_row = (add_filler_space as usize + load_more_active as usize)
                 .min(self.cached_row_heights.len());
@@ -262,11 +253,11 @@ impl ChatView {
             );
 
             if let Some(scroll_area_id) = self.scroll_area_id {
-                if let Some(mut scroll_state) = egui::scroll_area::State::load(ctx, scroll_area_id)
-                {
-                    scroll_state.offset.y +=
-                        prepended_messages as f32 * (chat_row_height + CHAT_ROW_SPACING);
-                    scroll_state.store(ctx, scroll_area_id);
+                if let Some(scroll_state) = egui::scroll_area::State::load(ctx, scroll_area_id) {
+                    scroll_offset_override = Some(
+                        scroll_state.unclamped_offset().y
+                            + prepended_messages as f32 * (chat_row_height + CHAT_ROW_SPACING),
+                    );
                 }
             }
         }
@@ -327,6 +318,10 @@ impl ChatView {
                         .max_scroll_height(chat_view_size.y)
                         .column(Column::remainder())
                         .auto_shrink([false; 2]);
+
+                    if let Some(offset) = scroll_offset_override {
+                        builder = builder.vertical_scroll_offset(offset);
+                    }
 
                     if let Some(seq) = self.scroll_to {
                         let scroll_index = chat
@@ -483,7 +478,8 @@ impl ChatView {
                     }
 
                     // Decide if a shadow should be drawn.
-                    let scroll_view_bottom_y = view_height + scroll_area_output.state.offset.y;
+                    let scroll_view_bottom_y =
+                        view_height + scroll_area_output.state.clamped_offset().y;
                     let offscreen_area_height =
                         scroll_area_output.content_size.y - scroll_view_bottom_y;
 

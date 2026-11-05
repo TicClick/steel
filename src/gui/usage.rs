@@ -1,6 +1,6 @@
 use super::state::UIState;
 
-use eframe::egui::{self, global_theme_preference_switch};
+use eframe::egui;
 
 #[derive(PartialEq, Default)]
 enum Section {
@@ -50,7 +50,7 @@ impl UsageWindow {
                     "most of the UI elements are self-explanatory -- hover over menu items, buttons, \
                     input fields, and other controls to see what they do. example: "
                 );
-                global_theme_preference_switch(ui);
+                egui::global_theme_preference_buttons(ui);
             });
 
             ui.label(

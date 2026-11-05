@@ -136,6 +136,13 @@ impl UIState {
             SettingsPatch::AutojoinRemoved(channel) => {
                 self.settings.chat.autojoin.retain(|s| s != &channel);
             }
+            SettingsPatch::ThemeChanged {
+                theme,
+                follow_system_theme,
+            } => {
+                self.settings.ui.theme = theme;
+                self.settings.ui.follow_system_theme = follow_system_theme;
+            }
         }
     }
 

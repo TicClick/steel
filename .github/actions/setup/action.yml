@@ -29,7 +29,7 @@ runs:
 
     - name: Clone real glass dependency
       if: ${{ inputs.glass == 'real' }}
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         repository: TicClick/glass
         path: crates/glass
@@ -50,9 +50,19 @@ runs:
     - name: Patch private dependencies' URLs
       if: ${{ inputs.glass == 'real' }}
       shell: bash
-      run: git config --global url."https://${{ inputs.gh-token }}@github.com".insteadOf ssh://git@github.com
+      run: |
+        git config --show-origin --get-regexp '^(url|credential)\.' || true
+        git config --global url."https://github.com/".insteadOf ssh://git@github.com/
+        git config --global --replace-all credential.https://github.com.helper ''
+        git config --global --add credential.https://github.com.helper \
+          '!f() { echo username=x-access-token; echo "password=${{ inputs.gh-token }}"; }; f'
 
     - name: Configure cargo to use git CLI for private repos
       if: ${{ inputs.glass == 'real' }}
       shell: bash
       run: echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+
+    - name: Lock the real glass dependency
+      if: ${{ inputs.glass == 'real' }}
+      shell: bash
+      run: cargo update -p glass

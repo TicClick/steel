@@ -5,7 +5,7 @@ use crate::chat::irc::IRCError;
 use crate::chat::{ChatType, ConnectionStatus, Message, MessageSeq};
 use crate::ipc::updater::UpdateState;
 use crate::settings::application::AutoUpdate;
-use crate::settings::Settings;
+use crate::settings::{Settings, ThemeMode};
 
 #[derive(Debug, Clone)]
 pub enum SettingsPatch {
@@ -13,6 +13,10 @@ pub enum SettingsPatch {
     UserUnignored(String),
     AutojoinAdded(String),
     AutojoinRemoved(String),
+    ThemeChanged {
+        theme: ThemeMode,
+        follow_system_theme: bool,
+    },
 }
 
 #[derive(Debug)]
