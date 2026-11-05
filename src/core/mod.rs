@@ -1,3 +1,5 @@
+#[cfg(target_os = "macos")]
+pub mod bundle;
 pub mod chat_backend;
 pub mod error;
 pub mod http;

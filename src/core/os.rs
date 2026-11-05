@@ -3,16 +3,7 @@ use std::path::PathBuf;
 pub fn open_in_file_explorer(target: &str) -> std::io::Result<()> {
     let target = match target.starts_with(".") {
         false => std::path::Path::new(target).to_path_buf(),
-        true => {
-            let exe_path = std::env::current_exe()?;
-            let parent = exe_path.parent().ok_or_else(|| {
-                std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "Executable has no parent directory",
-                )
-            })?;
-            parent.join(target)
-        }
+        true => std::env::current_dir()?.join(target),
     };
 
     log::debug!("requested to open {target:?}");
@@ -105,6 +96,16 @@ pub fn cleanup_after_update() {
 }
 
 pub fn restart(executable_path: Option<PathBuf>) -> std::io::Result<()> {
+    #[cfg(target_os = "macos")]
+    if let Some(bundle) = crate::core::bundle::relaunch_target(executable_path.as_deref())? {
+        log::debug!("restart: going to launch {bundle:?} and then exit");
+        std::process::Command::new("open")
+            .arg("-n")
+            .arg(&bundle)
+            .spawn()?;
+        std::process::exit(0);
+    }
+
     let exe_path = executable_path
         .or(std::env::current_exe().ok())
         .ok_or_else(|| {
@@ -121,12 +122,34 @@ pub fn restart(executable_path: Option<PathBuf>) -> std::io::Result<()> {
     std::process::exit(0);
 }
 
-pub fn fix_cwd() -> Result<(), std::io::Error> {
+pub fn home_dir() -> std::io::Result<PathBuf> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "HOME is not set"))
+}
+
+pub fn app_support_dir() -> std::io::Result<PathBuf> {
+    Ok(home_dir()?.join("Library/Application Support/steel"))
+}
+
+pub fn data_dir() -> std::io::Result<PathBuf> {
+    if steel_core::ipc::updater::app_bundle_path().is_some() {
+        return app_support_dir();
+    }
     let image = std::env::current_exe()?;
-    if let Some(desired_dir) = image.parent() {
-        if std::env::current_dir()? != desired_dir {
-            std::env::set_current_dir(desired_dir)?;
-        }
+    image.parent().map(PathBuf::from).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Executable has no parent directory",
+        )
+    })
+}
+
+pub fn fix_cwd() -> Result<(), std::io::Error> {
+    let desired_dir = data_dir()?;
+    std::fs::create_dir_all(&desired_dir)?;
+    if std::env::current_dir()? != desired_dir {
+        std::env::set_current_dir(&desired_dir)?;
     }
     Ok(())
 }

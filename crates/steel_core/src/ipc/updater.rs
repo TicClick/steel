@@ -1,11 +1,43 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::io;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
+
+pub fn app_bundle_path() -> Option<&'static Path> {
+    static BUNDLE: OnceLock<Option<PathBuf>> = OnceLock::new();
+    BUNDLE
+        .get_or_init(|| {
+            if !cfg!(target_os = "macos") {
+                return None;
+            }
+            let exe = std::env::current_exe().ok()?.canonicalize().ok()?;
+            find_app_bundle(&exe)
+        })
+        .as_deref()
+}
+
+pub const APP_ARCHIVE_SUFFIX: &str = ".app.tar.gz";
+
+pub fn app_archive_name() -> String {
+    format!("steel-macos-{}{APP_ARCHIVE_SUFFIX}", std::env::consts::ARCH)
+}
+
+fn find_app_bundle(exe: &Path) -> Option<PathBuf> {
+    let macos = exe.parent()?;
+    let contents = macos.parent()?;
+    let bundle = contents.parent()?;
+    let is_bundle = macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app";
+    is_bundle.then(|| bundle.to_path_buf())
+}
 
 #[derive(Debug)]
 pub enum ArchiveType {
     Zip,
     TarGZip,
+    AppBundle,
     Unknown(String),
 }
 
@@ -18,6 +50,9 @@ pub struct ReleaseAsset {
 
 impl ReleaseAsset {
     pub fn archive_type(&self) -> ArchiveType {
+        if self.name.ends_with(APP_ARCHIVE_SUFFIX) {
+            return ArchiveType::AppBundle;
+        }
         let path = std::path::Path::new(&self.browser_download_url);
         match path.extension() {
             None => ArchiveType::Unknown("".into()),
@@ -58,6 +93,16 @@ pub struct FileMetadataGist {
 
 impl ReleaseMetadataGitHub {
     pub fn platform_specific_asset(&self) -> Option<&ReleaseAsset> {
+        if cfg!(target_os = "macos") {
+            let name = app_archive_name();
+            if let Some(asset) = self.assets.iter().find(|a| a.name == name) {
+                return Some(asset);
+            }
+            if app_bundle_path().is_some() {
+                return None;
+            }
+        }
+
         let os_marker = if cfg!(target_os = "windows") {
             "-windows"
         } else if cfg!(target_os = "macos") {

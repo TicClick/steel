@@ -6,6 +6,11 @@ use steel::setup_logging;
 use tokio::sync::mpsc::unbounded_channel;
 
 fn main() {
+    if std::env::args().nth(1).as_deref() == Some("--version") {
+        println!("{}", steel::VERSION);
+        return;
+    }
+
     // Save original executable path before any potential fs::rename operations -- it's not guaranteed to be preserved.
     let original_exe_path = std::env::current_exe().ok();
 

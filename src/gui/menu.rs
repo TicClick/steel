@@ -187,7 +187,7 @@ impl Menu {
 
             ui.menu_button("open", |ui| {
                 if ui.button("runtime directory").on_hover_text_at_pointer(
-                    "open the directory where the application is located"
+                    "open the directory where the application keeps its settings and logs"
                 ).clicked() {
                     state.core.open_fs_path(".");
                     ui.close();
