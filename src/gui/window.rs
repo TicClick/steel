@@ -500,6 +500,15 @@ impl ApplicationWindow {
 const MIN_IDLE_FRAME_TIME: std::time::Duration = std::time::Duration::from_secs(1);
 
 impl eframe::App for ApplicationWindow {
+    fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
+
+        let shared = Arc::clone(&self.s);
+        let s = &mut *shared.write();
+        self.process_pending_events(ctx, s);
+        s.update_window_attention(ctx);
+    }
+
     fn ui(&mut self, ui: &mut eframe::egui::Ui, frame: &mut eframe::Frame) {
         #[cfg(feature = "puffin")]
         {
@@ -508,15 +517,10 @@ impl eframe::App for ApplicationWindow {
         }
 
         let ctx = &ui.ctx().clone();
-        ctx.request_repaint_after(MIN_IDLE_FRAME_TIME);
 
         let shared = Arc::clone(&self.s);
         {
             let s = &mut *shared.write();
-            self.process_pending_events(ctx, s);
-
-            s.update_window_attention(ctx);
-
             self.error_popup.show(ctx);
 
             self.usage_window.show(ctx, s, &mut self.menu.show_usage);
