@@ -19,13 +19,22 @@ librust-alsa-sys-dev libssl-dev
 libglib2.0-dev libatk1.0-dev libgtk-3-dev
 ```
 
-## prerequisites
+## glass
 
-create a dummy `glass` crate:
+(notes for me because I *will* forget otherwise)
+
+check it out and point cargo to it in `~/.cargo/config.toml`:
 
 ```sh
-./crates/fake-glass.sh
+git submodule update --init --checkout crates/glass
 ```
+
+```toml
+[patch."https://github.com/TicClick/steel"]
+glass = { path = "/absolute/path/to/steel/crates/glass" }
+```
+
+if cargo warns that the patch is not used, run `cargo update -p glass`.
 
 ## profiling
 
