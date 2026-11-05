@@ -42,6 +42,23 @@ impl ChatFilter {
         self.should_show_filter = true;
     }
 
+    fn input_ids(chat: &Chat) -> [egui::Id; 2] {
+        let chat_key = chat.chat_key.as_str();
+        [
+            egui::Id::unique(("message-filter-input", chat_key)),
+            egui::Id::unique(("username-filter-input", chat_key)),
+        ]
+    }
+
+    pub fn has_focus(&self, ctx: &egui::Context, chat: &Chat) -> bool {
+        self.should_show_filter
+            && ctx.memory(|mem| {
+                Self::input_ids(chat)
+                    .into_iter()
+                    .any(|id| mem.has_focus(id))
+            })
+    }
+
     pub fn is_active(&self) -> bool {
         self.should_show_filter && self.search_performed && !self.cached_search_results.is_empty()
     }
@@ -248,12 +265,7 @@ impl ChatFilter {
 
         let mut filter_action: Option<FilterAction> = None;
 
-        let username_input_id = format!("username-filter-input-{}", chat.chat_key.as_str());
-        let message_input_id = format!("message-filter-input-{}", chat.chat_key.as_str());
-
-        if activated_now {
-            ctx.memory_mut(|mem| mem.request_focus(username_input_id.clone().into()));
-        }
+        let [message_input_id, username_input_id] = Self::input_ids(chat);
 
         egui::Panel::top(format!("filter-panel-{}", chat.chat_key.as_str()))
             .frame(
@@ -271,7 +283,7 @@ impl ChatFilter {
                     let message_filter_input =
                         egui::TextEdit::singleline(&mut self.message_filter_input)
                             .char_limit(MAX_MESSAGE_FILTER_LENGTH)
-                            .id_source(&message_input_id)
+                            .id(message_input_id)
                             .hint_text("Message text")
                             .desired_width((7.0 * MAX_MESSAGE_FILTER_LENGTH as f32).min(200.0));
                     let resp = ui.add(message_filter_input);
@@ -287,7 +299,7 @@ impl ChatFilter {
 
                     let user_filter_field = egui::TextEdit::singleline(&mut self.user_filter_input)
                         .char_limit(MAX_USERNAME_FILTER_LENGTH)
-                        .id_source(&username_input_id)
+                        .id(username_input_id)
                         .hint_text("Username")
                         .desired_width(7.0 * MAX_USERNAME_FILTER_LENGTH as f32);
                     let resp = ui.add(user_filter_field);
