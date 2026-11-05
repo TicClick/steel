@@ -7,6 +7,19 @@ use crate::gui::state::UIState;
 
 const MENU_MIN_WIDTH: f32 = 150.0;
 
+fn menu_bar_style(style: &mut egui::Style) {
+    egui::containers::menu::menu_style(style);
+    style.spacing.button_padding.x = 6.0;
+    style.spacing.item_spacing.x = 2.0;
+}
+
+fn submenu_style(style: &mut egui::Style) {
+    egui::containers::menu::menu_style(style);
+    style.spacing.button_padding.x = 6.0;
+    style.spacing.item_spacing.y = 0.0;
+    style.spacing.menu_margin = egui::Margin::same(2);
+}
+
 #[derive(Default)]
 pub struct Menu {
     pub show_settings: bool,
@@ -35,7 +48,10 @@ impl Menu {
     ) {
         egui::Panel::top("top_panel").show(ui, |ui| {
             let ctx = &ui.ctx().clone();
-            egui::MenuBar::new().ui(ui, |ui| {
+            let menu_bar = egui::MenuBar::new()
+                .style(menu_bar_style)
+                .config(egui::containers::menu::MenuConfig::new().style(submenu_style));
+            menu_bar.ui(ui, |ui| {
                 crate::gui::theme_toggle_button(ui);
                 let new_theme = match ui.ctx().theme() {
                     egui::Theme::Dark => ThemeMode::Dark,
