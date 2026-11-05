@@ -38,7 +38,7 @@ struct EnumeratedItem<T> {
 
 impl<T> DragDropItem for EnumeratedItem<T> {
     fn id(&self) -> Id {
-        Id::new(self.index)
+        Id::unique(self.index)
     }
 }
 
@@ -205,7 +205,7 @@ impl ChatTabs {
                     egui::TextEdit::singleline(input)
                         .hint_text(hint)
                         .interactive(state.is_connected())
-                        .id(egui::Id::new(mode.clone())),
+                        .id(egui::Id::unique(&mode)),
                 );
 
                 let add_chat = !input.is_empty()
@@ -263,9 +263,9 @@ impl ChatTabs {
                     item,
                 });
 
-                let response = egui_dnd::dnd(ui, format!("{mode}-tabs-drag-and-drop")).show(
-                    items,
-                    |ui, item, handle, _drag_state| {
+                let dnd_id = egui::Id::unique(format!("{mode}-tabs-drag-and-drop"));
+                let response =
+                    egui_dnd::dnd(ui, dnd_id).show(items, |ui, item, handle, _drag_state| {
                         handle.ui(ui, |ui| {
                             let normalized_chat_name = &item.item.normalized_name;
 
@@ -317,8 +317,7 @@ impl ChatTabs {
                                 });
                             }
                         });
-                    },
-                );
+                    });
 
                 response.final_update()
             });

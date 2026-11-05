@@ -6,10 +6,10 @@ members = [
 ]
 
 [workspace.dependencies]
-eframe = { version = "0.35", default-features = false, features = ["glow", "wgpu", "accesskit", "default_fonts", "wayland", "x11"] }
-egui_extras = "0.35"
-ecolor = "0.35"
-egui_dnd = "0.16.0"
+eframe = { version = "0.37", default-features = false, features = ["glow", "wgpu", "accesskit", "clipboard", "links", "default_fonts", "wayland", "x11"] }
+egui_extras = "0.37"
+ecolor = "0.37"
+egui_dnd = "0.18.0"
 
 # Supporting library for rodio's "alsa-sys" dependency: librust-alsa-sys-dev
 # TODO(TicClick): The fork is a workaround for Windows not respecting default audio device change.
@@ -86,9 +86,9 @@ rfd = "0.17"
 png = { workspace = true }
 parking_lot = { workspace = true }
 
-# egui v0.35.0
-puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"], rev = "d06bed0fcb8c8e4c78643d4ead7cf1de9b76fd3b"}
-puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true, rev = "d06bed0fcb8c8e4c78643d4ead7cf1de9b76fd3b"}
+# egui v0.37.0
+puffin = { git = "https://github.com/EmbarkStudios/puffin", optional = true, features = ["serialization"], rev = "39c8970abd6a95871bcaf0d3581c494885f2edd5"}
+puffin_egui = { git = "https://github.com/EmbarkStudios/puffin", optional = true, rev = "39c8970abd6a95871bcaf0d3581c494885f2edd5"}
 
 winresource = { workspace = true }
 serde_json = { workspace = true }
@@ -99,7 +99,7 @@ tokio-tungstenite = { version = "0.29.0", features = ["native-tls"] }
 url = "2.5"
 html-escape = "0.2.14"
 base64 = "0.22"
-egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-v035" }
+egui-snow = { git = "https://github.com/TicClick/egui-snow.git", branch = "egui-v037" }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
