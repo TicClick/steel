@@ -61,3 +61,8 @@ runs:
       if: ${{ inputs.glass == 'real' }}
       shell: bash
       run: echo "CARGO_NET_GIT_FETCH_WITH_CLI=true" >> $GITHUB_ENV
+
+    - name: Lock the real glass dependency
+      if: ${{ inputs.glass == 'real' }}
+      shell: bash
+      run: cargo update -p glass
