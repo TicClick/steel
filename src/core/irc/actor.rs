@@ -183,6 +183,8 @@ fn irc_thread_main(
         }
         Ok(mut clt) => {
             clt.identify().unwrap();
+            *irc_stream_sender.lock().unwrap() = Some(clt.sender());
+
             tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Connected,
             ))
@@ -198,8 +200,6 @@ fn irc_thread_main(
 
             tx.send(AppMessageIn::own_username_detected(own_username.clone()))
                 .unwrap_or_else(|e| log::error!("Failed to send own username: {e}"));
-
-            *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
             let mut disconnected_by_user = false;
             let mut stream = clt.stream().unwrap();
