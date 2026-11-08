@@ -329,7 +329,7 @@ impl ApplicationWindow {
             }
 
             UIMessageIn::ChatSwitchRequested(name, message_id) => {
-                let lowercase_name = name.to_lowercase();
+                let lowercase_name = name.normalize();
 
                 if let Some(mid) = message_id {
                     if !s.validate_reference(&lowercase_name, mid) {
