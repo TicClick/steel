@@ -194,6 +194,7 @@ fn irc_thread_main(
             *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
             let mut disconnected_by_user = false;
+            let mut auth_failed = false;
             let mut stream = clt.stream().unwrap();
             loop {
                 let must_exit = check_irc_exit_requested(&arc);
@@ -210,6 +211,15 @@ fn irc_thread_main(
                 }) {
                     match result {
                         Some(Ok(msg)) => {
+                            if matches!(
+                                msg.command,
+                                irc::proto::Command::Response(
+                                    irc::proto::Response::ERR_PASSWDMISMATCH,
+                                    _
+                                )
+                            ) {
+                                auth_failed = true;
+                            }
                             event_handler::dispatch_message(&tx, msg, &own_username);
                         }
                         Some(Err(reason)) => {
@@ -233,7 +243,7 @@ fn irc_thread_main(
             tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Disconnected {
                     by_user: disconnected_by_user,
-                    auth_failed: false,
+                    auth_failed,
                 },
             ))
             .unwrap_or_else(|e| log::error!("Failed to send disconnect: {e}"));
