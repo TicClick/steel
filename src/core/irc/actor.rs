@@ -113,7 +113,9 @@ impl IRCActor {
         if let Some(sender) = &*guard {
             match r#type {
                 chat::MessageType::Action => {
-                    sender.send_action(destination, content).unwrap();
+                    if let Err(e) = sender.send_action(destination, content) {
+                        log::error!("Failed to send action: {e}");
+                    }
                 }
                 chat::MessageType::Text => {
                     // This fixes #49 -- either Bancho loses an extra prefix colon due to its similarity with the IRC
@@ -122,7 +124,9 @@ impl IRCActor {
                     if content.starts_with(':') {
                         content.insert(0, ' ');
                     }
-                    sender.send_privmsg(destination, content).unwrap();
+                    if let Err(e) = sender.send_privmsg(destination, content) {
+                        log::error!("Failed to send message: {e}");
+                    }
                 }
 
                 // Won't happen -- system messages are reserved for the UI display and come from the core system.
@@ -134,14 +138,18 @@ impl IRCActor {
     fn join_channel(&self, channel: String) {
         let guard = self.irc_stream_sender.lock().unwrap();
         if let Some(sender) = &*guard {
-            sender.send_join(channel).unwrap();
+            if let Err(e) = sender.send_join(channel) {
+                log::error!("Failed to join channel: {e}");
+            }
         }
     }
 
     fn leave_channel(&self, channel: String) {
         let guard = self.irc_stream_sender.lock().unwrap();
         if let Some(sender) = &*guard {
-            sender.send_part(channel).unwrap();
+            if let Err(e) = sender.send_part(channel) {
+                log::error!("Failed to leave channel: {e}");
+            }
         }
     }
 }
@@ -175,6 +183,8 @@ fn irc_thread_main(
         }
         Ok(mut clt) => {
             clt.identify().unwrap();
+            *irc_stream_sender.lock().unwrap() = Some(clt.sender());
+
             tx.send(AppMessageIn::connection_changed(
                 ConnectionStatus::Connected,
             ))
@@ -190,8 +200,6 @@ fn irc_thread_main(
 
             tx.send(AppMessageIn::own_username_detected(own_username.clone()))
                 .unwrap_or_else(|e| log::error!("Failed to send own username: {e}"));
-
-            *irc_stream_sender.lock().unwrap() = Some(clt.sender());
 
             let mut disconnected_by_user = false;
             let mut auth_failed = false;
