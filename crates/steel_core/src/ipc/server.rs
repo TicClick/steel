@@ -135,6 +135,7 @@ pub enum UpdateEvent {
 #[derive(Debug)]
 pub enum SystemEvent {
     DateChanged(chrono::DateTime<chrono::Local>, String),
+    ReconnectDue(u64),
 }
 
 #[derive(Debug)]
@@ -246,5 +247,9 @@ impl AppMessageIn {
     // System events
     pub fn date_changed(date: chrono::DateTime<chrono::Local>, message: String) -> Self {
         Self::System(SystemEvent::DateChanged(date, message))
+    }
+
+    pub fn reconnect_due(generation: u64) -> Self {
+        Self::System(SystemEvent::ReconnectDue(generation))
     }
 }

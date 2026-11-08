@@ -53,6 +53,7 @@ pub struct Application {
     ui_queue: UnboundedSender<UIMessageIn>,
     ui_context: crate::SharedUIContext,
     pub app_queue: UnboundedSender<AppMessageIn>,
+    reconnect_generation: u64,
 }
 
 impl Application {
@@ -69,6 +70,7 @@ impl Application {
             ui_queue,
             ui_context,
             app_queue,
+            reconnect_generation: 0,
         }
     }
 
@@ -97,8 +99,14 @@ impl Application {
 
     fn handle_ui_command(&mut self, cmd: UICommand) {
         match cmd {
-            UICommand::ConnectRequested => self.connect(),
-            UICommand::DisconnectRequested => self.disconnect(),
+            UICommand::ConnectRequested => {
+                self.reconnect_generation += 1;
+                self.connect();
+            }
+            UICommand::DisconnectRequested => {
+                self.reconnect_generation += 1;
+                self.disconnect();
+            }
             UICommand::RestartRequested(path) => {
                 if let Err(e) = crate::core::os::restart(path) {
                     log::error!("Failed to restart application: {e:?}");
@@ -295,6 +303,11 @@ impl Application {
             SystemEvent::DateChanged(_date, message) => {
                 for chat in self.state.chats.clone() {
                     self.send_system_message(chat.as_str(), &message);
+                }
+            }
+            SystemEvent::ReconnectDue(generation) => {
+                if generation == self.reconnect_generation {
+                    self.connect();
                 }
             }
         }
@@ -593,7 +606,9 @@ impl Application {
         }
     }
 
-    fn queue_reconnect(&self) {
+    fn queue_reconnect(&mut self) {
+        self.reconnect_generation += 1;
+        let generation = self.reconnect_generation;
         let queue = self.app_queue.clone();
         let delta = chrono::Duration::seconds(15);
         let reconnect_time = chrono::Local::now() + delta;
@@ -603,7 +618,7 @@ impl Application {
 
         std::thread::spawn(move || {
             std::thread::sleep(delta.to_std().unwrap());
-            if let Err(e) = queue.send(AppMessageIn::ui_connect_requested()) {
+            if let Err(e) = queue.send(AppMessageIn::reconnect_due(generation)) {
                 log::error!("Failed to trigger reconnection: channel closed ({e})");
             }
         });
