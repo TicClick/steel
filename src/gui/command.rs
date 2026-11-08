@@ -363,6 +363,9 @@ impl CommandHelper {
         let args: Vec<String> = input.split_whitespace().map(|i| i.to_owned()).collect();
         for cmd in &self.commands {
             if cmd.is_applicable(&args[0]) {
+                if args.len() - 1 < cmd.argcount() {
+                    return true;
+                }
                 cmd.action(chat, core_client, args[1..].to_vec());
                 input.clear();
                 return true;
