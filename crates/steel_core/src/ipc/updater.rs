@@ -117,16 +117,20 @@ impl ReleaseMetadataGitHub {
             return None;
         }
 
-        let mut preferred_architectures = Vec::new();
-        if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
-            preferred_architectures.push("aarch64-");
-        }
-        if cfg!(target_arch = "x86_64") {
-            preferred_architectures.push("x86_64-");
-        }
+        let preferred_architecture = {
+            if cfg!(target_os = "macos") && cfg!(target_arch = "aarch64") {
+                "aarch64-"
+            } else if cfg!(target_arch = "x86_64") {
+                "x86_64-"
+            } else if cfg!(target_arch = "x86") {
+                "i686-"
+            } else {
+                ""
+            }
+        };
 
         log::debug!(
-            "platform-specific asset: looking for os={os_marker:?}, arch={preferred_architectures:?}"
+            "platform-specific asset: looking for os={os_marker:?}, arch={preferred_architecture:?}"
         );
 
         let compatible: Vec<&ReleaseAsset> = self
@@ -134,12 +138,10 @@ impl ReleaseMetadataGitHub {
             .iter()
             .filter(|a| a.name.contains(os_marker))
             .collect();
-        if !compatible.is_empty() {
-            for arch in preferred_architectures {
-                for asset in &compatible {
-                    if asset.name.contains(arch) {
-                        return Some(asset);
-                    }
+        if !compatible.is_empty() && !preferred_architecture.is_empty() {
+            for asset in &compatible {
+                if asset.name.contains(preferred_architecture) {
+                    return Some(asset);
                 }
             }
         }
