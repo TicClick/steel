@@ -6,6 +6,7 @@ use irc_proto::mode::{ChannelMode, Mode};
 use steel_core::chat::irc::IRCError;
 use steel_core::chat::{ChatType, Message, MessageType};
 use steel_core::ipc::server::AppMessageIn;
+use steel_core::string_utils::UsernameString;
 
 static ACTION_PREFIX: &str = "\x01ACTION";
 static ACTION_SUFFIX: &str = "\x01";
@@ -115,7 +116,7 @@ pub fn dispatch_message(
 
         Command::JOIN(channel, ..) => {
             if let Some(Prefix::Nickname(username, ..)) = msg.prefix {
-                if username == own_username {
+                if username.normalize() == own_username.normalize() {
                     self::join_handler(sender, channel);
                 }
             }
