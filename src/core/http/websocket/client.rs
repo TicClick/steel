@@ -44,6 +44,21 @@ pub async fn websocket_thread_main(
     const SESSION_INVALID_MESSAGE: &str =
         "Your osu! session is no longer valid - please log in again";
 
+    if let Err(e) = tokio_tungstenite::tungstenite::client::IntoClientRequest::into_client_request(
+        settings.ws_base_uri.as_str(),
+    ) {
+        tx.send(AppMessageIn::ui_show_error(
+            Box::new(std::io::Error::other(format!(
+                "Invalid WebSocket URI {:?}: {e}",
+                settings.ws_base_uri
+            ))),
+            false,
+        ))
+        .unwrap_or_else(|e| log::error!("Failed to send error: {e}"));
+        send_disconnect(&tx, true, false);
+        return Err(SteelApplicationError::InvalidOAuth);
+    }
+
     let mut refresh_attempted = false;
 
     loop {

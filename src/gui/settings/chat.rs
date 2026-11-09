@@ -485,10 +485,8 @@ impl SettingsWindow {
             });
 
             ui.label("WebSocket URI:");
-            let input =
-                egui::TextEdit::multiline(&mut state.settings.chat.api.ws_base_uri)
-                    .desired_rows(2)
-                    .desired_width(f32::INFINITY);
+            let input = egui::TextEdit::singleline(&mut state.settings.chat.api.ws_base_uri)
+                .desired_width(f32::INFINITY);
             ui.add(input).on_hover_text_at_pointer(
                 "WebSocket server address (default: wss://notify.ppy.sh)"
             );
