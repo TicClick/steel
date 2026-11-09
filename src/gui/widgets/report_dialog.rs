@@ -43,13 +43,14 @@ pub fn show_report_dialog(ctx: &egui::Context, ui_state: &mut UIState) {
 
                     ui.horizontal(|ui| {
                         if ui.button("send report").clicked() || is_enter_pressed {
+                            let reason = dialog.reason.split_whitespace().collect::<Vec<_>>();
                             ui_state.core.chat_message_sent(
                                 &dialog.chat_name,
                                 dialog.chat_name.chat_type(),
                                 &format!(
                                     "!report {} {}",
                                     dialog.username.normalize(),
-                                    dialog.reason
+                                    reason.join(" ")
                                 ),
                             );
                             should_close = true;
