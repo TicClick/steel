@@ -85,7 +85,7 @@ impl ChatBackend for HTTPActorHandle {
             client_secret: api_config.client_secret.clone(),
             redirect_uri: api_config.redirect_uri.clone(),
             jump_server_url: api_config.jump_server_url.clone(),
-            ws_base_uri: api_config.ws_base_uri.clone(),
+            ws_base_uri: api_config.ws_base_uri.trim().to_owned(),
             token_rotation_days: api_config.token_rotation_days,
         };
 

@@ -150,6 +150,16 @@ pub(super) async fn run_session(
                                         client.set_own_user(username.clone(), user_id);
                                     }
 
+                                    let chat_start = serde_json::to_string(&GeneralWebsocketEvent::new(
+                                        EventType::ChatStart,
+                                    ))
+                                    .unwrap();
+                                    if let Err(e) = ws.send(Message::Text(chat_start.into())).await {
+                                        log::error!("Failed to send chat.start: {e}");
+                                    } else {
+                                        log::info!("Sent chat.start message");
+                                    }
+
                                     // Only send this after fetching information about oneself to avoid cache misses
                                     // and errors caused by queued join-on-connect requests.
                                     tx.send(AppMessageIn::connection_changed(
@@ -171,16 +181,6 @@ pub(super) async fn run_session(
                                     }
 
                                     backfill_missed_messages(tx, client).await;
-
-                                    let chat_start = serde_json::to_string(&GeneralWebsocketEvent::new(
-                                        EventType::ChatStart,
-                                    ))
-                                    .unwrap();
-                                    if let Err(e) = ws.send(Message::Text(chat_start.into())).await {
-                                        log::error!("Failed to send chat.start: {e}");
-                                    } else {
-                                        log::info!("Sent chat.start message");
-                                    }
                                 }
 
                                 TextMessageOutcome::Logout => {

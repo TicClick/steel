@@ -170,14 +170,18 @@ impl HTTPActor {
             }
         };
 
-        self.client = Some(client.clone());
+        if let Some(previous) = self.client.replace(client.clone()) {
+            previous.shutdown();
+        }
 
         std::thread::spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
+            let result = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap()
-                .block_on(websocket_thread_main(tx.clone(), settings, client))
+                .block_on(websocket_thread_main(tx.clone(), settings, client.clone()));
+            client.shutdown();
+            result
         });
     }
 

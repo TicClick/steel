@@ -67,7 +67,6 @@ fn ingest_message_batch(
         .collect()
 }
 
-/// XXX(TicClick): Should run before the websocket starts streaming chat events to avoid double intake.
 pub async fn backfill_missed_messages(tx: &UnboundedSender<AppMessageIn>, client: &Client) {
     let channels = client.message_ranges().last_seen_ids();
     futures::stream::iter(

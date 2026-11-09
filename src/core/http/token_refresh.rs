@@ -106,7 +106,7 @@ pub fn refresh_tokens(
             Err(_) => format!("HTTP {}: {}", status, body),
         };
 
-        return Err(if (400..500).contains(&status.as_u16()) {
+        return Err(if matches!(status.as_u16(), 400 | 401 | 403) {
             TokenRefreshError::Rejected(msg)
         } else {
             TokenRefreshError::RequestFailed(msg)

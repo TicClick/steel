@@ -23,6 +23,8 @@ async fn connect_with_config(
     connect_async_with_config(request, Some(ws_config), true).await
 }
 
+const MAX_TOKEN_VALIDITY_WAIT_SECS: f64 = 3.0;
+
 async fn wait_until_token_valid(timing: &AccessTokenTiming) {
     let age = timing.age_secs();
     if age < 0.0 {
@@ -32,7 +34,9 @@ async fn wait_until_token_valid(timing: &AccessTokenTiming) {
         );
     }
 
-    let delay_until_valid = timing.delay_until_valid_secs();
+    let delay_until_valid = timing
+        .delay_until_valid_secs()
+        .min(MAX_TOKEN_VALIDITY_WAIT_SECS);
     if delay_until_valid > 0.0 {
         log::info!("Token not yet valid, waiting {delay_until_valid:.2}s");
         tokio::time::sleep(std::time::Duration::from_secs_f64(delay_until_valid)).await;
