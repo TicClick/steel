@@ -35,7 +35,7 @@ impl ChatLoggerHandle {
         });
         Self {
             channel: tx,
-            log_system_messages: true,
+            log_system_messages: config.log_system_events,
         }
     }
 
