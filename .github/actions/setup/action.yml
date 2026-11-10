@@ -23,7 +23,7 @@ runs:
         targets: ${{ inputs.target }}
 
     - name: Install Ubuntu dependencies
-      if: ${{ inputs.os == 'ubuntu-latest' }}
+      if: ${{ startsWith(inputs.os, 'ubuntu') }}
       shell: bash
       run: export DEBIAN_FRONTEND=noninteractive && sudo apt update && sudo apt install -y librust-alsa-sys-dev
 

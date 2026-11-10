@@ -11,7 +11,7 @@ jobs:
       matrix:
         # Note to myself: https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/running-variations-of-jobs-in-a-workflow#example-adding-configurations
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
           - os: macos-15-intel  # x86_64
             target: x86_64-apple-darwin
@@ -36,7 +36,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
           - os: macos-15-intel  # x86_64
             target: x86_64-apple-darwin
